@@ -3,10 +3,11 @@
 ## Goal
 
 Run increasingly large Sonic the Fighters i960 corridors under a host-side
-executor while preserving an explicit boundary between recovered CPU semantics
-and still-unknown Model 2B hardware behavior.
+executor while preserving a hard boundary between recovered CPU semantics,
+unambiguous storage, and unknown Model 2B devices.
 
-This is a recovery runtime, not an emulator and not the Saturn port runtime.
+This is a recovery runtime, not a general Model 2 emulator and not the Saturn
+port runtime.
 
 ## Components
 
@@ -16,126 +17,136 @@ Location:
 
     tools/recovery/i960/
 
-The decoder/executor lineage comes from celsowm/vf2-decomp, where the same CPU
-semantics were exercised against VF2 reference execution. The port retains the
-BSD-3-Clause license and renames/removes VF2-specific API surface.
+The decoder/executor lineage comes from celsowm/vf2-decomp. The reusable CPU
+semantics retain the BSD-3-Clause attribution while the executor no longer
+depends on vf2_model2a.
 
 ### Generic bus
 
-The executor no longer accepts vf2_model2a. All memory operations pass through:
+All CPU memory operations cross:
 
     stf_i960_bus_read
     stf_i960_bus_write
     stf_i960_bus_read_u32
     stf_i960_bus_write_u32
 
-This is the seam for differential instrumentation and Model 2B device models.
+The bus is the instrumentation and differential boundary.
 
-### Initial Model 2B adapter
+### Model 2B adapter
 
-The adapter implements only evidence already present in STF:
+The adapter defaults to three classes:
 
-    ROM             0x00000000 ...
-    work RAM        0x00500000 ... 0x005FFFFF
-    geometry RAM    0x00800000 ... 0x00803FFF
-    buffer RAM      0x00900000 ... 0x0091FFFF
+    read-only data
+        program ROM
+        rom_data.bin
+        rom_ep.bin and its corroborated mirror
 
-The work-RAM range and the geometry/buffer boundaries are derived from
-`src/lib/rom_code1.ld`. Geometry RAM and buffer RAM are modeled only as raw
-byte storage; no TGP command or rendering semantics are inferred from that.
+    raw storage
+        work RAM
+        buffer RAM
+        CPU-control storage
+        palette/color-translation RAM
+        backup RAM
+        texture RAM
+        luma RAM
 
-Declared but still fail-closed device addresses include:
+    device / fail-closed
+        GEO / geometry program
+        copro function/FIFO/SHARC IOP
+        copro/GEO/video control registers
+        IRQ/timers
+        tile/video behavior
+        I/O and serial
+        render-mode behavior
+        sound communication
 
-    GEO_PROGRAM_START       0x00804000
-    COPRO_SHARC_IOP_START   0x008C0000
-    COPRO_CONTROL1_START    0x00980000
-    GEO_CTL1_START          0x00980008
-    COPRO_STATUS_START      0x00980014
-    MIDI_START              0x009C0000
-    CPU_CONTROL_START       0x00E00000
-    IRQ_REQUEST_START       0x00E80000
-    IRQ_ENABLE_START        0x00E80004
-    TIMERS_START            0x00F00000
-
-Unknown addresses fail with `STF_ERROR_UNSUPPORTED` unless an explicit device
-callback handles them. Faults are tagged with a region/symbol hint from the
-linker map.
+An address can be known without its behavior being modeled. That distinction is
+intentional.
 
 ## Why not copy vf2_model2a
 
-VF2 is Model 2A and STF is Model 2B. The recovered VF2 CPU semantics are highly
-valuable, but copying the full Model 2A hardware map would turn useful
-cross-title evidence into hidden assumptions.
+VF2 is Model 2A and STF is Model 2B. Recovered i960 semantics and recovery
+methods transfer well; hardware assumptions do not automatically transfer.
 
-Instead:
+The contract is:
 
     recovered i960 semantics      reusable
-    memory access API             reusable
+    memory-access API             reusable
     trace/differential method     reusable
-    Model 2A device behavior      evidence only
-    Model 2B device behavior      must be measured for STF
-
-## Next hardware milestones
-
-Add one bounded device range at a time, in this order:
-
-1. geometry/TGP command path around the already shared 0x005010xx runtime
-   globals and observed FIFO/port accesses;
-2. interrupt/timer/control registers needed to advance deterministic frame
-   corridors;
-3. input state needed for controlled fighter scenarios;
-4. sound command communication only after the executable/traffic is measured.
-
-Each range should ship with:
-
-- a minimal address map;
-- trace evidence;
-- a fail-closed default for unknown registers;
-- a synthetic host test;
-- at least one STF reference corridor or snapshot comparison when available.
-
-## Relationship to the Saturn port
-
-The recovery runtime exists to answer what STF means. LibSaturn answers how to
-express that meaning on Saturn.
-
-Do not leak Model 2 hardware abstractions into gameplay code intended for the
-port. Recovered semantics should eventually cross the boundary as portable
-state machines, animation/combat data and normalized assets.
-
+    cross-title constants         evidence
+    MAME behavior                 corroborating evidence
+    STF Model 2B behavior         must be established for STF
 
 ## First corridor workflow
 
-Build the recovery tools:
+Build and test:
 
-    cmake -S tools/recovery/i960 -B build/recovery-i960 -DCMAKE_BUILD_TYPE=Release
-    cmake --build build/recovery-i960 --config Release
+    make recovery-test
 
-Generate a symbol listing from the normal STF build:
+Build the original STF image and symbol listing:
 
-    nm960 -n temp/rom_code1.out > build/rom_code1.nm
+    make symbols
 
-Resolve a recovered/disassembled function:
+The standalone extraction path also works:
 
-    python tools/recovery/resolve_symbol.py build/rom_code1.nm camera_init
+    python tools/data_extract.py --rom
 
-Run from that address with a controlled stack and trace:
+Run by symbol through the Python launcher:
 
-    build/recovery-i960/stf_i960_corridor \
-        --rom rom/rom_code1.bin \
-        --entry 0xADDRESS \
+    python tools/recovery/run_corridor.py \
+        --symbols build/rom_code1.nm \
+        --entry camera_init \
         --stack 0x005ff800 \
         --steps 50000 \
         --trace out/camera-init.jsonl \
         --state out/camera-init-state.json
 
-When execution stops on an unmapped device, the reported address becomes the
-next bounded hardware-recovery target. Feed the JSONL into:
+When present, rom/rom_data.bin and rom/rom_ep.bin are attached automatically.
 
-    python tools/recovery/classify_tgp_trace.py out/camera-init.jsonl
-    python tools/recovery/trace_fields.py out/camera-init.jsonl --base NAME=ADDRESS
+For reproducible experiments use a JSON scenario:
 
-This keeps the loop evidence-first:
+    python tools/recovery/run_scenario.py tools/recovery/scenarios/my-run.json
 
-    run -> first unsupported access -> classify -> model one bounded behavior
-        -> rerun -> differential check
+Task scenarios can name an STF task such as fa_camera or fa_coli. The runner
+mechanically resolves its init entry from the assembly task table; it does not
+invent task-instance state.
+
+## Fail-closed recovery loop
+
+A normal run stops on the first device access whose behavior is not modeled:
+
+    run
+      -> first unsupported access
+      -> region/symbol hint
+      -> trace/reference experiment
+      -> smallest evidence-backed implementation
+      -> rerun
+      -> differential comparison
+
+Exploratory probe options can accept a measured write or replay a measured
+read, but any run that consumes them is marked exploratory.
+
+## Validation
+
+The host build has ROM-independent tests for:
+
+- i960 decode/format/execute;
+- load/store and branch flow;
+- nested call/return frames;
+- bus trace step synchronization;
+- fail-closed GEO and control-device accesses;
+- buffer/work/CPU-control storage;
+- attached main-data/EP ROMs;
+- palette/backup/texture storage.
+
+GitHub Actions builds and tests the recovery core on Ubuntu and Windows.
+
+## Relationship to the Saturn port
+
+The recovery runtime answers **what Sonic the Fighters does**.
+
+LibSaturn answers **how to express those semantics on Saturn**.
+
+Model 2-specific addresses, FIFO protocols and device abstractions should not
+leak into portable gameplay code. Recovered behavior should cross that boundary
+as state machines, fighter/collision/animation semantics and normalized assets.
