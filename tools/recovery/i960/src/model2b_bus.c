@@ -3,11 +3,34 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int range_contains(uint32_t base, size_t region_size, uint32_t address, size_t size)
+static int range_contains(
+    uint32_t base,
+    size_t region_size,
+    uint32_t address,
+    size_t size
+)
 {
-    uint64_t region_end = (uint64_t)base + (uint64_t)region_size;
-    uint64_t access_end = (uint64_t)address + (uint64_t)size;
+    const uint64_t region_end = (uint64_t)base + (uint64_t)region_size;
+    const uint64_t access_end = (uint64_t)address + (uint64_t)size;
     return (uint64_t)address >= (uint64_t)base && access_end <= region_end;
+}
+
+static void record_fault(
+    stf_model2b_bus *model2b,
+    int write,
+    uint32_t address,
+    size_t size,
+    stf_status status
+)
+{
+    if (model2b == NULL) {
+        return;
+    }
+    model2b->last_fault.valid = true;
+    model2b->last_fault.write = write != 0;
+    model2b->last_fault.address = address;
+    model2b->last_fault.size = size;
+    model2b->last_fault.status = status;
 }
 
 static stf_status model2b_read(
@@ -18,6 +41,7 @@ static stf_status model2b_read(
 )
 {
     stf_model2b_bus *model2b = (stf_model2b_bus *)context;
+    stf_status status = STF_ERROR_UNSUPPORTED;
 
     if (model2b == NULL || output == NULL) {
         return STF_ERROR_INVALID_ARGUMENT;
@@ -45,14 +69,18 @@ static stf_status model2b_read(
         return STF_OK;
     }
     if (model2b->device_read != NULL) {
-        return model2b->device_read(
+        status = model2b->device_read(
             model2b->device_context,
             address,
             output,
             size
         );
+        if (status == STF_OK) {
+            return STF_OK;
+        }
     }
-    return STF_ERROR_UNSUPPORTED;
+    record_fault(model2b, 0, address, size, status);
+    return status;
 }
 
 static stf_status model2b_write(
@@ -63,6 +91,7 @@ static stf_status model2b_write(
 )
 {
     stf_model2b_bus *model2b = (stf_model2b_bus *)context;
+    stf_status status = STF_ERROR_UNSUPPORTED;
 
     if (model2b == NULL || data == NULL) {
         return STF_ERROR_INVALID_ARGUMENT;
@@ -85,17 +114,22 @@ static stf_status model2b_write(
         return STF_OK;
     }
     if (range_contains(STF_MODEL2B_ROM_BASE, model2b->rom_size, address, size)) {
+        record_fault(model2b, 1, address, size, STF_ERROR_UNSUPPORTED);
         return STF_ERROR_UNSUPPORTED;
     }
     if (model2b->device_write != NULL) {
-        return model2b->device_write(
+        status = model2b->device_write(
             model2b->device_context,
             address,
             data,
             size
         );
+        if (status == STF_OK) {
+            return STF_OK;
+        }
     }
-    return STF_ERROR_UNSUPPORTED;
+    record_fault(model2b, 1, address, size, status);
+    return status;
 }
 
 stf_status stf_model2b_bus_init(stf_model2b_bus *model2b)
@@ -153,6 +187,20 @@ void stf_model2b_bus_set_device_callbacks(
     model2b->device_context = context;
     model2b->device_read = read_callback;
     model2b->device_write = write_callback;
+}
+
+void stf_model2b_bus_clear_fault(stf_model2b_bus *model2b)
+{
+    if (model2b != NULL) {
+        memset(&model2b->last_fault, 0, sizeof(model2b->last_fault));
+    }
+}
+
+const stf_model2b_fault *stf_model2b_bus_last_fault(
+    const stf_model2b_bus *model2b
+)
+{
+    return model2b != NULL ? &model2b->last_fault : NULL;
 }
 
 stf_i960_bus *stf_model2b_bus_i960(stf_model2b_bus *model2b)
