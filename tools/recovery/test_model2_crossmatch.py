@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,7 @@ MODULE_PATH = Path(__file__).with_name("model2_crossmatch.py")
 SPEC = importlib.util.spec_from_file_location("model2_crossmatch", MODULE_PATH)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
+sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 
