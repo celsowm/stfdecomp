@@ -57,6 +57,9 @@ Start with:
 - `tools/recovery/classify_tgp_trace.py` to classify TGP/geometry traffic.
 - `tools/recovery/compare_state.py` for fail-closed differential state
   comparisons.
+- `tools/recovery/i960/` for the hardware-neutral i960 decoder/executor and
+  fail-closed Model 2B bus adapter.
+- `docs/MODEL2B_RECOVERY_RUNTIME.md` for the host recovery runtime architecture.
 
 These tools do not make semantic renames automatically. Cross-title matches are
 treated as hypotheses until STF-specific tracing or differential evidence proves
