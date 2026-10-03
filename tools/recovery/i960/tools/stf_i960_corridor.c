@@ -512,7 +512,8 @@ static void step_trace_callback(
 static int write_state(
     const char *path,
     const stf_i960_cpu *cpu,
-    const probe_device *probe
+    const probe_device *probe,
+    const stf_model2b_bus *model2b
 )
 {
     FILE *file = NULL;
@@ -554,6 +555,48 @@ static int write_state(
         fprintf(file, "%s%u", index == 0u ? "" : ", ", cpu->registers[index]);
     }
     fprintf(file, "]\n");
+    fprintf(file, "  },\n");
+    fprintf(file, "  \"model2b\": {\n");
+    fprintf(
+        file,
+        "    \"geo_write_start_address\": %u,\n",
+        model2b != NULL ? model2b->geo_write_start_address : 0u
+    );
+    fprintf(
+        file,
+        "    \"geo_read_start_address\": %u,\n",
+        model2b != NULL ? model2b->geo_read_start_address : 0u
+    );
+    fprintf(
+        file,
+        "    \"geo_fifo_words\": %" PRIu64 ",\n",
+        model2b != NULL ? model2b->geo_fifo_words : UINT64_C(0)
+    );
+    fprintf(
+        file,
+        "    \"geo_upload_words\": %" PRIu64 ",\n",
+        model2b != NULL ? model2b->geo_upload_words : UINT64_C(0)
+    );
+    fprintf(
+        file,
+        "    \"copro_upload_words\": %" PRIu64 ",\n",
+        model2b != NULL ? model2b->copro_upload_words : UINT64_C(0)
+    );
+    fprintf(
+        file,
+        "    \"copro_fifo_input_words\": %" PRIu64 ",\n",
+        model2b != NULL ? model2b->copro_fifo_input_words : UINT64_C(0)
+    );
+    fprintf(
+        file,
+        "    \"copro_function_words\": %" PRIu64 ",\n",
+        model2b != NULL ? model2b->copro_function_words : UINT64_C(0)
+    );
+    fprintf(
+        file,
+        "    \"copro_iop_writes\": %" PRIu64 "\n",
+        model2b != NULL ? model2b->copro_iop_writes : UINT64_C(0)
+    );
     fprintf(file, "  },\n");
     fprintf(file, "  \"probe\": {\n");
     fprintf(
@@ -744,6 +787,21 @@ int main(int argc, char **argv)
         }
     }
 
+    printf(
+        "model2b geo_words=%" PRIu64
+        " geo_upload=%" PRIu64
+        " copro_upload=%" PRIu64
+        " copro_fifo_in=%" PRIu64
+        " copro_function=%" PRIu64
+        " copro_iop=%" PRIu64 "\n",
+        model2b.geo_fifo_words,
+        model2b.geo_upload_words,
+        model2b.copro_upload_words,
+        model2b.copro_fifo_input_words,
+        model2b.copro_function_words,
+        model2b.copro_iop_writes
+    );
+
     if (options.probe.accepted_accesses != 0u) {
         printf(
             "probe-device-accesses=%" PRIu64
@@ -752,7 +810,7 @@ int main(int argc, char **argv)
         );
     }
 
-    if (!write_state(options.state_path, &cpu, &options.probe)) {
+    if (!write_state(options.state_path, &cpu, &options.probe, &model2b)) {
         fprintf(stderr, "failed to write state JSON\n");
         exit_code = 74;
     }
