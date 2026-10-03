@@ -21,7 +21,7 @@ AS := gas
 NM := nm
 RECOVERY_BUILD_DIR := build/recovery-i960
 
-.PHONY: all clean symbols recovery recovery-test recovery-boot
+.PHONY: all clean symbols recovery recovery-test recovery-boot recovery-coli-init
 
 all:
 	# Intialize the directories
@@ -69,6 +69,9 @@ recovery-test: recovery
 recovery-boot: recovery
 	$(PYTHON) $(TOOL_DIR)/data_extract.py --rom
 	$(PYTHON) $(TOOL_DIR)/recovery/run_scenario.py $(TOOL_DIR)/recovery/scenarios/boot_first_fault.json
+
+recovery-coli-init: recovery symbols
+	$(PYTHON) $(TOOL_DIR)/recovery/run_scenario.py $(TOOL_DIR)/recovery/scenarios/coli_init_isolated.json
 
 clean:
 	rm -rf $(TEMP_DIR)
