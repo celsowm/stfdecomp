@@ -1,0 +1,10 @@
+{
+  "template": true,
+  "name": "boot-first-fault",
+  "rom": "rom/rom_code1.bin",
+  "symbols": "build/rom_code1.nm",
+  "entry": "0x00000000",
+  "steps": 100000,
+  "registers": {},
+  "probe": {}
+}
