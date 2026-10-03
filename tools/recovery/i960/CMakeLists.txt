@@ -23,10 +23,27 @@ target_include_directories(stf_recovery_i960
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+get_filename_component(
+    STF_REPO_ROOT
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../.."
+    ABSOLUTE
+)
+
+add_library(stf_recovered_game STATIC
+    "${STF_REPO_ROOT}/src/recovered/coli_init.c"
+)
+
+target_include_directories(stf_recovered_game
+    PUBLIC
+        "${STF_REPO_ROOT}/src/recovered"
+)
+
 if(MSVC)
     target_compile_options(stf_recovery_i960 PRIVATE /W4)
+    target_compile_options(stf_recovered_game PRIVATE /W4)
 else()
     target_compile_options(stf_recovery_i960 PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(stf_recovered_game PRIVATE -Wall -Wextra -Wpedantic)
     target_link_libraries(stf_recovery_i960 PUBLIC m)
 endif()
 
@@ -61,8 +78,15 @@ add_executable(stf_recovery_model2b_memory_tests
 
 target_link_libraries(stf_recovery_model2b_memory_tests PRIVATE stf_recovery_i960)
 
+add_executable(stf_recovered_coli_tests
+    tests/test_recovered_coli.c
+)
+
+target_link_libraries(stf_recovered_coli_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
 add_test(NAME stf_recovery_bus_trace_tests COMMAND stf_recovery_bus_trace_tests)
 add_test(NAME stf_recovery_model2b_memory_tests COMMAND stf_recovery_model2b_memory_tests)
+add_test(NAME stf_recovered_coli_tests COMMAND stf_recovered_coli_tests)
