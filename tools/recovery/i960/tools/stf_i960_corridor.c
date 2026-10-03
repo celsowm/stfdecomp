@@ -11,6 +11,8 @@
 
 typedef struct trace_writer {
     FILE *file;
+    stf_i960_bus_trace_event last_bus_event;
+    int have_last_bus_event;
 } trace_writer;
 
 enum {
@@ -463,9 +465,17 @@ static void bus_trace_callback(
 {
     trace_writer *writer = (trace_writer *)user_data;
 
-    if (writer == NULL || writer->file == NULL || event == NULL) {
+    if (writer == NULL || event == NULL) {
         return;
     }
+
+    writer->last_bus_event = *event;
+    writer->have_last_bus_event = 1;
+
+    if (writer->file == NULL) {
+        return;
+    }
+
     fprintf(
         writer->file,
         "{\"type\":\"memory\",\"step\":%" PRIu64
@@ -702,8 +712,12 @@ int main(int argc, char **argv)
             exit_code = 73;
             goto cleanup;
         }
-        stf_i960_bus_set_trace(bus, bus_trace_callback, &trace);
     }
+    /*
+     * Keep the bus observer installed even when JSONL output is disabled.
+     * This preserves the exact failing write payload for the console report.
+     */
+    stf_i960_bus_set_trace(bus, bus_trace_callback, &trace);
 
     if (options.reset_from_prcb) {
         status = stf_i960_cpu_reset_from_bus(
@@ -750,12 +764,46 @@ int main(int argc, char **argv)
     {
         const stf_model2b_fault *fault = stf_model2b_bus_last_fault(&model2b);
         if (fault != NULL && fault->valid) {
+            const stf_i960_bus_trace_event *bus_event = NULL;
+            stf_i960_instruction fault_instruction;
+            char fault_text[256];
+            int have_fault_instruction = 0;
+
+            memset(&fault_instruction, 0, sizeof(fault_instruction));
+            memset(fault_text, 0, sizeof(fault_text));
+
+            if (trace.have_last_bus_event &&
+                trace.last_bus_event.address == fault->address &&
+                trace.last_bus_event.size == fault->size &&
+                trace.last_bus_event.status == fault->status) {
+                bus_event = &trace.last_bus_event;
+            }
+
+            if (stf_i960_decode(
+                    rom,
+                    rom_size,
+                    result.halt_address,
+                    &fault_instruction
+                ) == STF_OK &&
+                stf_i960_format_instruction(
+                    &fault_instruction,
+                    fault_text,
+                    sizeof(fault_text)
+                ) == STF_OK) {
+                have_fault_instruction = 1;
+            }
             {
                 const char *region = stf_model2b_region_hint(fault->address);
                 const char *symbol = stf_model2b_symbol_hint(fault->address);
                 printf(
-                    "first-unmodeled-access kind=%s address=0x%08" PRIx32
-                    " size=%zu status=%s region=%s symbol=%s\n",
+                    "first-unmodeled-access step=%" PRIu64
+                    " ip=0x%08" PRIx32
+                    " kind=%s address=0x%08" PRIx32
+                    " size=%zu status=%s region=%s symbol=%s",
+                    bus_event != NULL
+                        ? bus_event->step
+                        : cpu.executed_instructions + UINT64_C(1),
+                    result.halt_address,
                     fault->write ? "write" : "read",
                     fault->address,
                     fault->size,
@@ -763,6 +811,18 @@ int main(int argc, char **argv)
                     region,
                     symbol != NULL ? symbol : "-"
                 );
+                if (have_fault_instruction) {
+                    printf(" instruction=\"%s\"", fault_text);
+                }
+                if (bus_event != NULL && bus_event->byte_count != 0u) {
+                    fputs(" bytes=", stdout);
+                    write_hex_bytes(
+                        stdout,
+                        bus_event->bytes,
+                        bus_event->byte_count
+                    );
+                }
+                fputc('\n', stdout);
             }
             if (trace.file != NULL) {
                 {
@@ -770,9 +830,14 @@ int main(int argc, char **argv)
                     const char *symbol = stf_model2b_symbol_hint(fault->address);
                     fprintf(
                         trace.file,
-                        "{\"type\":\"fault\",\"kind\":\"%s\","
+                        "{\"type\":\"fault\",\"step\":%" PRIu64
+                        ",\"ip\":%u,\"kind\":\"%s\","
                         "\"address\":%u,\"size\":%zu,\"status\":\"%s\","
-                        "\"region\":\"%s\",\"symbol\":\"%s\"}\n",
+                        "\"region\":\"%s\",\"symbol\":\"%s\"",
+                        bus_event != NULL
+                            ? bus_event->step
+                            : cpu.executed_instructions + UINT64_C(1),
+                        result.halt_address,
                         fault->write ? "write" : "read",
                         fault->address,
                         fault->size,
@@ -780,6 +845,23 @@ int main(int argc, char **argv)
                         region,
                         symbol != NULL ? symbol : ""
                     );
+                    if (have_fault_instruction) {
+                        fprintf(
+                            trace.file,
+                            ",\"instruction\":\"%s\"",
+                            fault_text
+                        );
+                    }
+                    if (bus_event != NULL && bus_event->byte_count != 0u) {
+                        fputs(",\"bytes\":\"", trace.file);
+                        write_hex_bytes(
+                            trace.file,
+                            bus_event->bytes,
+                            bus_event->byte_count
+                        );
+                        fputc('"', trace.file);
+                    }
+                    fputs("}\n", trace.file);
                 }
             }
         }
