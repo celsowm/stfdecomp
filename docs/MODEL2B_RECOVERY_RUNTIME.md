@@ -33,15 +33,33 @@ This is the seam for differential instrumentation and Model 2B device models.
 
 ### Initial Model 2B adapter
 
-The first adapter implements only evidence already present in STF:
+The adapter implements only evidence already present in STF:
 
-    ROM       0x00000000 ...
-    work RAM  0x00500000 ... 0x005FFFFF
+    ROM             0x00000000 ...
+    work RAM        0x00500000 ... 0x005FFFFF
+    geometry RAM    0x00800000 ... 0x00803FFF
+    buffer RAM      0x00900000 ... 0x0091FFFF
 
-The 1 MiB work-RAM range comes directly from src/lib/rom_code1.ld.
+The work-RAM range and the geometry/buffer boundaries are derived from
+`src/lib/rom_code1.ld`. Geometry RAM and buffer RAM are modeled only as raw
+byte storage; no TGP command or rendering semantics are inferred from that.
 
-Unknown addresses fail with STF_ERROR_UNSUPPORTED unless an explicit device
-callback handles them.
+Declared but still fail-closed device addresses include:
+
+    GEO_PROGRAM_START       0x00804000
+    COPRO_SHARC_IOP_START   0x008C0000
+    COPRO_CONTROL1_START    0x00980000
+    GEO_CTL1_START          0x00980008
+    COPRO_STATUS_START      0x00980014
+    MIDI_START              0x009C0000
+    CPU_CONTROL_START       0x00E00000
+    IRQ_REQUEST_START       0x00E80000
+    IRQ_ENABLE_START        0x00E80004
+    TIMERS_START            0x00F00000
+
+Unknown addresses fail with `STF_ERROR_UNSUPPORTED` unless an explicit device
+callback handles them. Faults are tagged with a region/symbol hint from the
+linker map.
 
 ## Why not copy vf2_model2a
 
@@ -84,3 +102,40 @@ express that meaning on Saturn.
 Do not leak Model 2 hardware abstractions into gameplay code intended for the
 port. Recovered semantics should eventually cross the boundary as portable
 state machines, animation/combat data and normalized assets.
+
+
+## First corridor workflow
+
+Build the recovery tools:
+
+    cmake -S tools/recovery/i960 -B build/recovery-i960 -DCMAKE_BUILD_TYPE=Release
+    cmake --build build/recovery-i960 --config Release
+
+Generate a symbol listing from the normal STF build:
+
+    nm960 -n temp/rom_code1.out > build/rom_code1.nm
+
+Resolve a recovered/disassembled function:
+
+    python tools/recovery/resolve_symbol.py build/rom_code1.nm camera_init
+
+Run from that address with a controlled stack and trace:
+
+    build/recovery-i960/stf_i960_corridor \
+        --rom rom/rom_code1.bin \
+        --entry 0xADDRESS \
+        --stack 0x005ff800 \
+        --steps 50000 \
+        --trace out/camera-init.jsonl \
+        --state out/camera-init-state.json
+
+When execution stops on an unmapped device, the reported address becomes the
+next bounded hardware-recovery target. Feed the JSONL into:
+
+    python tools/recovery/classify_tgp_trace.py out/camera-init.jsonl
+    python tools/recovery/trace_fields.py out/camera-init.jsonl --base NAME=ADDRESS
+
+This keeps the loop evidence-first:
+
+    run -> first unsupported access -> classify -> model one bounded behavior
+        -> rerun -> differential check
