@@ -555,48 +555,6 @@ static int write_state(
     }
     fprintf(file, "]\n");
     fprintf(file, "  },\n");
-    fprintf(file, "  \"model2b\": {\n");
-    fprintf(
-        file,
-        "    \"geo_write_start_address\": %u,\n",
-        model2b != NULL ? model2b->geo_write_start_address : 0u
-    );
-    fprintf(
-        file,
-        "    \"geo_read_start_address\": %u,\n",
-        model2b != NULL ? model2b->geo_read_start_address : 0u
-    );
-    fprintf(
-        file,
-        "    \"geo_fifo_words\": %" PRIu64 ",\n",
-        model2b != NULL ? model2b->geo_fifo_words : UINT64_C(0)
-    );
-    fprintf(
-        file,
-        "    \"geo_upload_words\": %" PRIu64 ",\n",
-        model2b != NULL ? model2b->geo_upload_words : UINT64_C(0)
-    );
-    fprintf(
-        file,
-        "    \"copro_upload_words\": %" PRIu64 ",\n",
-        model2b != NULL ? model2b->copro_upload_words : UINT64_C(0)
-    );
-    fprintf(
-        file,
-        "    \"copro_fifo_input_words\": %" PRIu64 ",\n",
-        model2b != NULL ? model2b->copro_fifo_input_words : UINT64_C(0)
-    );
-    fprintf(
-        file,
-        "    \"copro_function_words\": %" PRIu64 ",\n",
-        model2b != NULL ? model2b->copro_function_words : UINT64_C(0)
-    );
-    fprintf(
-        file,
-        "    \"copro_iop_writes\": %" PRIu64 "\n",
-        model2b != NULL ? model2b->copro_iop_writes : UINT64_C(0)
-    );
-    fprintf(file, "  },\n");
     fprintf(file, "  \"probe\": {\n");
     fprintf(
         file,
