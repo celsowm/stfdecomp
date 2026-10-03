@@ -79,6 +79,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runner", type=Path)
     parser.add_argument("--rom", type=Path, default=Path("rom/rom_code1.bin"))
+    parser.add_argument("--data-rom", type=Path)
+    parser.add_argument("--ep-rom", type=Path)
     parser.add_argument("--symbols", type=Path)
     parser.add_argument("--entry", default="0")
     parser.add_argument("--stop")
@@ -106,6 +108,17 @@ def main() -> int:
             "python tools/data_extract.py --rom"
         )
 
+    def optional_blob(explicit: Path | None, default: str) -> Path | None:
+        candidate = explicit if explicit is not None else Path(default)
+        if not candidate.is_absolute():
+            candidate = repo_root / candidate
+        if explicit is not None and not candidate.exists():
+            parser.error(f"ROM image not found: {candidate}")
+        return candidate if candidate.exists() else None
+
+    data_rom = optional_blob(args.data_rom, "rom/rom_data.bin")
+    ep_rom = optional_blob(args.ep_rom, "rom/rom_ep.bin")
+
     command = [
         str(runner),
         "--rom",
@@ -113,6 +126,10 @@ def main() -> int:
         "--entry",
         entry,
     ]
+    if data_rom is not None:
+        command.extend(["--data-rom", str(data_rom)])
+    if ep_rom is not None:
+        command.extend(["--ep-rom", str(ep_rom)])
     if stop is not None:
         command.extend(["--stop", stop])
     command.extend(forwarded)
