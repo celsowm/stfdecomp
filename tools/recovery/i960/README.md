@@ -38,13 +38,17 @@ Implemented:
 
 - program/data ROM starting at 0x00000000;
 - 1 MiB work RAM starting at 0x00500000, matching the STF linker script;
+- 16 KiB raw geometry RAM at 0x00800000..0x00803fff;
+- 128 KiB raw buffer RAM at 0x00900000..0x0091ffff;
+- named Model 2B hardware addresses derived from the STF linker map;
 - extension callbacks for device-visible ranges;
 - fail-closed behavior for unmapped reads/writes;
 - ROM writes rejected.
 
 Not modeled yet:
 
-- TGP/geometry ports and geometry RAM;
+- TGP/coprocessor behavior and control registers;
+- geometry program memory semantics;
 - video/tile/palette/control windows;
 - system/interrupt/timer registers;
 - I/O and coin/service inputs;
@@ -91,3 +95,37 @@ understood. If a program reaches a device range that has not been measured,
 the Model 2B adapter returns STF_ERROR_UNSUPPORTED. The caller can then turn
 that address into a probe target instead of silently fabricating hardware
 behavior.
+
+
+## Corridor runners
+
+Two host tools are built:
+
+    stf_i960_corridor
+    stf_i960_probe
+
+Use `stf_i960_corridor` for reproducible recovery corridors with optional
+work-RAM preload/dump, register seeding, JSONL traces and final CPU state.
+
+Example:
+
+    build/recovery-i960/stf_i960_corridor \
+        --rom rom/rom_code1.bin \
+        --entry 0x00000000 \
+        --steps 10000 \
+        --stack 0x005ff800 \
+        --trace out/boot.jsonl \
+        --state out/boot-state.json
+
+The runner stops at the first unsupported Model 2B access and reports both a
+region hint and, when the address exactly matches the linker map, its STF symbol.
+
+Use `stf_i960_probe` for smaller experiments that need repeatable `--write32`
+RAM seeds and `--watch ADDRESS:SIZE` state snapshots.
+
+Resolve named entries after building the original program image:
+
+    nm960 -n temp/rom_code1.out > build/rom_code1.nm
+    python tools/recovery/resolve_symbol.py build/rom_code1.nm camera_init
+
+Then pass the returned address to `--entry`.
