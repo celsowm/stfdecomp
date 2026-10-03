@@ -41,5 +41,12 @@ add_executable(stf_recovery_i960_tests
 
 target_link_libraries(stf_recovery_i960_tests PRIVATE stf_recovery_i960)
 
+add_executable(stf_recovery_bus_trace_tests
+    tests/test_bus_trace.c
+)
+
+target_link_libraries(stf_recovery_bus_trace_tests PRIVATE stf_recovery_i960)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
+add_test(NAME stf_recovery_bus_trace_tests COMMAND stf_recovery_bus_trace_tests)
