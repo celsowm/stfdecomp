@@ -37,3 +37,6 @@ jobs:
 
       - name: Test cross-title matcher
         run: python tools/recovery/test_model2_crossmatch.py
+
+      - name: Test scenario validation
+        run: python tools/recovery/test_run_scenario.py
