@@ -127,6 +127,121 @@ def add_registers(command: list[str], registers: dict) -> None:
         command.extend(["--reg", f"{name}={parse_int(value):#x}"])
 
 
+def resolve_expected_value(value, symbols: dict[str, int], field: str) -> int:
+    if isinstance(value, int):
+        return value
+    text = str(value)
+    try:
+        return int(text, 0)
+    except ValueError:
+        pass
+    if text not in symbols:
+        raise SystemExit(f"{field} symbol not found: {text}")
+    return symbols[text]
+
+
+def verify_state_expectations(state_path: Path, expected: dict) -> list[str]:
+    errors: list[str] = []
+    if not expected:
+        return errors
+    if not state_path.exists():
+        return [f"state output not found: {state_path}"]
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    for section in ("cpu", "probe"):
+        section_expected = expected.get(section, {})
+        actual = state.get(section, {})
+        for key, value in section_expected.items():
+            if actual.get(key) != value:
+                errors.append(
+                    f"{section}.{key}: expected {value!r}, got {actual.get(key)!r}"
+                )
+    return errors
+
+
+def verify_work_ram_expectations(
+    work_ram_path: Path | None,
+    expected: list,
+    scenario: dict,
+    symbols: dict[str, int],
+) -> list[str]:
+    errors: list[str] = []
+    if not expected:
+        return errors
+    if work_ram_path is None:
+        return ["expect.work_ram requires work_ram_out"]
+    if not work_ram_path.exists():
+        return [f"work RAM output not found: {work_ram_path}"]
+
+    data = work_ram_path.read_bytes()
+    work_ram_base = 0x00500000
+    registers = scenario.get("registers", {})
+
+    for index, item in enumerate(expected):
+        base_value = item.get("base", work_ram_base)
+        if isinstance(base_value, str) and base_value in registers:
+            base = parse_int(registers[base_value])
+        else:
+            base = parse_int(base_value)
+
+        offset = parse_int(item.get("offset", 0))
+        size = parse_int(item.get("size", 4))
+        value = resolve_expected_value(
+            item["value"],
+            symbols,
+            f"expect.work_ram[{index}].value",
+        )
+
+        if size not in (1, 2, 4):
+            errors.append(
+                f"expect.work_ram[{index}]: unsupported size {size}; use 1, 2, or 4"
+            )
+            continue
+
+        address = base + offset
+        file_offset = address - work_ram_base
+        if file_offset < 0 or file_offset + size > len(data):
+            errors.append(
+                f"expect.work_ram[{index}]: address 0x{address:08X} outside dump"
+            )
+            continue
+
+        actual = int.from_bytes(
+            data[file_offset : file_offset + size],
+            "little",
+            signed=False,
+        )
+        mask = (1 << (size * 8)) - 1
+        expected_value = value & mask
+        if actual != expected_value:
+            errors.append(
+                f"work_ram 0x{address:08X}/{size}: "
+                f"expected 0x{expected_value:0{size * 2}X}, "
+                f"got 0x{actual:0{size * 2}X}"
+            )
+
+    return errors
+
+
+def verify_expectations(
+    scenario: dict,
+    symbols: dict[str, int],
+    state_path: Path,
+    work_ram_path: Path | None,
+) -> list[str]:
+    expected = scenario.get("expect", {})
+    errors = verify_state_expectations(state_path, expected)
+    errors.extend(
+        verify_work_ram_expectations(
+            work_ram_path,
+            expected.get("work_ram", []),
+            scenario,
+            symbols,
+        )
+    )
+    return errors
+
+
 def add_probe_policy(command: list[str], policy: dict) -> None:
     for item in policy.get("allow_write", []):
         if isinstance(item, str):
@@ -272,12 +387,13 @@ def main() -> int:
         command.extend(["--work-ram-in", str(path)])
 
     work_ram_out = scenario.get("work_ram_out")
+    work_ram_out_path: Path | None = None
     if work_ram_out:
-        path = Path(work_ram_out)
-        if not path.is_absolute():
-            path = repo_root / path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        command.extend(["--work-ram-out", str(path)])
+        work_ram_out_path = Path(work_ram_out)
+        if not work_ram_out_path.is_absolute():
+            work_ram_out_path = repo_root / work_ram_out_path
+        work_ram_out_path.parent.mkdir(parents=True, exist_ok=True)
+        command.extend(["--work-ram-out", str(work_ram_out_path)])
 
     probe = scenario.get("probe", {})
     add_probe_policy(command, probe)
@@ -310,7 +426,24 @@ def main() -> int:
         return 0
 
     completed = subprocess.run(command, cwd=repo_root, check=False)
-    return completed.returncode
+    if completed.returncode != 0:
+        return completed.returncode
+
+    errors = verify_expectations(
+        scenario,
+        symbols,
+        state,
+        work_ram_out_path,
+    )
+    if errors:
+        print("expectations: FAILED", file=sys.stderr)
+        for error in errors:
+            print("  -", error, file=sys.stderr)
+        return 1
+
+    if scenario.get("expect"):
+        print("expectations: ok")
+    return 0
 
 
 if __name__ == "__main__":
