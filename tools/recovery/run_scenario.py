@@ -255,6 +255,12 @@ def main() -> int:
         command.extend(["--prcb", f"{parse_int(scenario['prcb']):#x}"])
     if scenario.get("reset_from_prcb", False):
         command.append("--reset-from-prcb")
+    if scenario.get("call_entry", False):
+        command.append("--call-entry")
+    if "return_address" in scenario:
+        command.extend(
+            ["--return-address", f"{parse_int(scenario['return_address']):#x}"]
+        )
 
     add_registers(command, scenario.get("registers", {}))
 
