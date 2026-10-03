@@ -21,7 +21,7 @@ AS := gas
 NM := nm
 RECOVERY_BUILD_DIR := build/recovery-i960
 
-.PHONY: all clean symbols recovery recovery-test
+.PHONY: all clean symbols recovery recovery-test recovery-boot
 
 all:
 	# Intialize the directories
@@ -65,6 +65,10 @@ recovery:
 
 recovery-test: recovery
 	ctest --test-dir $(RECOVERY_BUILD_DIR) -C Release --output-on-failure
+
+recovery-boot: recovery
+	$(PYTHON) $(TOOL_DIR)/data_extract.py --rom
+	$(PYTHON) $(TOOL_DIR)/recovery/run_scenario.py $(TOOL_DIR)/recovery/scenarios/boot_first_fault.json
 
 clean:
 	rm -rf $(TEMP_DIR)
