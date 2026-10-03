@@ -10,5 +10,73 @@
     "g13": "0x005ff000"
   },
   "work_ram_out": "out/recovery/coli-init-workram.bin",
-  "probe": {}
+  "probe": {},
+  "expect": {
+    "cpu": {
+      "local_frame_depth": 0,
+      "maximum_local_frame_depth": 1,
+      "procedure_calls": 1,
+      "procedure_returns": 1
+    },
+    "probe": {
+      "accepted_device_accesses": 0,
+      "exploratory": false
+    },
+    "work_ram": [
+      {
+        "base": "g13",
+        "offset": "0x00C",
+        "size": 4,
+        "value": "collision"
+      },
+      {
+        "base": "g13",
+        "offset": "0x090",
+        "size": 4,
+        "value": "0x00000000"
+      },
+      {
+        "base": "g13",
+        "offset": "0x158",
+        "size": 2,
+        "value": "0x0700"
+      },
+      {
+        "base": "g13",
+        "offset": "0x1B0",
+        "size": 4,
+        "value": "0x00000000"
+      },
+      {
+        "base": "g13",
+        "offset": "0x1D0",
+        "size": 4,
+        "value": "0x3C23D70A"
+      },
+      {
+        "base": "g13",
+        "offset": "0x1D4",
+        "size": 4,
+        "value": "0x3FC00000"
+      },
+      {
+        "base": "g13",
+        "offset": "0x1D8",
+        "size": 4,
+        "value": "0x3DCCCCCD"
+      },
+      {
+        "base": "g13",
+        "offset": "0x20C",
+        "size": 2,
+        "value": "0x0700"
+      },
+      {
+        "base": "g13",
+        "offset": "0x278",
+        "size": 4,
+        "value": "0x40400000"
+      }
+    ]
+  }
 }
