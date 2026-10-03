@@ -33,6 +33,40 @@ static void record_fault(
     model2b->last_fault.status = status;
 }
 
+static stf_status read_storage(
+    uint8_t *storage,
+    size_t storage_size,
+    uint32_t base,
+    uint32_t address,
+    void *output,
+    size_t size
+)
+{
+    if (storage == NULL ||
+        !range_contains(base, storage_size, address, size)) {
+        return STF_ERROR_OUT_OF_BOUNDS;
+    }
+    memcpy(output, storage + (address - base), size);
+    return STF_OK;
+}
+
+static stf_status write_storage(
+    uint8_t *storage,
+    size_t storage_size,
+    uint32_t base,
+    uint32_t address,
+    const void *data,
+    size_t size
+)
+{
+    if (storage == NULL ||
+        !range_contains(base, storage_size, address, size)) {
+        return STF_ERROR_OUT_OF_BOUNDS;
+    }
+    memcpy(storage + (address - base), data, size);
+    return STF_OK;
+}
+
 static stf_status model2b_read(
     void *context,
     uint32_t address,
@@ -67,6 +101,36 @@ static stf_status model2b_read(
             size
         );
         return STF_OK;
+    }
+    if (range_contains(
+            STF_MODEL2B_GEO_START,
+            model2b->geometry_ram_size,
+            address,
+            size
+        )) {
+        return read_storage(
+            model2b->geometry_ram,
+            model2b->geometry_ram_size,
+            STF_MODEL2B_GEO_START,
+            address,
+            output,
+            size
+        );
+    }
+    if (range_contains(
+            STF_MODEL2B_BUFF_RAM_START,
+            model2b->buffer_ram_size,
+            address,
+            size
+        )) {
+        return read_storage(
+            model2b->buffer_ram,
+            model2b->buffer_ram_size,
+            STF_MODEL2B_BUFF_RAM_START,
+            address,
+            output,
+            size
+        );
     }
     if (model2b->device_read != NULL) {
         status = model2b->device_read(
@@ -113,6 +177,36 @@ static stf_status model2b_write(
         );
         return STF_OK;
     }
+    if (range_contains(
+            STF_MODEL2B_GEO_START,
+            model2b->geometry_ram_size,
+            address,
+            size
+        )) {
+        return write_storage(
+            model2b->geometry_ram,
+            model2b->geometry_ram_size,
+            STF_MODEL2B_GEO_START,
+            address,
+            data,
+            size
+        );
+    }
+    if (range_contains(
+            STF_MODEL2B_BUFF_RAM_START,
+            model2b->buffer_ram_size,
+            address,
+            size
+        )) {
+        return write_storage(
+            model2b->buffer_ram,
+            model2b->buffer_ram_size,
+            STF_MODEL2B_BUFF_RAM_START,
+            address,
+            data,
+            size
+        );
+    }
     if (range_contains(STF_MODEL2B_ROM_BASE, model2b->rom_size, address, size)) {
         record_fault(model2b, 1, address, size, STF_ERROR_UNSUPPORTED);
         return STF_ERROR_UNSUPPORTED;
@@ -137,12 +231,26 @@ stf_status stf_model2b_bus_init(stf_model2b_bus *model2b)
     if (model2b == NULL) {
         return STF_ERROR_INVALID_ARGUMENT;
     }
+
     memset(model2b, 0, sizeof(*model2b));
+
     model2b->work_ram = (uint8_t *)calloc(1u, STF_MODEL2B_WORK_RAM_SIZE);
-    if (model2b->work_ram == NULL) {
+    model2b->geometry_ram = (uint8_t *)calloc(1u, STF_MODEL2B_GEO_RAM_SIZE);
+    model2b->buffer_ram = (uint8_t *)calloc(1u, STF_MODEL2B_BUFF_RAM_SIZE);
+    if (model2b->work_ram == NULL ||
+        model2b->geometry_ram == NULL ||
+        model2b->buffer_ram == NULL) {
+        free(model2b->work_ram);
+        free(model2b->geometry_ram);
+        free(model2b->buffer_ram);
+        memset(model2b, 0, sizeof(*model2b));
         return STF_ERROR_OUT_OF_MEMORY;
     }
+
     model2b->work_ram_size = STF_MODEL2B_WORK_RAM_SIZE;
+    model2b->geometry_ram_size = STF_MODEL2B_GEO_RAM_SIZE;
+    model2b->buffer_ram_size = STF_MODEL2B_BUFF_RAM_SIZE;
+
     model2b->i960.context = model2b;
     model2b->i960.read = model2b_read;
     model2b->i960.write = model2b_write;
@@ -155,6 +263,8 @@ void stf_model2b_bus_destroy(stf_model2b_bus *model2b)
         return;
     }
     free(model2b->work_ram);
+    free(model2b->geometry_ram);
+    free(model2b->buffer_ram);
     memset(model2b, 0, sizeof(*model2b));
 }
 
