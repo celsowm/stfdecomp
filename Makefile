@@ -18,6 +18,10 @@ ROM1_MD5 = 744e46113217fc92c21ee9a4b16ed138
 ROM2_MD5 = 155bb4a50609a41e86f275fdba55211e
 PYTHON := python
 AS := gas
+NM := nm
+RECOVERY_BUILD_DIR := build/recovery-i960
+
+.PHONY: all clean symbols recovery recovery-test
 
 all:
 	# Intialize the directories
@@ -50,6 +54,17 @@ all:
 	mv $(BUILD_DIR)/$(TARGET_PREFIX)1.bin.01 $(BUILD_DIR)/split/$(ROM2)
 	echo "$(ROM1_MD5) $(BUILD_DIR)/split/$(ROM1)" | md5sum --check -
 	echo "$(ROM2_MD5) $(BUILD_DIR)/split/$(ROM2)" | md5sum --check -
+
+symbols: all
+	$(NM)$(CROSS) -n $(TEMP_DIR)/$(TARGET_PREFIX)1.out > $(BUILD_DIR)/$(TARGET_PREFIX)1.nm
+	@echo "Wrote $(BUILD_DIR)/$(TARGET_PREFIX)1.nm"
+
+recovery:
+	cmake -S tools/recovery/i960 -B $(RECOVERY_BUILD_DIR) -DCMAKE_BUILD_TYPE=Release
+	cmake --build $(RECOVERY_BUILD_DIR) --config Release
+
+recovery-test: recovery
+	ctest --test-dir $(RECOVERY_BUILD_DIR) -C Release --output-on-failure
 
 clean:
 	rm -rf $(TEMP_DIR)
