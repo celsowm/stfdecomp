@@ -4,128 +4,150 @@ This directory contains the host-side Intel i960 recovery core used by the STF
 fork. It is deliberately separate from the original ROM rebuild Makefile.
 
 The decoder and executor originated from the independently validated i960
-recovery work in celsowm/vf2-decomp. The BSD-3-Clause notice is retained in
-LICENSE.vf2-decomp. Hardware access has been refactored out of the CPU into a
-generic bus interface.
+recovery work in celsowm/vf2-decomp. Its BSD-3-Clause notice is retained in
+LICENSE.vf2-decomp. Hardware access has been refactored behind a generic bus.
 
 ## Architecture
 
-    STF program image
-           |
-           v
+    program ROM
+        |
+        v
     +-------------------+
     | i960 decoder      |
     | i960 executor     |
     | CPU/frame state   |
     +---------+---------+
               |
-              | stf_i960_bus
+         stf_i960_bus
+              |
               v
     +-------------------+
     | Model 2B adapter  |
     +----+---------+----+
          |         |
-         |         +---- unknown/device ranges -> callback or UNSUPPORTED
+         |         +---- device/unknown -> callback or UNSUPPORTED
          |
-         +-------------- ROM + 0x00500000 work RAM
+         +-------------- read-only ROMs + proven raw storage
 
 The CPU core does not know about VF2, Model 2A, TGP, SCSP, video, inputs or
 arcade bookkeeping.
 
-## Current Model 2B map
+## Default Model 2B boundary
 
-Implemented:
+Implemented as data/storage only:
 
-- program/data ROM starting at 0x00000000;
-- 1 MiB work RAM starting at 0x00500000, matching the STF linker script;
-- 16 KiB raw geometry RAM at 0x00800000..0x00803fff;
-- 128 KiB raw buffer RAM at 0x00900000..0x0091ffff;
-- named Model 2B hardware addresses derived from the STF linker map;
-- extension callbacks for device-visible ranges;
-- fail-closed behavior for unmapped reads/writes;
-- ROM writes rejected.
+- program ROM at 0x00000000;
+- 1 MiB work RAM at 0x00500000;
+- buffer RAM at 0x00900000..0x0091ffff;
+- CPU-control storage at 0x00e00000..0x00e00037;
+- palette and color-translation storage;
+- backup RAM, initialized to 0xff;
+- texture RAM 0/1 and luma RAM;
+- optional read-only rom_data.bin at 0x02000000;
+- optional read-only rom_ep.bin at 0x03000000 and 0x06000000.
 
-Not modeled yet:
+Fail-closed by default:
 
-- TGP/coprocessor behavior and control registers;
-- geometry program memory semantics;
-- video/tile/palette/control windows;
-- system/interrupt/timer registers;
-- I/O and coin/service inputs;
-- sound-board communication;
-- texture/luma/color-translation windows.
+- GEO and geometry-program windows;
+- TGP/SHARC function/FIFO/IOP paths;
+- copro/GEO/video controls;
+- IRQ/timers;
+- tile/video behavior;
+- I/O/serial;
+- render-mode behavior;
+- sound-board communication.
 
-Those ranges should be added from measured STF traces rather than copied
-blindly from VF2.
+This distinction prevents byte storage from being mistaken for recovered device
+semantics.
 
 ## Build and test
 
-The host build does not require game ROMs:
+No game ROM is needed:
+
+    make recovery-test
+
+Equivalent CMake commands:
 
     cmake -S tools/recovery/i960 -B build/recovery-i960 -DCMAKE_BUILD_TYPE=Release
     cmake --build build/recovery-i960 --config Release
     ctest --test-dir build/recovery-i960 -C Release --output-on-failure
 
-The tests currently exercise:
-
-- i960 instruction decode and formatting;
-- memory load/store execution through the generic bus;
-- loops and branch flow;
-- nested architectural call/return frames;
-- fail-closed Model 2B mapping.
-
-GitHub Actions runs the same suite on Linux and Windows.
-
-## Bus contract
-
-The CPU receives a stf_i960_bus with:
-
-- program_image/program_size for instruction decoding;
-- a read callback;
-- a write callback;
-- opaque adapter context.
-
-The current executor therefore preserves the broad VF2-proven instruction
-coverage while removing the vf2_model2a dependency.
-
-## Recovery rule
-
-A successful CPU instruction does not imply that an STF hardware access is
-understood. If a program reaches a device range that has not been measured,
-the Model 2B adapter returns STF_ERROR_UNSUPPORTED. The caller can then turn
-that address into a probe target instead of silently fabricating hardware
-behavior.
-
+GitHub Actions runs the same recovery suite on Ubuntu and Windows.
 
 ## Corridor runners
 
-Two host tools are built:
+The build produces:
 
     stf_i960_corridor
     stf_i960_probe
 
-Use `stf_i960_corridor` for reproducible recovery corridors with optional
-work-RAM preload/dump, register seeding, JSONL traces and final CPU state.
+Use stf_i960_corridor for reproducible corridors, register seeds, work-RAM
+preload/dump, JSONL traces, final state and explicit exploratory probe policies.
 
 Example:
 
     build/recovery-i960/stf_i960_corridor \
         --rom rom/rom_code1.bin \
+        --data-rom rom/rom_data.bin \
+        --ep-rom rom/rom_ep.bin \
         --entry 0x00000000 \
         --steps 10000 \
-        --stack 0x005ff800 \
         --trace out/boot.jsonl \
         --state out/boot-state.json
 
-The runner stops at the first unsupported Model 2B access and reports both a
-region hint and, when the address exactly matches the linker map, its STF symbol.
+The symbol-aware wrapper is usually easier:
 
-Use `stf_i960_probe` for smaller experiments that need repeatable `--write32`
-RAM seeds and `--watch ADDRESS:SIZE` state snapshots.
+    make symbols
 
-Resolve named entries after building the original program image:
+    python tools/recovery/run_corridor.py \
+        --symbols build/rom_code1.nm \
+        --entry camera_init \
+        --stack 0x005ff800
 
-    nm960 -n temp/rom_code1.out > build/rom_code1.nm
-    python tools/recovery/resolve_symbol.py build/rom_code1.nm camera_init
+It automatically attaches conventional rom_data.bin/rom_ep.bin files when they
+exist.
 
-Then pass the returned address to `--entry`.
+For repeatable experiments:
+
+    python tools/recovery/run_scenario.py tools/recovery/scenarios/my-run.json
+
+Use stf_i960_probe for small experiments requiring explicit write seeds and
+watched memory ranges.
+
+## Probe policy
+
+Unknown hardware is not silently zero-filled.
+
+A specifically measured write can be admitted temporarily:
+
+    --allow-write START:END
+
+A measured read can be replayed:
+
+    --stub-read ADDRESS=VALUE
+
+If a run consumes either policy, it is exploratory rather than reference
+evidence.
+
+## Bus contract
+
+The CPU receives stf_i960_bus with:
+
+- program_image/program_size for instruction decoding;
+- read/write callbacks;
+- opaque adapter context;
+- trace callback and synchronized step id.
+
+The executor therefore preserves broad VF2-proven i960 instruction coverage
+without depending on vf2_model2a.
+
+## Recovery rule
+
+A successfully executed CPU instruction says nothing about whether a touched
+Model 2B device is understood. Unsupported device accesses must remain explicit
+until STF-specific evidence establishes the behavior.
+
+See:
+
+    docs/MODEL2B_HARDWARE_EVIDENCE.md
+    docs/MODEL2B_RECOVERY_RUNTIME.md
