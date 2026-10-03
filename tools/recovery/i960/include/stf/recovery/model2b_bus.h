@@ -50,6 +50,8 @@ typedef struct stf_model2b_bus {
     uint8_t *work_ram;
     size_t work_ram_size;
 
+    uint8_t cpu_control[STF_MODEL2B_CPU_CONTROL_SIZE];
+
     /*
      * Buffer RAM is a storage window named directly by STF's linker map.
      * GEO_START is deliberately not stored here: it is a device window.
