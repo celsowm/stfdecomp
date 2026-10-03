@@ -1,5 +1,7 @@
 #include "stf/recovery/model2b_map.h"
 
+#include <stddef.h>
+
 const char *stf_model2b_symbol_hint(uint32_t address)
 {
     switch (address) {
