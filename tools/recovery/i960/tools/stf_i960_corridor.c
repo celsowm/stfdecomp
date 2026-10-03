@@ -54,6 +54,8 @@ typedef struct runner_options {
     uint32_t stack_base;
     int have_stack;
     int reset_from_prcb;
+    int call_entry;
+    uint32_t return_address;
     uint32_t registers[STF_I960_REGISTER_COUNT];
     uint8_t register_set[STF_I960_REGISTER_COUNT];
     probe_device probe;
@@ -75,6 +77,8 @@ static void usage(const char *argv0)
         "  --prcb ADDR           PRCB address\n"
         "  --reset-from-prcb      initialize fp/sp from PRCB + 24\n"
         "  --stack ADDR          explicit frame base; sp becomes ADDR + 64\n"
+        "  --call-entry          enter ENTRY through an architectural call frame\n"
+        "  --return-address A    synthetic return/stop address (default 0xfffffffc)\n"
         "  --reg REG=VALUE       initialize register (r0..r15, g0..g14, fp, sp, pfp, rip)\n"
         "  --work-ram-in FILE    preload beginning of 1 MiB work RAM\n"
         "  --work-ram-out FILE   dump final 1 MiB work RAM\n"
@@ -243,6 +247,7 @@ static int parse_arguments(int argc, char **argv, runner_options *options)
 
     memset(options, 0, sizeof(*options));
     options->max_steps = UINT64_C(100000);
+    options->return_address = UINT32_C(0xFFFFFFFC);
 
     for (index = 1; index < argc; ++index) {
         const char *arg = argv[index];
@@ -268,6 +273,10 @@ static int parse_arguments(int argc, char **argv, runner_options *options)
             options->have_stack = 1;
         } else if (strcmp(arg, "--reset-from-prcb") == 0) {
             options->reset_from_prcb = 1;
+        } else if (strcmp(arg, "--call-entry") == 0) {
+            options->call_entry = 1;
+        } else if (strcmp(arg, "--return-address") == 0 && index + 1 < argc) {
+            if (!parse_u32(argv[++index], &options->return_address)) return 0;
         } else if (strcmp(arg, "--trace") == 0 && index + 1 < argc) {
             options->trace_path = argv[++index];
         } else if (strcmp(arg, "--state") == 0 && index + 1 < argc) {
@@ -742,7 +751,38 @@ int main(int argc, char **argv)
     }
     apply_registers(&options, &cpu);
 
+    if (options.call_entry) {
+        const uint32_t target = cpu.ip;
+
+        if (cpu.registers[1] == 0u) {
+            fprintf(
+                stderr,
+                "--call-entry requires a non-zero stack; use --stack or --reg sp=VALUE\n"
+            );
+            exit_code = 64;
+            goto cleanup;
+        }
+
+        status = stf_i960_cpu_enter_procedure(
+            &cpu,
+            target,
+            options.return_address
+        );
+        if (status != STF_OK) {
+            fprintf(
+                stderr,
+                "architectural function entry failed: %s\n",
+                stf_status_string(status)
+            );
+            exit_code = 70;
+            goto cleanup;
+        }
+    }
+
     run_options.stop_address = options.stop;
+    if (options.call_entry && run_options.stop_address == 0u) {
+        run_options.stop_address = options.return_address;
+    }
     run_options.max_steps = options.max_steps;
     run_options.stop_on_self_branch = true;
     if (trace.file != NULL) {
