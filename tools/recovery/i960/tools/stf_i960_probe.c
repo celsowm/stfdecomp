@@ -8,6 +8,7 @@
 #include "stf/recovery/i960/decoder.h"
 #include "stf/recovery/i960/executor.h"
 #include "stf/recovery/model2b_bus.h"
+#include "stf/recovery/model2b_map.h"
 
 enum {
     MAX_REGISTER_SEEDS = 64,
@@ -772,14 +773,20 @@ int main(int argc, char **argv)
         const stf_model2b_fault *fault =
             stf_model2b_bus_last_fault(&model2b);
         if (fault != NULL && fault->valid) {
-            printf(
-                "model2b_fault=%s address=0x%08" PRIx32
-                " size=%zu status=%s\n",
-                fault->write ? "write" : "read",
-                fault->address,
-                fault->size,
-                stf_status_string(fault->status)
-            );
+            {
+                const char *region = stf_model2b_region_hint(fault->address);
+                const char *symbol = stf_model2b_symbol_hint(fault->address);
+                printf(
+                    "model2b_fault=%s address=0x%08" PRIx32
+                    " size=%zu status=%s region=%s symbol=%s\n",
+                    fault->write ? "write" : "read",
+                    fault->address,
+                    fault->size,
+                    stf_status_string(fault->status),
+                    region,
+                    symbol != NULL ? symbol : "-"
+                );
+            }
         }
     }
 
