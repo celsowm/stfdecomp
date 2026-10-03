@@ -240,6 +240,13 @@ stf_status stf_i960_step(
     if (cpu == NULL || bus == NULL) {
         return STF_ERROR_INVALID_ARGUMENT;
     }
+    /*
+     * Memory events emitted while executing this instruction must carry the
+     * same step id as the instruction event. This keeps JSONL traces directly
+     * consumable by trace_fields.py even though memory events are emitted
+     * before the post-step callback.
+     */
+    stf_i960_bus_set_trace_step(bus, cpu->executed_instructions + UINT64_C(1));
     memset(&instruction, 0, sizeof(instruction));
     decode_status = stf_i960_decode(
         bus->program_image, bus->program_size, ip_before, &instruction
