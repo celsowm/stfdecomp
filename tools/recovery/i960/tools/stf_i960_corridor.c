@@ -13,6 +13,29 @@ typedef struct trace_writer {
     FILE *file;
 } trace_writer;
 
+enum {
+    MAX_PROBE_WRITE_RANGES = 32,
+    MAX_PROBE_READ_STUBS = 64
+};
+
+typedef struct probe_write_range {
+    uint32_t start;
+    uint32_t end;
+} probe_write_range;
+
+typedef struct probe_read_stub {
+    uint32_t address;
+    uint32_t value;
+} probe_read_stub;
+
+typedef struct probe_device {
+    probe_write_range write_ranges[MAX_PROBE_WRITE_RANGES];
+    size_t write_range_count;
+    probe_read_stub read_stubs[MAX_PROBE_READ_STUBS];
+    size_t read_stub_count;
+    uint64_t accepted_accesses;
+} probe_device;
+
 typedef struct runner_options {
     const char *rom_path;
     const char *trace_path;
@@ -29,6 +52,7 @@ typedef struct runner_options {
     int reset_from_prcb;
     uint32_t registers[STF_I960_REGISTER_COUNT];
     uint8_t register_set[STF_I960_REGISTER_COUNT];
+    probe_device probe;
 } runner_options;
 
 static void usage(const char *argv0)
@@ -50,9 +74,12 @@ static void usage(const char *argv0)
         "  --work-ram-out FILE   dump final 1 MiB work RAM\n"
         "  --trace FILE          write JSONL step/memory trace\n"
         "  --state FILE          write final CPU state JSON\n"
+        "  --allow-write A:B     explicitly accept device writes in [A,B)\n"
+        "  --stub-read A=VALUE   explicitly return VALUE for a device read at A\n"
         "\n"
         "All numbers accept C syntax (for example 0x00500000). Unknown Model 2B\n"
-        "hardware accesses fail closed and are reported as the first bus fault.\n",
+        "hardware accesses fail closed. Probe allowances are exploratory and are\n"
+        "counted in the final report; they are never enabled implicitly.\n",
         argv0
     );
 }
@@ -123,6 +150,57 @@ static int register_index(const char *name)
         return (int)index;
     }
     return -1;
+}
+
+static int parse_write_range(const char *text, probe_write_range *range)
+{
+    char left[32];
+    const char *colon = NULL;
+    size_t length = 0u;
+
+    if (text == NULL || range == NULL) {
+        return 0;
+    }
+    colon = strchr(text, ':');
+    if (colon == NULL) {
+        return 0;
+    }
+    length = (size_t)(colon - text);
+    if (length == 0u || length >= sizeof(left)) {
+        return 0;
+    }
+    memcpy(left, text, length);
+    left[length] = '\0';
+
+    if (!parse_u32(left, &range->start) ||
+        !parse_u32(colon + 1, &range->end) ||
+        range->end <= range->start) {
+        return 0;
+    }
+    return 1;
+}
+
+static int parse_read_stub(const char *text, probe_read_stub *stub)
+{
+    char left[32];
+    const char *equal = NULL;
+    size_t length = 0u;
+
+    if (text == NULL || stub == NULL) {
+        return 0;
+    }
+    equal = strchr(text, '=');
+    if (equal == NULL) {
+        return 0;
+    }
+    length = (size_t)(equal - text);
+    if (length == 0u || length >= sizeof(left)) {
+        return 0;
+    }
+    memcpy(left, text, length);
+    left[length] = '\0';
+    return parse_u32(left, &stub->address) &&
+           parse_u32(equal + 1, &stub->value);
 }
 
 static int parse_register_assignment(
@@ -196,6 +274,24 @@ static int parse_arguments(int argc, char **argv, runner_options *options)
             }
             options->registers[reg] = value;
             options->register_set[reg] = 1u;
+        } else if (strcmp(arg, "--allow-write") == 0 && index + 1 < argc) {
+            if (options->probe.write_range_count >= MAX_PROBE_WRITE_RANGES ||
+                !parse_write_range(
+                    argv[++index],
+                    &options->probe.write_ranges[options->probe.write_range_count]
+                )) {
+                return 0;
+            }
+            ++options->probe.write_range_count;
+        } else if (strcmp(arg, "--stub-read") == 0 && index + 1 < argc) {
+            if (options->probe.read_stub_count >= MAX_PROBE_READ_STUBS ||
+                !parse_read_stub(
+                    argv[++index],
+                    &options->probe.read_stubs[options->probe.read_stub_count]
+                )) {
+                return 0;
+            }
+            ++options->probe.read_stub_count;
         } else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
             return -1;
         } else {
@@ -289,6 +385,61 @@ static int dump_work_ram(const char *path, const stf_model2b_bus *model2b)
     return ok;
 }
 
+static stf_status probe_device_read(
+    void *context,
+    uint32_t address,
+    void *output,
+    size_t size
+)
+{
+    probe_device *probe = (probe_device *)context;
+    size_t index = 0u;
+    uint32_t value = 0u;
+    uint8_t bytes[4];
+
+    if (probe == NULL || output == NULL || size == 0u || size > sizeof(bytes)) {
+        return STF_ERROR_UNSUPPORTED;
+    }
+    for (index = 0u; index < probe->read_stub_count; ++index) {
+        if (probe->read_stubs[index].address == address) {
+            value = probe->read_stubs[index].value;
+            bytes[0] = (uint8_t)value;
+            bytes[1] = (uint8_t)(value >> 8u);
+            bytes[2] = (uint8_t)(value >> 16u);
+            bytes[3] = (uint8_t)(value >> 24u);
+            memcpy(output, bytes, size);
+            ++probe->accepted_accesses;
+            return STF_OK;
+        }
+    }
+    return STF_ERROR_UNSUPPORTED;
+}
+
+static stf_status probe_device_write(
+    void *context,
+    uint32_t address,
+    const void *data,
+    size_t size
+)
+{
+    probe_device *probe = (probe_device *)context;
+    size_t index = 0u;
+    uint64_t access_end = (uint64_t)address + (uint64_t)size;
+
+    (void)data;
+    if (probe == NULL || size == 0u) {
+        return STF_ERROR_UNSUPPORTED;
+    }
+    for (index = 0u; index < probe->write_range_count; ++index) {
+        if ((uint64_t)address >= probe->write_ranges[index].start &&
+            access_end <= probe->write_ranges[index].end) {
+            ++probe->accepted_accesses;
+            return STF_OK;
+        }
+    }
+    return STF_ERROR_UNSUPPORTED;
+}
+
 static void write_hex_bytes(FILE *file, const uint8_t *bytes, size_t size)
 {
     size_t index = 0u;
@@ -358,7 +509,11 @@ static void step_trace_callback(
     );
 }
 
-static int write_state(const char *path, const stf_i960_cpu *cpu)
+static int write_state(
+    const char *path,
+    const stf_i960_cpu *cpu,
+    const probe_device *probe
+)
 {
     FILE *file = NULL;
     size_t index = 0u;
@@ -399,6 +554,18 @@ static int write_state(const char *path, const stf_i960_cpu *cpu)
         fprintf(file, "%s%u", index == 0u ? "" : ", ", cpu->registers[index]);
     }
     fprintf(file, "]\n");
+    fprintf(file, "  },\n");
+    fprintf(file, "  \"probe\": {\n");
+    fprintf(
+        file,
+        "    \"accepted_device_accesses\": %" PRIu64 ",\n",
+        probe != NULL ? probe->accepted_accesses : UINT64_C(0)
+    );
+    fprintf(
+        file,
+        "    \"exploratory\": %s\n",
+        probe != NULL && probe->accepted_accesses != 0u ? "true" : "false"
+    );
     fprintf(file, "  }\n");
     fprintf(file, "}\n");
 
@@ -478,6 +645,15 @@ int main(int argc, char **argv)
     }
 
     bus = stf_model2b_bus_i960(&model2b);
+    if (options.probe.write_range_count != 0u ||
+        options.probe.read_stub_count != 0u) {
+        stf_model2b_bus_set_device_callbacks(
+            &model2b,
+            &options.probe,
+            probe_device_read,
+            probe_device_write
+        );
+    }
     if (options.trace_path != NULL) {
         trace.file = fopen(options.trace_path, "w");
         if (trace.file == NULL) {
@@ -568,7 +744,15 @@ int main(int argc, char **argv)
         }
     }
 
-    if (!write_state(options.state_path, &cpu)) {
+    if (options.probe.accepted_accesses != 0u) {
+        printf(
+            "probe-device-accesses=%" PRIu64
+            " state=exploratory-not-reference\n",
+            options.probe.accepted_accesses
+        );
+    }
+
+    if (!write_state(options.state_path, &cpu, &options.probe)) {
         fprintf(stderr, "failed to write state JSON\n");
         exit_code = 74;
     }
