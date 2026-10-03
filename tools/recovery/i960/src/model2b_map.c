@@ -111,7 +111,7 @@ const char *stf_model2b_region_hint(uint32_t address)
         return "geometry-window";
     }
     if (address >= STF_MODEL2B_GEO_PROGRAM_START &&
-        address < STF_MODEL2B_GEO_PROGRAM_START + STF_MODEL2B_GEO_RAM_SIZE) {
+        address < STF_MODEL2B_GEO_PROGRAM_START + STF_MODEL2B_GEO_WINDOW_SIZE) {
         return "geometry-program";
     }
     if (address >= STF_MODEL2B_COPRO_FUNCTION_START &&
