@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "stf/recovery/i960/bus.h"
+#include "stf/recovery/model2b_map.h"
 
 enum {
     STF_MODEL2B_ROM_BASE = 0x00000000u,
@@ -39,6 +40,10 @@ typedef struct stf_model2b_bus {
     stf_i960_bus i960;
     uint8_t *work_ram;
     size_t work_ram_size;
+    uint8_t *geometry_ram;
+    size_t geometry_ram_size;
+    uint8_t *buffer_ram;
+    size_t buffer_ram_size;
     const uint8_t *rom;
     size_t rom_size;
     void *device_context;
