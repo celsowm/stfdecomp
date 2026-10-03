@@ -38,6 +38,8 @@ typedef struct probe_device {
 
 typedef struct runner_options {
     const char *rom_path;
+    const char *data_rom_path;
+    const char *ep_rom_path;
     const char *trace_path;
     const char *state_path;
     const char *work_ram_in_path;
@@ -62,6 +64,8 @@ static void usage(const char *argv0)
         "usage: %s --rom FILE [options]\n"
         "\n"
         "options:\n"
+        "  --data-rom FILE       attach rom_data.bin at 0x02000000\n"
+        "  --ep-rom FILE         attach rom_ep.bin at 0x03000000/0x06000000\n"
         "  --entry ADDR          start IP (default 0)\n"
         "  --stop ADDR           stop before executing ADDR\n"
         "  --steps N             maximum executed instructions (default 100000)\n"
@@ -243,6 +247,10 @@ static int parse_arguments(int argc, char **argv, runner_options *options)
 
         if (strcmp(arg, "--rom") == 0 && index + 1 < argc) {
             options->rom_path = argv[++index];
+        } else if (strcmp(arg, "--data-rom") == 0 && index + 1 < argc) {
+            options->data_rom_path = argv[++index];
+        } else if (strcmp(arg, "--ep-rom") == 0 && index + 1 < argc) {
+            options->ep_rom_path = argv[++index];
         } else if (strcmp(arg, "--entry") == 0 && index + 1 < argc) {
             if (!parse_u32(argv[++index], &options->entry)) return 0;
         } else if (strcmp(arg, "--stop") == 0 && index + 1 < argc) {
@@ -598,6 +606,10 @@ int main(int argc, char **argv)
     runner_options options;
     uint8_t *rom = NULL;
     size_t rom_size = 0u;
+    uint8_t *main_data = NULL;
+    size_t main_data_size = 0u;
+    uint8_t *main_data_ep = NULL;
+    size_t main_data_ep_size = 0u;
     stf_model2b_bus model2b;
     stf_i960_bus *bus = NULL;
     stf_i960_cpu cpu;
@@ -638,6 +650,35 @@ int main(int argc, char **argv)
         free(rom);
         return 70;
     }
+
+    if (options.data_rom_path != NULL) {
+        main_data = read_file(options.data_rom_path, &main_data_size);
+        if (main_data == NULL ||
+            stf_model2b_bus_attach_main_data(
+                &model2b,
+                main_data,
+                main_data_size
+            ) != STF_OK) {
+            fprintf(stderr, "failed to attach main-data ROM: %s\n", options.data_rom_path);
+            exit_code = 66;
+            goto cleanup;
+        }
+    }
+
+    if (options.ep_rom_path != NULL) {
+        main_data_ep = read_file(options.ep_rom_path, &main_data_ep_size);
+        if (main_data_ep == NULL ||
+            stf_model2b_bus_attach_main_data_ep(
+                &model2b,
+                main_data_ep,
+                main_data_ep_size
+            ) != STF_OK) {
+            fprintf(stderr, "failed to attach EP ROM: %s\n", options.ep_rom_path);
+            exit_code = 66;
+            goto cleanup;
+        }
+    }
+
     if (!load_work_ram(options.work_ram_in_path, &model2b)) {
         fprintf(stderr, "failed to load work RAM image\n");
         exit_code = 66;
@@ -770,6 +811,8 @@ cleanup:
         fclose(trace.file);
     }
     stf_model2b_bus_destroy(&model2b);
+    free(main_data_ep);
+    free(main_data);
     free(rom);
     return exit_code;
 }
