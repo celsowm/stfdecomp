@@ -21,8 +21,14 @@ symbol listing when strings are used.
       "stack": "0x005ff800"
     }
 
+The runner also auto-attaches `rom/rom_data.bin` and `rom/rom_ep.bin` when
+those locally extracted files exist. They are mapped read-only at their
+evidence-backed Model 2B data-ROM windows. No ROM data is stored in a scenario.
+
 Optional fields:
 
+- `data_rom`: override the optional main-data blob (default: `rom/rom_data.bin`);
+- `ep_rom`: override the optional EP blob (default: `rom/rom_ep.bin`);
 - `stop`: address or symbol;
 - `sat`, `prcb`, `reset_from_prcb`;
 - `registers`: object such as `{"g0":"0x1234"}`;
@@ -31,6 +37,7 @@ Optional fields:
 - `probe.allow_write`: explicit device-write ranges;
 - `probe.stub_read`: explicit device read stubs.
 
+Attaching data ROMs is not exploratory: they are read-only source data.
 Any scenario that accepts or stubs unknown hardware is exploratory. The
 underlying corridor runner records that state as not suitable for reference
 comparison.
