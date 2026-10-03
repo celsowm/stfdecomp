@@ -107,22 +107,6 @@ static stf_status model2b_read(
     }
 
     if (range_contains(
-            STF_MODEL2B_GEO_START,
-            model2b->geometry_ram_size,
-            address,
-            size
-        )) {
-        return read_storage(
-            model2b->geometry_ram,
-            model2b->geometry_ram_size,
-            STF_MODEL2B_GEO_START,
-            address,
-            output,
-            size
-        );
-    }
-
-    if (range_contains(
             STF_MODEL2B_BUFF_RAM_START,
             model2b->buffer_ram_size,
             address,
@@ -188,22 +172,6 @@ static stf_status model2b_write(
     }
 
     if (range_contains(
-            STF_MODEL2B_GEO_START,
-            model2b->geometry_ram_size,
-            address,
-            size
-        )) {
-        return write_storage(
-            model2b->geometry_ram,
-            model2b->geometry_ram_size,
-            STF_MODEL2B_GEO_START,
-            address,
-            data,
-            size
-        );
-    }
-
-    if (range_contains(
             STF_MODEL2B_BUFF_RAM_START,
             model2b->buffer_ram_size,
             address,
@@ -250,18 +218,15 @@ stf_status stf_model2b_bus_init(stf_model2b_bus *model2b)
     memset(model2b, 0, sizeof(*model2b));
 
     model2b->work_ram = (uint8_t *)calloc(1u, STF_MODEL2B_WORK_RAM_SIZE);
-    model2b->geometry_ram = (uint8_t *)calloc(1u, STF_MODEL2B_GEO_RAM_SIZE);
     model2b->buffer_ram = (uint8_t *)calloc(1u, STF_MODEL2B_BUFF_RAM_SIZE);
 
     if (model2b->work_ram == NULL ||
-        model2b->geometry_ram == NULL ||
         model2b->buffer_ram == NULL) {
         stf_model2b_bus_destroy(model2b);
         return STF_ERROR_OUT_OF_MEMORY;
     }
 
     model2b->work_ram_size = STF_MODEL2B_WORK_RAM_SIZE;
-    model2b->geometry_ram_size = STF_MODEL2B_GEO_RAM_SIZE;
     model2b->buffer_ram_size = STF_MODEL2B_BUFF_RAM_SIZE;
 
     model2b->i960.context = model2b;
@@ -276,7 +241,6 @@ void stf_model2b_bus_destroy(stf_model2b_bus *model2b)
         return;
     }
     free(model2b->work_ram);
-    free(model2b->geometry_ram);
     free(model2b->buffer_ram);
     memset(model2b, 0, sizeof(*model2b));
 }
