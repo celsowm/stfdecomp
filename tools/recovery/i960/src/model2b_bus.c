@@ -154,6 +154,22 @@ static stf_status model2b_read(
         );
     }
 
+    if (range_contains(
+            STF_MODEL2B_CPU_CONTROL_START,
+            STF_MODEL2B_CPU_CONTROL_SIZE,
+            address,
+            size
+        )) {
+        return read_storage(
+            model2b->cpu_control,
+            sizeof(model2b->cpu_control),
+            STF_MODEL2B_CPU_CONTROL_START,
+            address,
+            output,
+            size
+        );
+    }
+
     if (read_attached_rom(
             model2b->main_data,
             model2b->main_data_size,
@@ -339,6 +355,22 @@ static stf_status model2b_write(
             model2b->buffer_ram,
             model2b->buffer_ram_size,
             STF_MODEL2B_BUFF_RAM_START,
+            address,
+            data,
+            size
+        );
+    }
+
+    if (range_contains(
+            STF_MODEL2B_CPU_CONTROL_START,
+            STF_MODEL2B_CPU_CONTROL_SIZE,
+            address,
+            size
+        )) {
+        return write_storage(
+            model2b->cpu_control,
+            sizeof(model2b->cpu_control),
+            STF_MODEL2B_CPU_CONTROL_START,
             address,
             data,
             size
