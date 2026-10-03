@@ -3,9 +3,9 @@
   "name": "camera-init",
   "rom": "rom/rom_code1.bin",
   "symbols": "build/rom_code1.nm",
-  "entry": "camera_init",
   "steps": 50000,
   "stack": "0x005ff800",
   "registers": {},
-  "probe": {}
+  "probe": {},
+  "task": "fa_camera"
 }
