@@ -49,8 +49,11 @@ traffic:
     python tools/recovery/classify_tgp_trace.py trace.jsonl \
         --json out/tgp-report.json
 
-The default ports match the current Model 2 research baseline. Override them
-when Model 2B traces show different addresses.
+The defaults now come from STF's own linker map: geometry RAM
+`0x00800000..0x00803fff` and declared coprocessor/control bases at
+`0x008c0000`, `0x00980000`, `0x00980008`, and `0x00980014`.
+No VF2-only FIFO address is assumed; pass `--fifo` only after STF evidence
+establishes it.
 
 ## Evidence rules
 
@@ -72,10 +75,13 @@ It is derived from the independently validated `celsowm/vf2-decomp` CPU
 recovery code under its retained BSD-3-Clause license, but the executor no
 longer depends on `vf2_model2a`. Every memory access crosses `stf_i960_bus`.
 
-The first STF Model 2B adapter implements only:
+The STF Model 2B adapter currently implements:
 
 - program ROM at `0x00000000`;
 - the 1 MiB work-RAM window at `0x00500000`;
+- raw geometry RAM at `0x00800000..0x00803fff`;
+- the four declared buffer-RAM banks at `0x00900000..0x0091ffff`;
+- named linker-map hints for coprocessor, IRQ, timer, video and I/O faults;
 - explicit callbacks for device ranges;
 - fail-closed `STF_ERROR_UNSUPPORTED` for unmodeled hardware.
 
