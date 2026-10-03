@@ -1,6 +1,7 @@
 #ifndef STF_RECOVERY_MODEL2B_BUS_H
 #define STF_RECOVERY_MODEL2B_BUS_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -26,6 +27,14 @@ typedef stf_status (*stf_model2b_device_write_fn)(
     size_t size
 );
 
+typedef struct stf_model2b_fault {
+    bool valid;
+    bool write;
+    uint32_t address;
+    size_t size;
+    stf_status status;
+} stf_model2b_fault;
+
 typedef struct stf_model2b_bus {
     stf_i960_bus i960;
     uint8_t *work_ram;
@@ -35,6 +44,7 @@ typedef struct stf_model2b_bus {
     void *device_context;
     stf_model2b_device_read_fn device_read;
     stf_model2b_device_write_fn device_write;
+    stf_model2b_fault last_fault;
 } stf_model2b_bus;
 
 stf_status stf_model2b_bus_init(stf_model2b_bus *model2b);
@@ -51,6 +61,12 @@ void stf_model2b_bus_set_device_callbacks(
     void *context,
     stf_model2b_device_read_fn read_callback,
     stf_model2b_device_write_fn write_callback
+);
+
+void stf_model2b_bus_clear_fault(stf_model2b_bus *model2b);
+
+const stf_model2b_fault *stf_model2b_bus_last_fault(
+    const stf_model2b_bus *model2b
 );
 
 stf_i960_bus *stf_model2b_bus_i960(stf_model2b_bus *model2b);
