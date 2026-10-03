@@ -79,3 +79,40 @@ pretend to reproduce a live fight state.
 
 `camera_init` remains a template because it quickly depends on fighter state
 and the still-unmodeled coprocessor path.
+
+
+## Expectations
+
+A scenario may verify final CPU/probe state and bytes in the dumped work RAM.
+
+Example:
+
+    "expect": {
+      "cpu": {
+        "local_frame_depth": 0,
+        "procedure_calls": 1,
+        "procedure_returns": 1
+      },
+      "probe": {
+        "accepted_device_accesses": 0,
+        "exploratory": false
+      },
+      "work_ram": [
+        {
+          "base": "g13",
+          "offset": "0x0c",
+          "size": 4,
+          "value": "collision"
+        }
+      ]
+    }
+
+For work-RAM checks:
+
+- `base` may be a numeric address or a register name seeded in
+  `registers`;
+- `offset` is added to that base;
+- `size` is 1, 2, or 4 bytes;
+- `value` may be numeric or a symbol from the scenario symbol listing.
+
+A scenario with expectations returns non-zero when any assertion fails.
