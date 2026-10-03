@@ -46,11 +46,9 @@ typedef struct stf_model2b_bus {
     size_t work_ram_size;
 
     /*
-     * These are raw storage windows whose boundaries are declared by STF's
-     * linker map. No TGP/geometry behavior is implied by storing bytes here.
+     * Buffer RAM is a storage window named directly by STF's linker map.
+     * GEO_START is deliberately not stored here: it is a device window.
      */
-    uint8_t *geometry_ram;
-    size_t geometry_ram_size;
     uint8_t *buffer_ram;
     size_t buffer_ram_size;
 
@@ -72,18 +70,6 @@ stf_status stf_model2b_bus_attach_program(
     stf_model2b_bus *model2b,
     const uint8_t *rom,
     size_t rom_size
-);
-
-stf_status stf_model2b_bus_attach_main_data(
-    stf_model2b_bus *model2b,
-    const uint8_t *data,
-    size_t data_size
-);
-
-stf_status stf_model2b_bus_attach_main_data_ep(
-    stf_model2b_bus *model2b,
-    const uint8_t *data,
-    size_t data_size
 );
 
 
