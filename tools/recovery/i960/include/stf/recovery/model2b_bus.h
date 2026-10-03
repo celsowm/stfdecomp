@@ -42,6 +42,11 @@ typedef struct stf_model2b_bus {
     const uint8_t *rom;
     size_t rom_size;
 
+    const uint8_t *main_data;
+    size_t main_data_size;
+    const uint8_t *main_data_ep;
+    size_t main_data_ep_size;
+
     uint8_t *work_ram;
     size_t work_ram_size;
 
@@ -51,6 +56,14 @@ typedef struct stf_model2b_bus {
      */
     uint8_t *buffer_ram;
     size_t buffer_ram_size;
+
+    /* Raw RAM windows with unambiguous storage semantics. */
+    uint8_t *palette_ram;
+    uint8_t *color_xlat_ram;
+    uint8_t *backup_ram;
+    uint8_t *texture0_ram;
+    uint8_t *texture1_ram;
+    uint8_t *luma_ram;
 
     /*
      * Device behavior remains outside this structure until measured for STF.
