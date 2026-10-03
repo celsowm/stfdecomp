@@ -39,6 +39,29 @@ No assets for the game will be provided in this repository, however, you will be
 	- Run with `--cpres` to extract and process DSP coprocessor executables from `rom_code1.bin` into 80960 compliant `.S` preprocessor files. (This will become deprecated when the coprocessors become decompiled)
 		- More to come... (Models, textures, sounds, music samples, music arrangements)
 
+## Fork recovery research
+
+This fork adds an evidence-first recovery workflow inspired by the independently
+recovered Model 2A runtime in `celsowm/vf2-decomp`.
+
+Start with:
+
+- `docs/VF2_CROSS_TITLE_ANALYSIS.md` for shared VF2/STF runtime anchors and
+  the cross-title strategy.
+- `docs/RECOVERY_TRACE_CONTRACT.md` for the JSONL trace and differential
+  snapshot contract.
+- `tools/recovery/model2_crossmatch.py` to rank STF assembly candidates
+  against recovered VF2 regions without assuming matching function addresses.
+- `tools/recovery/trace_fields.py` to infer fighter/object fields from
+  base-relative memory accesses.
+- `tools/recovery/classify_tgp_trace.py` to classify TGP/geometry traffic.
+- `tools/recovery/compare_state.py` for fail-closed differential state
+  comparisons.
+
+These tools do not make semantic renames automatically. Cross-title matches are
+treated as hypotheses until STF-specific tracing or differential evidence proves
+them.
+
 ## What this project is:
 
 This is a work-in-progress project of disassembled code from Sonic the Fighters which will be converted, function by function, to human-readable C/C++ code. One of the project's main goals is create an analysis of a game and all its components. These components will be broken down to code and assets, the logic and building blocks of the game, in a way that can be rebuilt into its original executable form.
