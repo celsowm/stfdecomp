@@ -60,3 +60,29 @@ when Model 2B traces show different addresses.
 - Keep provisional structure fields neutrally named by offset.
 - Do not commit ROMs, reconstructed ROM regions or extracted proprietary
   assets.
+
+
+## Neutral i960 execution core
+
+The fork now includes a hardware-neutral host-side i960 decoder/executor in:
+
+    tools/recovery/i960/
+
+It is derived from the independently validated `celsowm/vf2-decomp` CPU
+recovery code under its retained BSD-3-Clause license, but the executor no
+longer depends on `vf2_model2a`. Every memory access crosses `stf_i960_bus`.
+
+The first STF Model 2B adapter implements only:
+
+- program ROM at `0x00000000`;
+- the 1 MiB work-RAM window at `0x00500000`;
+- explicit callbacks for device ranges;
+- fail-closed `STF_ERROR_UNSUPPORTED` for unmodeled hardware.
+
+See `i960/README.md` and `../../docs/MODEL2B_RECOVERY_RUNTIME.md`.
+
+Build the ROM-independent host tests with:
+
+    cmake -S tools/recovery/i960 -B build/recovery-i960 -DCMAKE_BUILD_TYPE=Release
+    cmake --build build/recovery-i960 --config Release
+    ctest --test-dir build/recovery-i960 -C Release --output-on-failure
