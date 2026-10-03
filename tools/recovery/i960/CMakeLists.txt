@@ -29,6 +29,12 @@ else()
     target_link_libraries(stf_recovery_i960 PUBLIC m)
 endif()
 
+add_executable(stf_i960_probe
+    tools/stf_i960_probe.c
+)
+
+target_link_libraries(stf_i960_probe PRIVATE stf_recovery_i960)
+
 add_executable(stf_recovery_i960_tests
     tests/test_i960_core.c
 )
