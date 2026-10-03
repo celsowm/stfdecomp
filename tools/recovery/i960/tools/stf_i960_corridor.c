@@ -512,8 +512,7 @@ static void step_trace_callback(
 static int write_state(
     const char *path,
     const stf_i960_cpu *cpu,
-    const probe_device *probe,
-    const stf_model2b_bus *model2b
+    const probe_device *probe
 )
 {
     FILE *file = NULL;
@@ -810,7 +809,7 @@ int main(int argc, char **argv)
         );
     }
 
-    if (!write_state(options.state_path, &cpu, &options.probe, &model2b)) {
+    if (!write_state(options.state_path, &cpu, &options.probe)) {
         fprintf(stderr, "failed to write state JSON\n");
         exit_code = 74;
     }
