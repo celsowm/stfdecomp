@@ -744,21 +744,6 @@ int main(int argc, char **argv)
         }
     }
 
-    printf(
-        "model2b geo_words=%" PRIu64
-        " geo_upload=%" PRIu64
-        " copro_upload=%" PRIu64
-        " copro_fifo_in=%" PRIu64
-        " copro_function=%" PRIu64
-        " copro_iop=%" PRIu64 "\n",
-        model2b.geo_fifo_words,
-        model2b.geo_upload_words,
-        model2b.copro_upload_words,
-        model2b.copro_fifo_input_words,
-        model2b.copro_function_words,
-        model2b.copro_iop_writes
-    );
-
     if (options.probe.accepted_accesses != 0u) {
         printf(
             "probe-device-accesses=%" PRIu64
