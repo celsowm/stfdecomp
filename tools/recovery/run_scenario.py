@@ -90,6 +90,22 @@ def find_runner(repo_root: Path, explicit: str | None) -> Path:
     )
 
 
+def optional_repo_file(
+    repo_root: Path,
+    explicit_value,
+    default_relative: str,
+    field: str,
+) -> Path | None:
+    value = explicit_value if explicit_value is not None else default_relative
+    path = Path(value)
+    if not path.is_absolute():
+        path = repo_root / path
+
+    if explicit_value is not None and not path.exists():
+        raise SystemExit(f"{field} file not found: {path}")
+    return path if path.exists() else None
+
+
 def output_path(
     repo_root: Path,
     scenario_path: Path,
@@ -185,6 +201,24 @@ def main() -> int:
     rom = Path(scenario.get("rom", "rom/rom_code1.bin"))
     if not rom.is_absolute():
         rom = repo_root / rom
+    if not rom.exists():
+        raise SystemExit(
+            f"program ROM not found: {rom}; "
+            "extract local ROM data with: python tools/data_extract.py --rom"
+        )
+
+    data_rom = optional_repo_file(
+        repo_root,
+        scenario.get("data_rom"),
+        "rom/rom_data.bin",
+        "data_rom",
+    )
+    ep_rom = optional_repo_file(
+        repo_root,
+        scenario.get("ep_rom"),
+        "rom/rom_ep.bin",
+        "ep_rom",
+    )
 
     trace = output_path(repo_root, scenario_path, scenario, "trace", ".jsonl")
     state = output_path(repo_root, scenario_path, scenario, "state", "-state.json")
@@ -204,6 +238,11 @@ def main() -> int:
         "--state",
         str(state),
     ]
+
+    if data_rom is not None:
+        command.extend(["--data-rom", str(data_rom)])
+    if ep_rom is not None:
+        command.extend(["--ep-rom", str(ep_rom)])
 
     if "stop" in scenario and scenario["stop"] is not None:
         stop = resolve_location(scenario["stop"], symbols, "stop")
@@ -250,6 +289,9 @@ def main() -> int:
             "task-context: descriptor validated; runtime task-instance state is not synthesized"
         )
     print("entry:", f"0x{entry:08X}", entry_value)
+    print("program-rom:", rom)
+    print("data-rom:", data_rom if data_rom is not None else "not attached")
+    print("ep-rom:", ep_rom if ep_rom is not None else "not attached")
     print("trace:", trace)
     print("state:", state)
     if probe:
