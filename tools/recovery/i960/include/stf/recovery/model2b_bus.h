@@ -74,6 +74,19 @@ stf_status stf_model2b_bus_attach_program(
     size_t rom_size
 );
 
+stf_status stf_model2b_bus_attach_main_data(
+    stf_model2b_bus *model2b,
+    const uint8_t *data,
+    size_t data_size
+);
+
+stf_status stf_model2b_bus_attach_main_data_ep(
+    stf_model2b_bus *model2b,
+    const uint8_t *data,
+    size_t data_size
+);
+
+
 void stf_model2b_bus_set_device_callbacks(
     stf_model2b_bus *model2b,
     void *context,
