@@ -18,29 +18,11 @@ int main(void)
 
     if (stf_i960_bus_write_u32(
             bus,
-            STF_MODEL2B_GEO_START + 0x20u,
-            UINT32_C(0x11223344)
-        ) != STF_OK) {
-        stf_model2b_bus_destroy(&model2b);
-        return 2;
-    }
-    if (stf_i960_bus_read_u32(
-            bus,
-            STF_MODEL2B_GEO_START + 0x20u,
-            &value
-        ) != STF_OK ||
-        value != UINT32_C(0x11223344)) {
-        stf_model2b_bus_destroy(&model2b);
-        return 3;
-    }
-
-    if (stf_i960_bus_write_u32(
-            bus,
             STF_MODEL2B_BUFF_RAM_02 + 0x10u,
             UINT32_C(0xAABBCCDD)
         ) != STF_OK) {
         stf_model2b_bus_destroy(&model2b);
-        return 4;
+        return 2;
     }
     if (stf_i960_bus_read_u32(
             bus,
@@ -48,6 +30,24 @@ int main(void)
             &value
         ) != STF_OK ||
         value != UINT32_C(0xAABBCCDD)) {
+        stf_model2b_bus_destroy(&model2b);
+        return 3;
+    }
+
+    stf_model2b_bus_clear_fault(&model2b);
+    if (stf_i960_bus_write_u32(
+            bus,
+            STF_MODEL2B_GEO_START + 0x20u,
+            UINT32_C(0x11223344)
+        ) != STF_ERROR_UNSUPPORTED) {
+        stf_model2b_bus_destroy(&model2b);
+        return 4;
+    }
+
+    fault = stf_model2b_bus_last_fault(&model2b);
+    if (fault == NULL || !fault->valid || !fault->write ||
+        fault->address != STF_MODEL2B_GEO_START + 0x20u ||
+        fault->size != 4u) {
         stf_model2b_bus_destroy(&model2b);
         return 5;
     }
