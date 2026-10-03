@@ -108,7 +108,7 @@ const char *stf_model2b_region_hint(uint32_t address)
 {
     if (address >= STF_MODEL2B_GEO_START &&
         address < STF_MODEL2B_GEO_PROGRAM_START) {
-        return "geometry-ram";
+        return "geometry-window";
     }
     if (address >= STF_MODEL2B_GEO_PROGRAM_START &&
         address < STF_MODEL2B_GEO_PROGRAM_START + STF_MODEL2B_GEO_RAM_SIZE) {
