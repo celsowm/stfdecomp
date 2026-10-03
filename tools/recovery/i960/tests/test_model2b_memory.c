@@ -77,6 +77,21 @@ int main(void)
         return 5;
     }
 
+    if (stf_i960_bus_write_u32(
+            bus,
+            STF_MODEL2B_CPU_CONTROL_START + 0x10u,
+            UINT32_C(0x0BADF00D)
+        ) != STF_OK ||
+        stf_i960_bus_read_u32(
+            bus,
+            STF_MODEL2B_CPU_CONTROL_START + 0x10u,
+            &value
+        ) != STF_OK ||
+        value != UINT32_C(0x0BADF00D)) {
+        stf_model2b_bus_destroy(&model2b);
+        return 6;
+    }
+
     if (stf_i960_bus_read_u32(
             bus,
             STF_MODEL2B_MAIN_DATA_START + 4u,
@@ -84,7 +99,7 @@ int main(void)
         ) != STF_OK ||
         value != UINT32_C(0x12345678)) {
         stf_model2b_bus_destroy(&model2b);
-        return 6;
+        return 7;
     }
 
     if (stf_i960_bus_read_u32(
@@ -94,7 +109,7 @@ int main(void)
         ) != STF_OK ||
         value != UINT32_C(0xDEADBEEF)) {
         stf_model2b_bus_destroy(&model2b);
-        return 7;
+        return 9;
     }
 
     if (stf_i960_bus_read_u32(
@@ -119,7 +134,7 @@ int main(void)
         ) != STF_OK ||
         value != UINT32_C(0xCAFEBABE)) {
         stf_model2b_bus_destroy(&model2b);
-        return 9;
+        return 10;
     }
 
     if (stf_i960_bus_read_u32(
@@ -129,7 +144,7 @@ int main(void)
         ) != STF_OK ||
         value != UINT32_C(0xFFFFFFFF)) {
         stf_model2b_bus_destroy(&model2b);
-        return 10;
+        return 11;
     }
 
     if (stf_i960_bus_write_u32(
@@ -144,7 +159,7 @@ int main(void)
         ) != STF_OK ||
         value != UINT32_C(0xA1B2C3D4)) {
         stf_model2b_bus_destroy(&model2b);
-        return 11;
+        return 12;
     }
 
     stf_model2b_bus_clear_fault(&model2b);
@@ -154,7 +169,7 @@ int main(void)
             &value
         ) != STF_ERROR_UNSUPPORTED) {
         stf_model2b_bus_destroy(&model2b);
-        return 12;
+        return 13;
     }
 
     fault = stf_model2b_bus_last_fault(&model2b);
@@ -162,7 +177,7 @@ int main(void)
         fault->address != STF_MODEL2B_COPRO_CONTROL1_START ||
         fault->size != 4u) {
         stf_model2b_bus_destroy(&model2b);
-        return 13;
+        return 14;
     }
 
     stf_model2b_bus_destroy(&model2b);
