@@ -1,0 +1,14 @@
+{
+  "name": "coli-init-isolated",
+  "rom": "rom/rom_code1.bin",
+  "symbols": "build/rom_code1.nm",
+  "task": "fa_coli",
+  "steps": 128,
+  "stack": "0x005ff800",
+  "call_entry": true,
+  "registers": {
+    "g13": "0x005ff000"
+  },
+  "work_ram_out": "out/recovery/coli-init-workram.bin",
+  "probe": {}
+}
