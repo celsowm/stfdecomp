@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "tools/recovery/**"
+      - "src/recovered/**"
       - ".github/workflows/recovery-i960.yml"
   pull_request:
     paths:
