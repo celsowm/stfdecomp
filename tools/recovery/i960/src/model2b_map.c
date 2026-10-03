@@ -9,6 +9,10 @@ const char *stf_model2b_symbol_hint(uint32_t address)
         return "GEO_START";
     case STF_MODEL2B_GEO_PROGRAM_START:
         return "GEO_PROGRAM_START";
+    case STF_MODEL2B_COPRO_FUNCTION_START:
+        return "COPRO_FUNCTION_START";
+    case STF_MODEL2B_COPRO_FIFO_START:
+        return "COPRO_FIFO_START";
     case STF_MODEL2B_COPRO_SHARC_IOP_START:
         return "COPRO_SHARC_IOP_START";
     case STF_MODEL2B_BUFF_RAM_START:
@@ -21,10 +25,18 @@ const char *stf_model2b_symbol_hint(uint32_t address)
         return "BUFF_RAM_03";
     case STF_MODEL2B_COPRO_CONTROL1_START:
         return "COPRO_CONTROL1_START";
+    case STF_MODEL2B_COPRO_FIFO_CONTROL_START:
+        return "COPRO_FIFO_CONTROL_START";
     case STF_MODEL2B_GEO_CTL1_START:
         return "GEO_CTL1_START";
+    case STF_MODEL2B_VIDEO_CONTROL_START:
+        return "VIDEO_CONTROL_START";
     case STF_MODEL2B_COPRO_STATUS_START:
         return "COPRO_STATUS_START";
+    case STF_MODEL2B_COPRO_BANK_CONTROL_START:
+        return "COPRO_BANK_CONTROL_START";
+    case STF_MODEL2B_TGP_ID_START:
+        return "TGP_ID_START";
     case STF_MODEL2B_MIDI_START:
         return "MIDI_START";
     case STF_MODEL2B_CPU_CONTROL_START:
@@ -73,6 +85,20 @@ const char *stf_model2b_symbol_hint(uint32_t address)
         return "SERIAL_START";
     case STF_MODEL2B_BACKUP_RAM_START:
         return "BACKUP_RAM_START";
+    case STF_MODEL2B_MAIN_DATA_START:
+        return "MAIN_DATA_START";
+    case STF_MODEL2B_MAIN_DATA_EP_START:
+        return "MAIN_DATA_EP_START";
+    case STF_MODEL2B_MAIN_DATA_EP_MIRROR_START:
+        return "MAIN_DATA_EP_MIRROR_START";
+    case STF_MODEL2B_RENDER_MODE_START:
+        return "RENDER_MODE_START";
+    case STF_MODEL2B_TEXTURE0_START:
+        return "TEXTURE0_START";
+    case STF_MODEL2B_TEXTURE1_START:
+        return "TEXTURE1_START";
+    case STF_MODEL2B_LUMA_START:
+        return "LUMA_START";
     default:
         return NULL;
     }
@@ -83,6 +109,18 @@ const char *stf_model2b_region_hint(uint32_t address)
     if (address >= STF_MODEL2B_GEO_START &&
         address < STF_MODEL2B_GEO_PROGRAM_START) {
         return "geometry-ram";
+    }
+    if (address >= STF_MODEL2B_GEO_PROGRAM_START &&
+        address < STF_MODEL2B_GEO_PROGRAM_START + STF_MODEL2B_GEO_RAM_SIZE) {
+        return "geometry-program";
+    }
+    if (address >= STF_MODEL2B_COPRO_FUNCTION_START &&
+        address < STF_MODEL2B_COPRO_FUNCTION_START + STF_MODEL2B_COPRO_FUNCTION_SIZE) {
+        return "coprocessor-function-port";
+    }
+    if (address >= STF_MODEL2B_COPRO_FIFO_START &&
+        address < STF_MODEL2B_COPRO_FIFO_START + STF_MODEL2B_COPRO_FIFO_SIZE) {
+        return "coprocessor-fifo";
     }
     if (address >= STF_MODEL2B_BUFF_RAM_START &&
         address < UINT32_C(0x00920000)) {
@@ -121,8 +159,32 @@ const char *stf_model2b_region_hint(uint32_t address)
         return "io-ports";
     }
     if (address >= STF_MODEL2B_BACKUP_RAM_START &&
-        address < UINT32_C(0x01D10000)) {
+        address < STF_MODEL2B_BACKUP_RAM_START + STF_MODEL2B_BACKUP_RAM_SIZE) {
         return "backup-ram";
+    }
+    if (address >= STF_MODEL2B_MAIN_DATA_START &&
+        address < STF_MODEL2B_MAIN_DATA_START + STF_MODEL2B_MAIN_DATA_SIZE) {
+        return "main-data-rom";
+    }
+    if (address >= STF_MODEL2B_MAIN_DATA_EP_START &&
+        address < STF_MODEL2B_MAIN_DATA_EP_START + STF_MODEL2B_MAIN_DATA_EP_SIZE) {
+        return "main-data-ep-rom";
+    }
+    if (address >= STF_MODEL2B_MAIN_DATA_EP_MIRROR_START &&
+        address < STF_MODEL2B_MAIN_DATA_EP_MIRROR_START + STF_MODEL2B_MAIN_DATA_EP_SIZE) {
+        return "main-data-ep-mirror";
+    }
+    if (address >= STF_MODEL2B_TEXTURE0_START &&
+        address < STF_MODEL2B_TEXTURE0_START + STF_MODEL2B_TEXTURE0_SIZE) {
+        return "texture-ram0";
+    }
+    if (address >= STF_MODEL2B_TEXTURE1_START &&
+        address < STF_MODEL2B_TEXTURE1_START + STF_MODEL2B_TEXTURE1_SIZE) {
+        return "texture-ram1";
+    }
+    if (address >= STF_MODEL2B_LUMA_START &&
+        address < STF_MODEL2B_LUMA_START + STF_MODEL2B_LUMA_SIZE) {
+        return "luma-ram";
     }
 
     switch (address) {
