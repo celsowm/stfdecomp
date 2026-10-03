@@ -27,6 +27,7 @@ LD_ASSIGN_RE = re.compile(
     r"^\s*([A-Za-z_.$][A-Za-z0-9_.$]*)\s*=\s*(0x[0-9A-Fa-f]+)\s*;",
     re.MULTILINE,
 )
+GLOBAL_RE = re.compile(r"^\s*\.global\s+([A-Za-z_.$][A-Za-z0-9_.$]*)\s*$", re.MULTILINE)
 DEFINE_RE = re.compile(
     r"^\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)\s+"
     r"(?:UINT32_C\()?\s*(0x[0-9A-Fa-f]+)",
@@ -94,11 +95,34 @@ def parse_linker_symbols(root: Path) -> dict[str, int]:
     return symbols
 
 
+def parse_global_names(root: Path) -> set[str]:
+    names: set[str] = set()
+    include_root = root / "src" / "include"
+    if not include_root.exists():
+        return names
+    for path in include_root.rglob("*"):
+        if path.is_file() and path.suffix in {".s", ".S"}:
+            names.update(GLOBAL_RE.findall(read_text(path)))
+    return names
+
+
 def parse_c_constants(text: str) -> dict[str, int]:
     constants: dict[str, int] = {}
     for pattern in (DEFINE_RE, ENUM_ASSIGN_RE):
         for name, raw in pattern.findall(text):
             constants[name] = int(raw, 16)
+    return constants
+
+
+def collect_c_constants(root: Path) -> dict[str, int]:
+    constants: dict[str, int] = {}
+    roots = [root / "include", root / "src" / "recovered", root / "src" / "hardware"]
+    for base in roots:
+        if not base.exists():
+            continue
+        for path in base.rglob("*"):
+            if path.is_file() and path.suffix in {".h", ".c", ".inc"}:
+                constants.update(parse_c_constants(read_text(path)))
     return constants
 
 
@@ -111,15 +135,35 @@ def addresses_in(text: str, symbols: dict[str, int]) -> frozenset[int]:
     return frozenset(value for value in addresses if is_model2_anchor(value))
 
 
-def split_asm_regions(path: Path, root: Path, linker_symbols: dict[str, int]) -> list[Region]:
+def split_asm_regions(
+    path: Path,
+    root: Path,
+    linker_symbols: dict[str, int],
+    exported_names: set[str],
+) -> list[Region]:
     text = read_text(path)
     labels = list(ASM_LABEL_RE.finditer(text))
+    if not labels:
+        return []
+
+    selected = [
+        label for label in labels
+        if (
+            label.group(1) in exported_names
+            if exported_names
+            else not label.group(1).startswith((".L", "$"))
+        )
+    ]
+    if not selected:
+        selected = [
+            label for label in labels
+            if not label.group(1).startswith((".L", "$"))
+        ]
+
     regions: list[Region] = []
-    for index, label in enumerate(labels):
+    for index, label in enumerate(selected):
         name = label.group(1)
-        if name.startswith(".L") or name.startswith("$"):
-            continue
-        end = labels[index + 1].start() if index + 1 < len(labels) else len(text)
+        end = selected[index + 1].start() if index + 1 < len(selected) else len(text)
         body = text[label.start():end]
         addresses = addresses_in(body, linker_symbols)
         if addresses:
@@ -154,14 +198,19 @@ def matching_brace_end(text: str, brace_start: int) -> int:
     return len(text)
 
 
-def split_c_regions(path: Path, root: Path) -> list[Region]:
+def split_c_regions(
+    path: Path,
+    root: Path,
+    global_symbols: dict[str, int],
+) -> list[Region]:
     text = read_text(path)
-    file_symbols = parse_c_constants(text)
+    symbols = dict(global_symbols)
+    symbols.update(parse_c_constants(text))
     regions: list[Region] = []
     for match in C_FUNCTION_RE.finditer(text):
         brace = text.find("{", match.start())
         body = text[match.start():matching_brace_end(text, brace)]
-        addresses = addresses_in(body, file_symbols)
+        addresses = addresses_in(body, symbols)
         if addresses:
             regions.append(
                 Region("vf2", str(path.relative_to(root)), match.group(1), addresses)
@@ -171,23 +220,25 @@ def split_c_regions(path: Path, root: Path) -> list[Region]:
 
 def collect_vf2_regions(root: Path) -> list[Region]:
     regions: list[Region] = []
+    symbols = collect_c_constants(root)
     for base in (root / "src" / "recovered", root / "src" / "hardware"):
         if not base.exists():
             continue
         for path in base.rglob("*.c"):
-            regions.extend(split_c_regions(path, root))
+            regions.extend(split_c_regions(path, root, symbols))
     return regions
 
 
 def collect_stf_regions(root: Path) -> list[Region]:
     symbols = parse_linker_symbols(root)
+    exported_names = parse_global_names(root)
     regions: list[Region] = []
     base = root / "src" / "asm"
     if not base.exists():
         return regions
     for path in sorted(base.rglob("*")):
         if path.is_file() and path.suffix in {".s", ".S"}:
-            regions.extend(split_asm_regions(path, root, symbols))
+            regions.extend(split_asm_regions(path, root, symbols, exported_names))
     return regions
 
 
@@ -244,17 +295,15 @@ def reverse_linker_map(root: Path) -> dict[int, list[str]]:
 
 def anchor_report(stf_root: Path) -> list[dict[str, object]]:
     reverse = reverse_linker_map(stf_root)
-    rows = []
-    for address, meaning in sorted(KNOWN_ANCHORS.items()):
-        rows.append(
-            {
-                "address": address,
-                "hex": f"0x{address:08X}",
-                "meaning": meaning,
-                "stf_symbols": reverse.get(address, []),
-            }
-        )
-    return rows
+    return [
+        {
+            "address": address,
+            "hex": f"0x{address:08X}",
+            "meaning": meaning,
+            "stf_symbols": reverse.get(address, []),
+        }
+        for address, meaning in sorted(KNOWN_ANCHORS.items())
+    ]
 
 
 def render_markdown(matches: list[Match], anchors: list[dict[str, object]]) -> str:
@@ -297,20 +346,22 @@ def render_markdown(matches: list[Match], anchors: list[dict[str, object]]) -> s
 
 
 def render_json(matches: list[Match], anchors: list[dict[str, object]]) -> str:
-    payload = {
-        "anchors": anchors,
-        "matches": [
-            {
-                "score": round(match.score, 4),
-                "shared_count": len(match.shared),
-                "shared_addresses": [f"0x{value:08X}" for value in match.shared],
-                "vf2": {"path": match.vf2.path, "name": match.vf2.name},
-                "stf": {"path": match.stf.path, "name": match.stf.name},
-            }
-            for match in matches
-        ],
-    }
-    return json.dumps(payload, indent=2) + "\n"
+    return json.dumps(
+        {
+            "anchors": anchors,
+            "matches": [
+                {
+                    "score": round(match.score, 4),
+                    "shared_count": len(match.shared),
+                    "shared_addresses": [f"0x{value:08X}" for value in match.shared],
+                    "vf2": {"path": match.vf2.path, "name": match.vf2.name},
+                    "stf": {"path": match.stf.path, "name": match.stf.name},
+                }
+                for match in matches
+            ],
+        },
+        indent=2,
+    ) + "\n"
 
 
 def build_parser() -> argparse.ArgumentParser:
