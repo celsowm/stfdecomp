@@ -1,54 +1,67 @@
-# Model 2B hardware evidence and bounded recovery model
+# Model 2B hardware evidence and recovery boundary
 
-This document records which Model 2B addresses are supported by direct Sonic
-the Fighters evidence, which are corroborated by MAME, and which behaviors are
-still intentionally unsupported in the host recovery runtime.
+This document records what the STF host recovery runtime may model by default
+and what must remain fail-closed until Sonic the Fighters-specific evidence
+establishes behavior.
 
 The implementation lives in:
 
     tools/recovery/i960/src/model2b_bus.c
+    tools/recovery/i960/src/model2b_map.c
 
-The goal is not to emulate the full arcade board. The goal is to execute STF
-i960 corridors until they reach behavior that still needs measurement.
+This is not intended to become a full Model 2 emulator. Its purpose is to run
+controlled i960 corridors and stop exactly where unknown Model 2B behavior
+begins.
 
 ## Evidence levels
 
-- **STF-direct**: address or use is present in this repository's linker map or
-  assembly.
-- **MAME-corroborated**: current MAME Model 2B mapping/behavior agrees with the
-  STF address/use.
-- **Bounded model**: implemented only to the extent listed below.
-- **Unsupported**: execution stops unless a probe stub explicitly supplies a
-  measured value.
+- **STF-direct**: address/use is present in this repository's linker map,
+  assembly, task tables, or extracted-ROM manifest.
+- **MAME-corroborated**: current MAME Model 2B mapping independently agrees
+  with the address or storage role.
+- **Raw storage**: byte-addressable RAM behavior is sufficiently established
+  to model without assigning higher-level device semantics.
+- **Read-only data**: user-supplied local extracted ROM is attached at an
+  evidence-backed address.
+- **Device / fail-closed**: address is known, behavior is not; access returns
+  STF_ERROR_UNSUPPORTED unless an explicit exploratory probe policy handles it.
 
-## Core map
+## Default map
 
-| Address/range | STF evidence | MAME Model 2B meaning | Recovery status |
-| --- | --- | --- | --- |
-| 0x00000000... | linker ROM origin | main program ROM | implemented |
-| 0x00200000-0x0023ffff | not named in STF linker | Model 2B extra RAM | implemented as RAM |
-| 0x00500000-0x005fffff | linker work RAM | work RAM | implemented as RAM |
-| 0x00800000-0x00803fff | GEO_START | geometry command/register window | bounded model |
-| 0x00804000-0x00807fff | GEO_PROGRAM_START | geometry program/FIFO window | bounded model |
-| 0x00880000-0x00883fff | g11 base is 0x880000 | coprocessor function port | bounded writes |
-| 0x00884000-0x00887fff | g11 + g12, explicitly used as 0x884000 | coprocessor FIFO | writes implemented; reads unsupported |
-| 0x008c0000-0x008c0fff | COPRO_SHARC_IOP_START | SHARC external IOP | bounded writes |
-| 0x00900000-0x0091ffff, mirrored | BUFF_RAM_START + four STF bank labels | shared geometry/coproc buffer RAM | implemented |
-| 0x00980000 | COPRO_CONTROL1_START | coprocessor control | bounded model |
-| 0x00980008 | GEO_CTL1_START | geometry control | bounded model |
-| 0x00980014 | COPRO_STATUS_START | coprocessor status | bounded MAME behavior |
-| 0x00980020 | STF code reads/writes this during copro upload | bank control/no-op in MAME | bounded zero/no-op |
-| 0x00e00000-0x00e00037 | CPU_CONTROL_START | CPU wait-state/control RAM | implemented as RAM |
+| Address/range | Evidence | Default recovery behavior |
+| --- | --- | --- |
+| 0x00000000... | STF linker program-ROM origin | attached program ROM, read-only |
+| 0x00500000-0x005fffff | STF linker work RAM | raw RAM |
+| 0x00800000-0x00803fff | GEO_START | **device / fail-closed** |
+| 0x00804000-0x00807fff | GEO_PROGRAM_START | **device / fail-closed** |
+| 0x00880000-0x00883fff | STF startup reconstructs g11=0x00880000 | **device / fail-closed** |
+| 0x00884000-0x00887fff | STF startup uses g11 + 0x4000 | **device / fail-closed** |
+| 0x008c0000... | COPRO_SHARC_IOP_START | **device / fail-closed** |
+| 0x00900000-0x0091ffff | BUFF_RAM_START and four STF bank labels | raw buffer RAM |
+| 0x00980000... | copro/geometry/video control labels | **device / fail-closed** |
+| 0x00e00000-0x00e00037 | CPU_CONTROL_START; startup copies wait data here | raw storage |
+| 0x00e80000... | IRQ request/enable | **device / fail-closed** |
+| 0x00f00000... | timers | **device / fail-closed** |
+| 0x01000000... | tile/video windows | **device / fail-closed** |
+| 0x01800000-0x01803fff | stage/polygon palette window | raw storage only |
+| 0x01810000-0x0181bfff | COLORXLAT_START | raw storage only |
+| 0x01c00000... | STF I/O ports | **device / fail-closed** |
+| 0x01c80000... | SERIAL_START | **device / fail-closed** |
+| 0x01d00000-0x01d03fff | BACKUP_RAM_START | raw RAM, initialized to 0xff |
+| 0x02000000... | rom_data.bin / main-data bus | attached read-only data ROM |
+| 0x03000000... | rom_ep.bin | attached read-only EP ROM |
+| 0x06000000... | MAME-corroborated EP mirror | same attached EP ROM, read-only |
+| 0x10000000... | render-mode/display window | **device / fail-closed** |
+| 0x11000000-0x111fffff | texture RAM 0 | raw storage only |
+| 0x11200000-0x113fffff | texture RAM 1 | raw storage only |
+| 0x11400000-0x1140ffff | luma RAM | raw storage only |
 
-MAME reference used for the bounded behavior:
-
-    mamedev/mame
-    src/mame/sega/model2.cpp
-    master observed at a2b6ba2d4be70dabf7ff7a642749dda0c6e70498
+Raw palette/texture/luma storage does **not** imply that rendering semantics are
+recovered. It only allows corridors that copy or inspect bytes to continue.
 
 ## Direct STF observations
 
-### Global geometry/copro bases
+### Geometry and coprocessor addresses
 
 The STF startup constructs:
 
@@ -56,145 +69,139 @@ The STF startup constructs:
     g11 = 0x00880000
     g12 = 0x00004000
 
-Therefore accesses through:
+Therefore an access through g11 + g12 reaches 0x00884000. The code uses this
+path while loading the coprocessor program and in later object/collision paths.
 
-    (g11)[g12*1]
+The assembly also contains the command word:
 
-land at:
+    0x1A003434
 
-    0x00884000
+inside set_obj_tpd, matching a command observed independently during VF2
+recovery. That is strong cross-title evidence, but it is still not sufficient
+to emulate the command or synthesize its response.
 
-The disassembly itself annotates this as coprogram/coprocessor address space.
-
-### Coprocessor upload
-
-b_crx_copro_down:
-
-- enables the coprocessor upload/control path;
-- selects 0x00884000;
-- streams the extracted coprocessor program there;
-- later releases the coprocessor.
-
-The bounded model therefore accepts FIFO writes while the high control bit is
-set and counts them as upload words. It does not execute the SHARC program.
-
-### Geometry state
-
-geo_initialize and object submission access the same geometry model exposed by
-MAME:
-
-- write-start register at GEO_START + 0x1008;
-- write-start readback at GEO_START + 0x2008;
-- read-start register at GEO_START + 0x3008;
-- function-command writes below GEO_START + 0x1000;
-- program/data writes through GEO_PROGRAM_START.
-
-Pushed geometry words are written into the shared 0x20000-byte buffer RAM and
-advance the write-start address by four bytes.
+For that reason all GEO, TGP/SHARC FIFO/function ports, and their control
+registers remain devices by default.
 
 ### Buffer RAM
 
-The STF linker defines:
+STF declares:
 
     BUFF_RAM_START = 0x00900000
     BUFF_RAM_01    = 0x00908000
     BUFF_RAM_02    = 0x00910000
     BUFF_RAM_03    = 0x00918000
 
-MAME maps a 0x20000-byte buffer at 0x00900000-0x0091ffff and mirrors it through
-the larger 0x00900000-0x0097ffff window. The bounded model follows that
-behavior.
+The recovery runtime exposes only the declared 0x20000-byte window as byte
+storage. It does not currently add undocumented mirrors or geometry side
+effects.
 
-On reset MAME initializes every dword to 0x07800f0f; the recovery model does
-the same. STF also explicitly initializes its buffer during startup.
+### CPU-control storage
 
-## Coprocessor boundary
+start_ip copies the wait-state/control table into CPU_CONTROL_START at
+0x00e00000. MAME also maps the small CPU-control region as RAM-like storage.
+The recovery runtime therefore exposes the observed 0x38-byte window as raw
+storage, without interpreting the fields.
 
-The host runtime does **not** execute the Model 2B SHARC.
+### Main-data ROMs
 
-Safe behavior currently modeled:
+tools/sfight_data.json constructs:
 
-- program-upload writes;
-- function-port command packing;
-- FIFO input writes;
-- SHARC IOP writes;
-- control register state;
-- the MAME-observed status convention;
-- counters and the last submitted words.
+- rom_data.bin from the main data ROM set;
+- rom_ep.bin from the EP pair.
 
-Not modeled:
+The runner can attach these locally extracted user-supplied files as read-only
+data. run_corridor.py and run_scenario.py automatically attach the conventional
+rom/rom_data.bin and rom/rom_ep.bin paths when they exist.
 
-- SHARC instruction execution;
-- FIFO output production;
-- collision/pose/geometry responses generated by SHARC code.
+### I/O and serial
 
-Therefore a read from 0x00884000-0x00887fff fails with
-STF_ERROR_UNSUPPORTED unless the corridor runner receives an explicit measured
-stub:
+STF writes to 0x01c000xx and 0x01c80000 during startup. The current MAME
+Model 2B driver does not provide enough corroborated STF-specific behavior to
+treat those writes as understood, and sfight remains marked MACHINE_NOT_WORKING
+there.
 
-    --stub-read 0x00884000=0x12345678
+Those ranges therefore stay fail-closed. A controlled experiment may allow
+specific observed writes explicitly, but the resulting state is exploratory.
 
-This keeps the recovery process fail-closed.
+## MAME use in this project
 
-## Evidence-driven corridor probing
+The external reference inspected for address-map corroboration was:
 
-Build:
+    mamedev/mame
+    src/mame/sega/model2.cpp
+    master observed at a2b6ba2d4be70dabf7ff7a642749dda0c6e70498
 
-    cmake -S tools/recovery/i960 -B build/recovery-i960 -DCMAKE_BUILD_TYPE=Release
-    cmake --build build/recovery-i960 --config Release
+MAME is used as independent evidence, not as permission to copy a full Model 2B
+device model into this recovery runtime. When STF evidence and MAME differ or
+MAME is incomplete for sfight, STF execution remains fail-closed.
 
-Extract the user's local original ROM data:
+## Exploratory probing
+
+Build the host recovery tools:
+
+    make recovery-test
+
+Extract local ROM data:
 
     python tools/data_extract.py --rom
 
-Run from a known address:
+Run a strict corridor:
 
     build/recovery-i960/stf_i960_corridor \
         --rom rom/rom_code1.bin \
+        --data-rom rom/rom_data.bin \
+        --ep-rom rom/rom_ep.bin \
         --entry 0x00000000 \
         --steps 100000 \
         --trace out/boot.jsonl \
         --state out/boot-state.json
 
-When execution reaches an unknown device read, the runner prints the address,
-size and direction of the first unsupported access.
+Unknown hardware stops execution and reports the first address, access size,
+direction, region hint, and exact linker-derived symbol when available.
 
-Explicit write allowances can be used for a measured but not-yet-modeled range:
+A measured write can be temporarily allowed:
 
-    --allow-write 0x00840000:0x00841000
+    --allow-write 0x01c80000:0x01c80004
 
-Explicit observed reads can be replayed:
+A measured read can be replayed:
 
     --stub-read 0x00884000=0x12345678
 
-Any corridor that uses a probe allowance is marked exploratory in its final
-state. It must not be promoted to recovered semantics until the supplied values
-are justified by a reference trace.
+Neither option asserts hardware semantics. Any run that consumes such a policy
+is marked exploratory and must not be treated as a reference recovery result.
 
-## Existing analysis pipeline
+## Evidence loop
 
-The JSONL emitted by stf_i960_corridor can be sent directly to:
+Use:
 
-    python tools/recovery/classify_tgp_trace.py out/boot.jsonl
+    run -> first unsupported access -> classify -> gather STF/reference evidence
+        -> model only proven behavior -> rerun -> differential comparison
 
-and, once fighter/object bases are known:
+Aggregate first faults with:
 
-    python tools/recovery/trace_fields.py out/fight.jsonl \
-        --base fighter0=0x... \
-        --base fighter1=0x...
+    python tools/recovery/summarize_faults.py out/recovery/*.jsonl
 
-Final CPU/model state can be compared against a separately captured reference:
+Analyze traces with:
+
+    python tools/recovery/classify_tgp_trace.py TRACE.jsonl
+    python tools/recovery/trace_fields.py TRACE.jsonl --base NAME=ADDRESS
+
+Compare controlled snapshots with:
 
     python tools/recovery/compare_state.py reference.json recovered.json
 
-## Next bounded devices
+## Next device priorities
 
-Do not add all of Model 2 at once. The next additions should be driven by the
-first real STF corridor fault:
+The next default device behavior should be selected by actual first-fault
+frequency across reproducible STF scenarios, not by completeness ambitions.
 
-1. IRQ request/enable if startup stops there.
-2. Timers if frame scheduling requires them.
-3. tile/video registers only if the selected gameplay corridor reaches them.
-4. input ports for reproducible fighter scenarios.
-5. SHARC response modeling last, using captured request/response pairs before
-   attempting full coprocessor execution.
+Likely categories are:
+
+1. startup serial/I/O writes;
+2. IRQ/timer behavior required for deterministic scheduling;
+3. input reads for controlled fighter scenarios;
+4. TGP/SHARC request/response behavior, initially from captured pairs;
+5. sound-board communication after its traffic is measured.
+
+Full SHARC execution is not a prerequisite for useful semantic recovery.
