@@ -207,6 +207,126 @@ static int test_model2b_fail_closed(void)
     return 0;
 }
 
+static int test_model2b_geometry_and_copro(void)
+{
+    stf_model2b_bus model2b;
+    stf_i960_bus *bus = NULL;
+    uint32_t value = 0u;
+
+    if (stf_model2b_bus_init(&model2b) != STF_OK) {
+        return 1;
+    }
+    bus = stf_model2b_bus_i960(&model2b);
+
+    if (stf_i960_bus_read_u32(
+            bus,
+            STF_MODEL2B_BUFFER_RAM_BASE,
+            &value
+        ) != STF_OK ||
+        value != UINT32_C(0x07800f0f)) {
+        stf_model2b_bus_destroy(&model2b);
+        return 2;
+    }
+
+    if (stf_i960_bus_write_u32(
+            bus,
+            STF_MODEL2B_GEO_BASE + UINT32_C(0x1008),
+            UINT32_C(0x20)
+        ) != STF_OK ||
+        stf_i960_bus_write_u32(
+            bus,
+            STF_MODEL2B_GEO_BASE + UINT32_C(0x10),
+            UINT32_C(0x123)
+        ) != STF_OK) {
+        stf_model2b_bus_destroy(&model2b);
+        return 3;
+    }
+
+    if (stf_i960_bus_read_u32(
+            bus,
+            STF_MODEL2B_GEO_BASE + UINT32_C(0x2008),
+            &value
+        ) != STF_OK ||
+        value != UINT32_C(0x24)) {
+        stf_model2b_bus_destroy(&model2b);
+        return 4;
+    }
+
+    if (stf_i960_bus_read_u32(
+            bus,
+            STF_MODEL2B_BUFFER_RAM_BASE + UINT32_C(0x20),
+            &value
+        ) != STF_OK ||
+        value != UINT32_C(0x00800123) ||
+        model2b.geo_fifo_words != UINT64_C(1)) {
+        stf_model2b_bus_destroy(&model2b);
+        return 5;
+    }
+
+    if (stf_i960_bus_write_u32(
+            bus,
+            STF_MODEL2B_COPRO_CONTROL,
+            UINT32_C(0x80000000)
+        ) != STF_OK ||
+        stf_i960_bus_write_u32(
+            bus,
+            STF_MODEL2B_COPRO_FIFO_BASE,
+            UINT32_C(0x11223344)
+        ) != STF_OK ||
+        model2b.copro_upload_words != UINT64_C(1)) {
+        stf_model2b_bus_destroy(&model2b);
+        return 6;
+    }
+
+    if (stf_i960_bus_read_u32(
+            bus,
+            STF_MODEL2B_COPRO_STATUS,
+            &value
+        ) != STF_OK ||
+        value != 0u) {
+        stf_model2b_bus_destroy(&model2b);
+        return 7;
+    }
+
+    if (stf_i960_bus_write_u32(
+            bus,
+            STF_MODEL2B_COPRO_CONTROL,
+            0u
+        ) != STF_OK ||
+        stf_i960_bus_write_u32(
+            bus,
+            STF_MODEL2B_COPRO_FIFO_BASE,
+            UINT32_C(0x55667788)
+        ) != STF_OK ||
+        model2b.copro_fifo_input_words != UINT64_C(1)) {
+        stf_model2b_bus_destroy(&model2b);
+        return 8;
+    }
+
+    if (stf_i960_bus_write_u32(
+            bus,
+            STF_MODEL2B_COPRO_FUNCTION_BASE + UINT32_C(4),
+            UINT32_C(0x12)
+        ) != STF_OK ||
+        model2b.copro_function_words != UINT64_C(1) ||
+        model2b.last_copro_input_word != UINT32_C(0x00800012)) {
+        stf_model2b_bus_destroy(&model2b);
+        return 9;
+    }
+
+    if (stf_i960_bus_read_u32(
+            bus,
+            STF_MODEL2B_COPRO_FIFO_BASE,
+            &value
+        ) != STF_ERROR_UNSUPPORTED) {
+        stf_model2b_bus_destroy(&model2b);
+        return 10;
+    }
+
+    stf_model2b_bus_destroy(&model2b);
+    return 0;
+}
+
 int main(void)
 {
     int result = 0;
@@ -233,6 +353,12 @@ int main(void)
     if (result != 0) {
         fprintf(stderr, "Model 2B fail-closed test failed: %d\n", result);
         return 40 + result;
+    }
+
+    result = test_model2b_geometry_and_copro();
+    if (result != 0) {
+        fprintf(stderr, "Model 2B GEO/copro test failed: %d\n", result);
+        return 50 + result;
     }
 
     puts("stf recovery i960 tests: ok");
