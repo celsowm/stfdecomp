@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Classify Model 2 TGP/geometry traffic from JSONL memory traces.
+Classify Sonic the Fighters Model 2B geometry/coprocessor traffic from JSONL
+memory traces.
 
-The defaults reflect the common Model 2 geometry/TGP windows used by the
-current VF2 research. All addresses are configurable so Model 2B differences
-can be measured rather than assumed.
+Defaults come from STF's own src/lib/rom_code1.ld. No VF2-only FIFO address is
+assumed. Use --fifo only after a concrete STF trace establishes one.
 """
 
 from __future__ import annotations
@@ -13,6 +13,14 @@ import argparse
 import collections
 import json
 from pathlib import Path
+
+
+STF_DEFAULT_PORTS = [
+    0x008C0000,  # COPRO_SHARC_IOP_START
+    0x00980000,  # COPRO_CONTROL1_START
+    0x00980008,  # GEO_CTL1_START
+    0x00980014,  # COPRO_STATUS_START
+]
 
 
 def parse_int(text):
@@ -30,7 +38,7 @@ def value_from_record(record):
     return int.from_bytes(data[:4].ljust(4, b"\x00"), "little")
 
 
-def classify(path, fifo_address, geo_start, geo_end, function_ports):
+def classify(path, fifo_address, geo_start, geo_end, watched_ports):
     fifo = []
     geometry = []
     classes = collections.Counter()
@@ -48,19 +56,26 @@ def classify(path, fifo_address, geo_start, geo_end, function_ports):
         address = parse_int(record.get("address", 0))
         value = value_from_record(record)
 
-        if address == fifo_address:
+        if fifo_address is not None and address == fifo_address:
             fifo.append(value)
             classes[(value >> 23) & 0x1F] += 1
         elif geo_start <= address < geo_end:
             geometry.append((address, value))
-        elif address in function_ports:
+        elif address in watched_ports:
             port_writes[address] += 1
 
     return {
         "trace": str(path),
+        "fifo_address": (
+            f"0x{fifo_address:08X}" if fifo_address is not None else None
+        ),
         "fifo_writes": len(fifo),
+        "geometry_window": {
+            "start": f"0x{geo_start:08X}",
+            "end": f"0x{geo_end:08X}",
+        },
         "geometry_writes": len(geometry),
-        "function_port_writes": {
+        "watched_port_writes": {
             f"0x{address:08X}": count for address, count in sorted(port_writes.items())
         },
         "command_classes": [
@@ -78,36 +93,55 @@ def classify(path, fifo_address, geo_start, geo_end, function_ports):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trace", nargs="+", type=Path)
-    parser.add_argument("--fifo", type=parse_int, default=0x00884000)
+    parser.add_argument(
+        "--fifo",
+        type=parse_int,
+        default=None,
+        help="STF FIFO address, only when established by trace evidence",
+    )
     parser.add_argument("--geometry-start", type=parse_int, default=0x00800000)
-    parser.add_argument("--geometry-end", type=parse_int, default=0x00808000)
+    parser.add_argument("--geometry-end", type=parse_int, default=0x00804000)
     parser.add_argument(
         "--function-port",
         action="append",
         type=parse_int,
         default=[],
-        help="repeatable TGP/coprocessor function port address",
+        help="repeatable watched coprocessor/control address",
     )
     parser.add_argument("--json", dest="json_output", type=Path)
     args = parser.parse_args()
 
-    ports = set(args.function_port or [0x00980000, 0x00880000])
+    ports = set(args.function_port or STF_DEFAULT_PORTS)
     reports = [
-        classify(path, args.fifo, args.geometry_start, args.geometry_end, ports)
+        classify(
+            path,
+            args.fifo,
+            args.geometry_start,
+            args.geometry_end,
+            ports,
+        )
         for path in args.trace
     ]
 
     for report in reports:
-        print(
-            f"{report['trace']}: fifo={report['fifo_writes']} "
-            f"geometry={report['geometry_writes']} "
-            f"ports={sum(report['function_port_writes'].values())}"
+        fifo_text = (
+            str(report["fifo_writes"])
+            if report["fifo_address"] is not None
+            else "disabled"
         )
-        print(f"  classes={report['command_classes'][:16]}")
+        print(
+            f"{report['trace']}: fifo={fifo_text} "
+            f"geometry={report['geometry_writes']} "
+            f"ports={sum(report['watched_port_writes'].values())}"
+        )
+        if report["command_classes"]:
+            print(f"  classes={report['command_classes'][:16]}")
         if report["fifo_sample"]:
             print(f"  fifo sample={report['fifo_sample']}")
         if report["geometry_sample"]:
             print(f"  geometry sample={report['geometry_sample'][:8]}")
+        if report["watched_port_writes"]:
+            print(f"  watched ports={report['watched_port_writes']}")
 
     if args.json_output:
         args.json_output.parent.mkdir(parents=True, exist_ok=True)
