@@ -55,7 +55,14 @@ add_executable(stf_recovery_bus_trace_tests
 
 target_link_libraries(stf_recovery_bus_trace_tests PRIVATE stf_recovery_i960)
 
+add_executable(stf_recovery_model2b_memory_tests
+    tests/test_model2b_memory.c
+)
+
+target_link_libraries(stf_recovery_model2b_memory_tests PRIVATE stf_recovery_i960)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
 add_test(NAME stf_recovery_bus_trace_tests COMMAND stf_recovery_bus_trace_tests)
+add_test(NAME stf_recovery_model2b_memory_tests COMMAND stf_recovery_model2b_memory_tests)
