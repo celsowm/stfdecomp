@@ -3,11 +3,11 @@ name: recovery-i960
 on:
   push:
     paths:
-      - "tools/recovery/i960/**"
+      - "tools/recovery/**"
       - ".github/workflows/recovery-i960.yml"
   pull_request:
     paths:
-      - "tools/recovery/i960/**"
+      - "tools/recovery/**"
       - ".github/workflows/recovery-i960.yml"
 
 jobs:
@@ -29,5 +29,11 @@ jobs:
       - name: Build
         run: cmake --build build/recovery-i960 --config Release
 
-      - name: Test
+      - name: Test C recovery core
         run: ctest --test-dir build/recovery-i960 -C Release --output-on-failure
+
+      - name: Compile Python recovery tools
+        run: python -m compileall -q tools/recovery
+
+      - name: Test cross-title matcher
+        run: python tools/recovery/test_model2_crossmatch.py
