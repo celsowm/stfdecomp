@@ -13,6 +13,7 @@ add_library(stf_recovery_i960 STATIC
     src/formatter.c
     src/bus.c
     src/model2b_bus.c
+    src/model2b_map.c
     src/executor.c
     src/executor_arch.c
 )
