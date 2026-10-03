@@ -19,6 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from extract_task_descriptors import extract as extract_task_descriptors
 from resolve_symbol import parse_symbols
 
 
@@ -39,6 +40,29 @@ def resolve_location(value, symbols: dict[str, int], field: str) -> int:
     if text not in symbols:
         raise SystemExit(f"{field} symbol not found: {text}")
     return symbols[text]
+
+
+def resolve_task_descriptor(scenario: dict, repo_root: Path):
+    task_name = scenario.get("task")
+    if not task_name:
+        return None
+
+    table = Path(scenario.get("task_table", "src/asm/rom_code2.s"))
+    if not table.is_absolute():
+        table = repo_root / table
+
+    matches = [
+        item
+        for item in extract_task_descriptors(table)
+        if item["task"] == task_name
+    ]
+    if not matches:
+        raise SystemExit(f"task descriptor not found: {task_name}")
+    if len(matches) != 1:
+        raise SystemExit(
+            f"task descriptor is ambiguous: {task_name} ({len(matches)} matches)"
+        )
+    return matches[0]
 
 
 def executable_candidates(repo_root: Path) -> list[Path]:
@@ -149,9 +173,12 @@ def main() -> int:
         if not symbols:
             raise SystemExit(f"no symbols recognized in {symbol_path}")
 
+    task_descriptor = resolve_task_descriptor(scenario, repo_root)
     entry_value = scenario.get("entry")
+    if entry_value is None and task_descriptor is not None:
+        entry_value = task_descriptor["init"]
     if entry_value is None:
-        raise SystemExit("scenario requires entry")
+        raise SystemExit("scenario requires entry or task")
     entry = resolve_location(entry_value, symbols, "entry")
 
     runner = find_runner(repo_root, args.runner)
@@ -211,6 +238,17 @@ def main() -> int:
     add_probe_policy(command, probe)
 
     print("scenario:", scenario.get("name", scenario_path.stem))
+    if task_descriptor is not None:
+        print(
+            "task:",
+            task_descriptor["task"],
+            "workspace=" + task_descriptor["workspace_size_hex"],
+            "init=" + task_descriptor["init"],
+            "update=" + task_descriptor["update"],
+        )
+        print(
+            "task-context: descriptor validated; runtime task-instance state is not synthesized"
+        )
     print("entry:", f"0x{entry:08X}", entry_value)
     print("trace:", trace)
     print("state:", state)
