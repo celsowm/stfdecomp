@@ -228,20 +228,116 @@ static int run_guard_block_b(void)
     return 0;
 }
 
+
+static int run_special_bit16_branch(void)
+{
+    uint8_t attacker[0x82Cu];
+    uint8_t defender[STF_DOWN_REACTION_DEFENDER_MIN_SIZE];
+    fixture fx;
+    stf_attack_reaction_inputs reaction;
+    stf_attack_reaction_path path;
+    stf_down_reaction_runtime_result special;
+
+    memset(attacker, 0, sizeof(attacker));
+    memset(defender, 0, sizeof(defender));
+    memset(&fx, 0, sizeof(fx));
+    memset(&reaction, 0, sizeof(reaction));
+
+    fx.selector = UINT8_C(0);
+    fx.words[40] = UINT32_C(0x55);
+
+    reaction.defender_flags_1a4 = UINT32_C(1) << 16u;
+    reaction.damage = UINT32_C(40);
+    reaction.scaled_damage = UINT32_C(40);
+    reaction.defender_energy_1ac = INT16_C(100);
+
+    if (!stf_attack_hit_reaction_classify(&reaction, &path) ||
+        path != STF_ATTACK_REACTION_SPECIAL_BIT16) {
+        return 1;
+    }
+
+    if (!stf_attack_hit_special_bit16_reaction_apply_resolved_model2(
+            attacker, sizeof(attacker),
+            defender, sizeof(defender),
+            UINT16_C(0),
+            reaction.damage,
+            resolve_table, &fx,
+            &special
+        ) ||
+        special.motion.table_index != UINT32_C(40) ||
+        special.motion.motion != UINT32_C(0x55) ||
+        special.reaction.requires_sub_2b94c ||
+        special.reaction.selected_motion != UINT32_C(0x55) ||
+        special.reaction.defender_198 != UINT32_C(0x08010055)) {
+        return 2;
+    }
+
+    return 0;
+}
+
+static int run_guard_block_a(void)
+{
+    uint8_t attacker[STF_GUARD_STATE_ATTACKER_MIN_SIZE];
+    uint8_t defender[STF_GUARD_STATE_DEFENDER_MIN_SIZE];
+    uint8_t workspace[STF_GUARD_STATE_WORKSPACE_MIN_SIZE];
+    stf_attack_guard_inputs guard_in;
+    stf_attack_guard_path guard_path;
+    stf_guard_state_runtime_result guard;
+
+    memset(attacker, 0, sizeof(attacker));
+    memset(defender, 0, sizeof(defender));
+    memset(workspace, 0, sizeof(workspace));
+    memset(&guard_in, 0, sizeof(guard_in));
+
+    guard_in.opponent_flags_1a4 = UINT32_C(1) << 13u;
+    guard_in.opponent_field_c70 = 2;
+    guard_in.hit_flags_50fe00 = UINT16_C(1) << 12u;
+
+    if (!stf_attack_hit_guard_classify(&guard_in, &guard_path) ||
+        guard_path != STF_ATTACK_GUARD_BLOCK_A_2AA70) {
+        return 1;
+    }
+
+    if (!stf_attack_hit_guard_apply_resolved_model2(
+            STF_GUARD_BLOCK_A,
+            attacker, sizeof(attacker),
+            defender, sizeof(defender),
+            workspace, sizeof(workspace),
+            guard_in.hit_flags_50fe00,
+            NULL, NULL,
+            &guard
+        ) ||
+        guard.resolved_motion ||
+        guard.guard.requires_sub_2b94c ||
+        guard.guard.defender_198 != UINT32_C(0x0A00013D)) {
+        return 2;
+    }
+
+    return 0;
+}
+
 int main(void)
 {
     const int down = run_down_branch();
+    const int special = run_special_bit16_branch();
     const int guard = run_guard_branch();
+    const int guard_a = run_guard_block_a();
     const int guard_b = run_guard_block_b();
 
     if (down != 0) {
         return down;
     }
+    if (special != 0) {
+        return 100 + special;
+    }
     if (guard != 0) {
-        return 100 + guard;
+        return 200 + guard;
+    }
+    if (guard_a != 0) {
+        return 300 + guard_a;
     }
     if (guard_b != 0) {
-        return 200 + guard_b;
+        return 400 + guard_b;
     }
     return 0;
 }
