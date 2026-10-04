@@ -86,22 +86,46 @@ bool stf_crush_part_update_angles_model2(
         const int16_t target_x = read_le16s(slot + 0x28u);
         const int16_t target_y = read_le16s(slot + 0x2Au);
         const int16_t target_z = read_le16s(slot + 0x2Cu);
+        const int32_t negative_step = -step;
 
-        x = approach_axis(x, target_x, step);
-
-        if (target_y != 0 && target_y != y) {
-            int32_t y_step = step;
-            const int32_t delta = (int32_t)target_y - (int32_t)y;
-            if (delta > step || delta < -step) {
-                const uint32_t divisor = contacts + UINT32_C(1);
-                if (divisor != UINT32_C(0)) {
-                    y_step = step / (int32_t)divisor;
-                }
+        if (target_x != 0 && target_x != x) {
+            const int32_t delta = (int32_t)target_x - (int32_t)x;
+            if (delta > step) {
+                x = add_wrap16(x, -step);
+            } else if (delta < negative_step) {
+                x = add_wrap16(x, step);
+            } else {
+                x = target_x;
             }
-            y = approach_axis(y, target_y, y_step);
         }
 
-        z = approach_axis(z, target_z, step);
+        if (target_y != 0 && target_y != y) {
+            const int32_t delta = (int32_t)target_y - (int32_t)y;
+            if (delta > step || delta < negative_step) {
+                const uint32_t divisor = contacts + UINT32_C(1);
+                if (divisor != UINT32_C(0)) {
+                    step /= (int32_t)divisor;
+                }
+                if (delta > 0) {
+                    y = add_wrap16(y, -step);
+                } else {
+                    y = add_wrap16(y, step);
+                }
+            } else {
+                y = target_y;
+            }
+        }
+
+        if (target_z != 0 && target_z != z) {
+            const int32_t delta = (int32_t)target_z - (int32_t)z;
+            if (delta > step) {
+                z = add_wrap16(z, -step);
+            } else if (delta < negative_step) {
+                z = add_wrap16(z, step);
+            } else {
+                z = target_z;
+            }
+        }
     }
 
     write_le16(slot + 0x1Cu, x);
