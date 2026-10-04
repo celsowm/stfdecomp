@@ -113,6 +113,11 @@ bool stf_attack_hit_strength_scale_bits(
         return false;
     }
 
+    if (raw_strength == 0.0f) {
+        *result_bits = 0u;
+        return true;
+    }
+
     value = raw_strength * 0.01f;
     if (!stf_copro_scalar_sqrt_bits(stf_float_to_bits(value), &sqrt_bits)) {
         return false;
