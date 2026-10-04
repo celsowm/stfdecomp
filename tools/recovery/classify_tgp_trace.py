@@ -15,6 +15,10 @@ import json
 from pathlib import Path
 
 
+KNOWN_COMMANDS = {
+    0x0D001A1A: "scalar_sqrt",
+}
+
 STF_DEFAULT_PORTS = [
     0x008C0000,  # COPRO_SHARC_IOP_START
     0x00980000,  # COPRO_CONTROL1_START
@@ -42,6 +46,7 @@ def classify(path, fifo_address, geo_start, geo_end, watched_ports):
     fifo = []
     geometry = []
     classes = collections.Counter()
+    known_commands = collections.Counter()
     port_writes = collections.Counter()
 
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -59,6 +64,9 @@ def classify(path, fifo_address, geo_start, geo_end, watched_ports):
         if fifo_address is not None and address == fifo_address:
             fifo.append(value)
             classes[(value >> 23) & 0x1F] += 1
+            command_name = KNOWN_COMMANDS.get(value)
+            if command_name is not None:
+                known_commands[command_name] += 1
         elif geo_start <= address < geo_end:
             geometry.append((address, value))
         elif address in watched_ports:
@@ -78,6 +86,10 @@ def classify(path, fifo_address, geo_start, geo_end, watched_ports):
         "watched_port_writes": {
             f"0x{address:08X}": count for address, count in sorted(port_writes.items())
         },
+        "known_commands": [
+            {"command": name, "count": count}
+            for name, count in known_commands.most_common()
+        ],
         "command_classes": [
             {"class": command_class, "count": count}
             for command_class, count in classes.most_common()
@@ -134,6 +146,8 @@ def main():
             f"geometry={report['geometry_writes']} "
             f"ports={sum(report['watched_port_writes'].values())}"
         )
+        if report["known_commands"]:
+            print(f"  known={report['known_commands'][:16]}")
         if report["command_classes"]:
             print(f"  classes={report['command_classes'][:16]}")
         if report["fifo_sample"]:
