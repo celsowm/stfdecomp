@@ -32,7 +32,9 @@ bool stf_attack_hit_down_route(
     stf_down_reaction_route *route
 );
 
-/* Recover loc_2B560 state, after the route selected SPECIAL_BIT16. */
+/* Recover loc_2B560 state, after the route selected SPECIAL_BIT16.
+ * The resolved runtime wrapper supplies the recovered group-5 sub_2B94C motion.
+ */
 bool stf_attack_hit_special_bit16_reaction_apply_model2(
     uint8_t *defender,
     size_t defender_size,
@@ -43,7 +45,9 @@ bool stf_attack_hit_special_bit16_reaction_apply_model2(
 
 /*
  * Recover loc_2B594/loc_2B5F8 through the write to defender+0x5DE.
- * increment_down_combo corresponds to entering through loc_2B594.
+ * increment_down_combo corresponds to entering through loc_2B594. The
+ * resolved runtime wrapper composes group-4 sub_2B94C selection; its full-motion
+ * variant continues through calc_mht_adr and the shared knockback pipeline.
  */
 bool stf_attack_hit_generic_down_reaction_apply_model2(
     uint8_t *defender,
