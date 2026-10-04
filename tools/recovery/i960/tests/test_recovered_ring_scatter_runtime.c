@@ -224,5 +224,129 @@ int main(void)
         return 10;
     }
 
+
+    /*
+     * Recover the per-frame ring_tobitiri state machine.  Use a synthetic A
+     * curve so the test verifies semantics without embedding ROM payloads.
+     */
+    memset(slots, 0, sizeof(slots));
+    stf_ring_pool_init(&pool);
+    if (!stf_ring_pool_allocate(&pool, &slot) || slot != UINT8_C(23)) {
+        return 20;
+    }
+
+    slots[slot].active = true;
+    slots[slot].age = 0u;
+    slots[slot].x_bits = float_to_bits(7.48f);
+    slots[slot].y_bits = float_to_bits(1.0f);
+    slots[slot].z_bits = float_to_bits(0.0f);
+    slots[slot].vx_bits = float_to_bits(0.04f);
+    slots[slot].vz_bits = float_to_bits(0.02f);
+    slots[slot].trajectory = STF_RING_TRAJECTORY_A;
+    slots[slot].blink_from_frame = 2u;
+    slots[slot].expire_at_frame = 120u;
+
+    curve_a[1] = float_to_bits(1.5f);
+    curve_a[2] = 0u;
+
+    {
+        stf_ring_tick_inputs tick_inputs;
+        stf_ring_tick_result tick_result;
+
+        tick_inputs.paused = false;
+        tick_inputs.curve_words = curve_a;
+        tick_inputs.curve_word_count =
+            sizeof(curve_a) / sizeof(curve_a[0]);
+
+        if (!stf_ring_slot_tick(
+                &tick_inputs, &pool, slot, slots, &tick_result
+            ) ||
+            tick_result.released || tick_result.landed ||
+            !tick_result.visible ||
+            slots[slot].age != 1u ||
+            !nearf_value(bits_to_float(slots[slot].x_bits), 7.5f) ||
+            !nearf_value(bits_to_float(slots[slot].z_bits), 0.02f) ||
+            !nearf_value(bits_to_float(slots[slot].vx_bits), -0.04f) ||
+            !nearf_value(bits_to_float(tick_result.render_y_bits), 1.5f)) {
+            return 21;
+        }
+
+        if (!stf_ring_slot_tick(
+                &tick_inputs, &pool, slot, slots, &tick_result
+            ) ||
+            tick_result.released || tick_result.landed ||
+            tick_result.visible ||
+            slots[slot].age != 2u ||
+            !nearf_value(bits_to_float(slots[slot].x_bits), 7.46f) ||
+            !nearf_value(bits_to_float(slots[slot].vx_bits), -0.028f) ||
+            !nearf_value(bits_to_float(slots[slot].vz_bits), 0.014f)) {
+            return 22;
+        }
+
+        tick_inputs.paused = true;
+        {
+            const uint32_t x_before = slots[slot].x_bits;
+            const uint32_t z_before = slots[slot].z_bits;
+            if (!stf_ring_slot_tick(
+                    &tick_inputs, &pool, slot, slots, &tick_result
+                ) ||
+                slots[slot].age != 2u ||
+                slots[slot].x_bits != x_before ||
+                slots[slot].z_bits != z_before ||
+                tick_result.visible) {
+                return 23;
+            }
+        }
+
+        tick_inputs.paused = false;
+        slots[slot].age = 98u;
+        slots[slot].blink_from_frame = 200u;
+        slots[slot].x_bits = float_to_bits(1.0f);
+        slots[slot].y_bits = float_to_bits(0.5f);
+        slots[slot].z_bits = float_to_bits(2.0f);
+        slots[slot].vx_bits = float_to_bits(0.1f);
+        slots[slot].vz_bits = float_to_bits(-0.1f);
+
+        if (!stf_ring_slot_tick(
+                &tick_inputs, &pool, slot, slots, &tick_result
+            ) ||
+            !tick_result.landed || !tick_result.visible ||
+            slots[slot].age != 99u ||
+            slots[slot].y_bits != UINT32_C(0xBF800000) ||
+            tick_result.render_y_bits != 0u ||
+            !nearf_value(bits_to_float(slots[slot].x_bits), 1.1f) ||
+            !nearf_value(bits_to_float(slots[slot].z_bits), 1.9f)) {
+            return 24;
+        }
+
+        {
+            const uint32_t x_landed = slots[slot].x_bits;
+            const uint32_t z_landed = slots[slot].z_bits;
+            if (!stf_ring_slot_tick(
+                    &tick_inputs, &pool, slot, slots, &tick_result
+                ) ||
+                !tick_result.landed ||
+                slots[slot].age != 100u ||
+                slots[slot].x_bits != x_landed ||
+                slots[slot].z_bits != z_landed ||
+                tick_result.render_y_bits != 0u) {
+                return 25;
+            }
+        }
+
+        slots[slot].age = 119u;
+        slots[slot].expire_at_frame = 120u;
+        if (!stf_ring_slot_tick(
+                &tick_inputs, &pool, slot, slots, &tick_result
+            ) ||
+            !tick_result.released ||
+            slots[slot].active ||
+            (pool.occupied_mask & (UINT32_C(1) << slot)) != 0u ||
+            pool.head != STF_RING_POOL_EMPTY ||
+            pool.tail != STF_RING_POOL_EMPTY) {
+            return 26;
+        }
+    }
+
     return 0;
 }
