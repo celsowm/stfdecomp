@@ -192,5 +192,154 @@ int main(void)
     if (test_allocates_first_free_slot() != 0) return 1;
     if (test_extended_pool_uses_slot_16() != 0) return 1;
     if (test_full_pool_consumes_nonzero_stage() != 0) return 1;
+    if (test_updates_frame_and_age() != 0) return 1;
+    if (test_releases_expired_slot() != 0) return 1;
+    if (test_flag3_scale_sequence() != 0) return 1;
+    if (test_updater_scans_only_first_16_slots() != 0) return 1;
+    return 0;
+}
+
+
+static int test_updates_frame_and_age(void)
+{
+    uint8_t slots[
+        STF_COLLISION_PARTICLE_EXTENDED_SLOTS *
+        STF_COLLISION_PARTICLE_SLOT_SIZE
+    ];
+    static const uint16_t frames[] = { UINT16_C(100), UINT16_C(101) };
+    stf_collision_particle_descriptor desc[STF_COLLISION_PARTICLE_KIND_COUNT];
+    stf_collision_particle_update_result result;
+
+    memset(slots, 0, sizeof(slots));
+    memset(desc, 0, sizeof(desc));
+
+    desc[1].effect_address = UINT32_C(0x2000);
+    desc[1].duration = UINT16_C(4);
+    desc[1].frame_divisor = UINT16_C(2);
+    desc[1].frames = frames;
+    desc[1].frame_count = 2u;
+
+    write_le32(slots + 0x1Cu, UINT32_C(0x2000));
+    slots[0x18u] = UINT8_C(3);
+
+    if (!stf_collision_particle_update_model2(
+            slots, sizeof(slots), desc, &result
+        ) ||
+        result.active_before != UINT8_C(1) ||
+        result.advanced != UINT8_C(1) ||
+        result.released != UINT8_C(0) ||
+        slots[0x18u] != UINT8_C(4) ||
+        ((uint16_t)slots[0x1Au] | ((uint16_t)slots[0x1Bu] << 8u)) != UINT16_C(101)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_releases_expired_slot(void)
+{
+    uint8_t slots[
+        STF_COLLISION_PARTICLE_EXTENDED_SLOTS *
+        STF_COLLISION_PARTICLE_SLOT_SIZE
+    ];
+    static const uint16_t frames[] = { UINT16_C(7) };
+    stf_collision_particle_descriptor desc[STF_COLLISION_PARTICLE_KIND_COUNT];
+    stf_collision_particle_update_result result;
+
+    memset(slots, 0xAA, sizeof(slots));
+    memset(desc, 0, sizeof(desc));
+
+    desc[1].effect_address = UINT32_C(0x3000);
+    desc[1].duration = UINT16_C(1);
+    desc[1].frame_divisor = UINT16_C(1);
+    desc[1].frames = frames;
+    desc[1].frame_count = 1u;
+
+    write_le32(slots + 0x1Cu, UINT32_C(0x3000));
+    slots[0x18u] = UINT8_C(1);
+
+    if (!stf_collision_particle_update_model2(
+            slots, sizeof(slots), desc, &result
+        ) ||
+        result.active_before != UINT8_C(1) ||
+        result.advanced != UINT8_C(0) ||
+        result.released != UINT8_C(1) ||
+        read_le32(slots + 0x00u) != UINT32_C(0) ||
+        read_le32(slots + 0x0Cu) != UINT32_C(0) ||
+        slots[0x18u] != UINT8_C(0) ||
+        slots[0x19u] != UINT8_C(0) ||
+        read_le32(slots + 0x1Cu) != UINT32_C(0) ||
+        read_le32(slots + 0x20u) != UINT32_C(0)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_flag3_scale_sequence(void)
+{
+    uint8_t slots[
+        STF_COLLISION_PARTICLE_EXTENDED_SLOTS *
+        STF_COLLISION_PARTICLE_SLOT_SIZE
+    ];
+    static const uint16_t frames[] = { UINT16_C(9), UINT16_C(9), UINT16_C(9), UINT16_C(9) };
+    stf_collision_particle_descriptor desc[STF_COLLISION_PARTICLE_KIND_COUNT];
+    stf_collision_particle_update_result result;
+
+    memset(slots, 0, sizeof(slots));
+    memset(desc, 0, sizeof(desc));
+
+    desc[1].effect_address = UINT32_C(0x4000);
+    desc[1].duration = UINT16_C(8);
+    desc[1].frame_divisor = UINT16_C(2);
+    desc[1].frames = frames;
+    desc[1].frame_count = 4u;
+
+    write_le32(slots + 0x1Cu, UINT32_C(0x4000));
+    slots[0x18u] = UINT8_C(6);
+    slots[0x19u] = UINT8_C(1u << 3u);
+
+    if (!stf_collision_particle_update_model2(
+            slots, sizeof(slots), desc, &result
+        ) ||
+        read_le32(slots + 0x20u) != UINT32_C(0x3ECCCCCD) ||
+        slots[0x18u] != UINT8_C(7)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_updater_scans_only_first_16_slots(void)
+{
+    uint8_t slots[
+        STF_COLLISION_PARTICLE_EXTENDED_SLOTS *
+        STF_COLLISION_PARTICLE_SLOT_SIZE
+    ];
+    static const uint16_t frames[] = { UINT16_C(1) };
+    stf_collision_particle_descriptor desc[STF_COLLISION_PARTICLE_KIND_COUNT];
+    stf_collision_particle_update_result result;
+    uint8_t *slot16;
+
+    memset(slots, 0, sizeof(slots));
+    memset(desc, 0, sizeof(desc));
+
+    desc[1].effect_address = UINT32_C(0x5000);
+    desc[1].duration = UINT16_C(1);
+    desc[1].frame_divisor = UINT16_C(1);
+    desc[1].frames = frames;
+    desc[1].frame_count = 1u;
+
+    slot16 = slots + 16u * STF_COLLISION_PARTICLE_SLOT_SIZE;
+    write_le32(slot16 + 0x1Cu, UINT32_C(0x5000));
+
+    if (!stf_collision_particle_update_model2(
+            slots, sizeof(slots), desc, &result
+        ) ||
+        result.active_before != UINT8_C(0) ||
+        read_le32(slot16 + 0x1Cu) != UINT32_C(0x5000)) {
+        return 1;
+    }
+
     return 0;
 }
