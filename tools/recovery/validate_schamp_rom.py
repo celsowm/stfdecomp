@@ -75,6 +75,24 @@ RING_PROFILE_SHA256 = (
     "27a66a49e2968878d069dfda5fa81b9be1fd500f1450a32cb7079e77e876a534"
 )
 
+RING_TRAJECTORIES = {
+    "A": (0x000AE5C0, 99),
+    "B": (0x000AE750, 119),
+    "C": (0x000AE930, 139),
+}
+
+# Eight threshold/scale/trajectory triples consumed by ring_tobitiri_set.
+RING_PROFILE_WORDS = (
+    0x00000002, 0x3F000000, 0x000AE5C0,
+    0x00000008, 0x3F4CCCCD, 0x000AE750,
+    0x00000008, 0x3F4CCCCD, 0x000AE930,
+    0x00000010, 0x3F99999A, 0x000AE750,
+    0x00000008, 0x3F800000, 0x000AE930,
+    0x00000010, 0x3FB33333, 0x000AE750,
+    0x00000018, 0x3FE66666, 0x000AE5C0,
+    0x00000008, 0x3FCCCCCD, 0x000AE930,
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2 != 0:
@@ -184,6 +202,29 @@ def validate(path: Path) -> int:
     )
     if ring_profile_digest != RING_PROFILE_SHA256:
         return 10
+
+    profile_words = struct.unpack(
+        "<" + "I" * len(RING_PROFILE_WORDS),
+        ring_profiles,
+    )
+    if profile_words != RING_PROFILE_WORDS:
+        print("ring scatter profile triples: FAIL")
+        return 11
+    print("ring scatter profile triples: ok")
+
+    for name, (address, sample_count) in RING_TRAJECTORIES.items():
+        sentinel_offset = address + sample_count * 4
+        if sentinel_offset + 4 > len(program):
+            print(f"ring trajectory {name}: sentinel outside program")
+            return 12
+        sentinel = struct.unpack_from("<I", program, sentinel_offset)[0]
+        status = "ok" if sentinel == 0xBF800000 else "FAIL"
+        print(
+            f"ring trajectory {name}: samples={sample_count} "
+            f"sentinel@0x{sentinel_offset:08X}=0x{sentinel:08X} {status}"
+        )
+        if sentinel != 0xBF800000:
+            return 13
 
     print("schamp collision/ring signatures: verified (secondary evidence)")
     return 0
