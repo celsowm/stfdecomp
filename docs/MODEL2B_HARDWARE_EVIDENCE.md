@@ -83,6 +83,36 @@ to emulate the command or synthesize its response.
 For that reason all GEO, TGP/SHARC FIFO/function ports, and their control
 registers remain devices by default.
 
+
+### Recovered scalar square-root command
+
+The command word:
+
+    0x0D001A1A
+
+appears six times in the STF program with a one-word float input and one-word
+float output. Multiple independent call sites constrain its semantics:
+
+- `calc_land_time` forms a value equivalent to `v^2 + 2gh`, sends it through
+  the command, then uses the returned value in the standard landing-time form
+  `(sqrt(v^2 + 2gh) - v) / g`;
+- `attack_hit` converts an 8-bit strength value to float, multiplies by
+  `0.01f`, sends that non-negative scalar through the command, then applies
+  further scalar multipliers;
+- four other call sites use the same one-input/one-output scalar pattern.
+
+This is sufficient to recover the semantic operation as scalar square root.
+The portable implementation lives in:
+
+    src/recovered/copro_scalar.c
+
+Confidence: **high, STF-direct semantic recovery**.
+
+Important boundary: this does **not** make the whole 0x00880000/0x00884000
+coprocessor transport understood. The default Model 2B bus remains fail-closed
+for that device range. The recovered helper models only the proven scalar
+operation and must not be read as a general TGP/SHARC emulator.
+
 ### Buffer RAM
 
 STF declares:
