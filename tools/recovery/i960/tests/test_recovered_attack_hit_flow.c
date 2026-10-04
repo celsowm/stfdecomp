@@ -14,6 +14,7 @@
 #include "attack_hit_strength.h"
 #include "damage_calculation.h"
 #include "skill_accounting.h"
+#include "ring_scatter_damage_flow.h"
 
 enum {
     FLOW_ATTACKER_SIZE = STF_DAMAGE_DEALER_MIN_SIZE,
@@ -71,6 +72,10 @@ static int run_accepted_hit(void)
     stf_motion_vector_result vector_out;
     stf_damage_calculation_result damage;
     stf_skill_accounting_result skill;
+    stf_ring_damage_flow_inputs ring_inputs;
+    stf_ring_damage_flow_result ring_flow;
+    stf_ring_pool ring_pool;
+    stf_ring_slot ring_slots[STF_RING_POOL_SLOT_COUNT];
     uint32_t total_skill = UINT32_C(100);
 
     memset(attacker, 0, sizeof(attacker));
@@ -81,10 +86,20 @@ static int run_accepted_hit(void)
     memset(&motion_in, 0, sizeof(motion_in));
     memset(&profile, 0, sizeof(profile));
     memset(&vector_in, 0, sizeof(vector_in));
+    memset(&ring_inputs, 0, sizeof(ring_inputs));
+    memset(ring_slots, 0, sizeof(ring_slots));
+    stf_ring_pool_init(&ring_pool);
 
     attacker[0x822u] = UINT8_C(20);
     write_le16(attacker + 0x1ACu, UINT16_C(100));
     write_le16(defender + 0x1ACu, UINT16_C(100));
+    write_le32(defender + 0x1F4u, UINT32_C(0x3F800000));
+    write_le32(defender + 0x1FCu, UINT32_C(0x00000000));
+    write_le32(attacker + 0x1F4u, UINT32_C(0x00000000));
+    write_le32(attacker + 0x1FCu, UINT32_C(0x00000000));
+    write_le32(defender + 0x20Cu, UINT32_C(0x41200000));
+    write_le32(defender + 0x210u, UINT32_C(0x40000000));
+    write_le32(defender + 0x214u, UINT32_C(0x41A00000));
 
     if (!stf_attack_hit_prefix_apply_model2(
             attacker, sizeof(attacker),
@@ -280,6 +295,38 @@ static int run_accepted_hit(void)
         enemy0[0x108u] != UINT8_C(1) ||
         total_skill != UINT32_C(120)) {
         return 15;
+    }
+
+
+    if (!stf_ring_scatter_apply_damage_event_model2(
+            &damage,
+            defender, sizeof(defender),
+            attacker, sizeof(attacker),
+            &ring_inputs,
+            &ring_pool,
+            ring_slots,
+            &ring_flow
+        )) {
+        return 17;
+    }
+
+    if (!ring_flow.requested ||
+        ring_flow.suppressed ||
+        !ring_flow.request_ring_sound ||
+        ring_flow.spawned_count != UINT8_C(2) ||
+        ring_flow.recycled_count != UINT8_C(0) ||
+        ring_flow.slot_indices[0] != UINT8_C(23) ||
+        ring_flow.slot_indices[1] != UINT8_C(22) ||
+        ring_pool.head != UINT8_C(23) ||
+        ring_pool.tail != UINT8_C(22) ||
+        !ring_slots[23].active ||
+        !ring_slots[22].active ||
+        ring_slots[23].source_ring_index != UINT8_C(0) ||
+        ring_slots[22].source_ring_index != UINT8_C(1) ||
+        ring_slots[23].blink_from_frame != UINT16_C(60) ||
+        ring_slots[23].expire_at_frame != UINT16_C(90) ||
+        ring_slots[23].drop_variant != UINT8_C(0)) {
+        return 18;
     }
 
     return 0;
