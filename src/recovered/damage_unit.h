@@ -17,6 +17,14 @@ typedef struct stf_damage_unit_effect_state {
     uint32_t active_914;
 } stf_damage_unit_effect_state;
 
+typedef struct stf_up_down_damage_result {
+    uint32_t previous_up_1f7c;
+    uint32_t previous_down_1f80;
+    uint32_t up_total_1f74;
+    uint32_t down_total_1f78;
+    uint32_t flags_7f0;
+} stf_up_down_damage_result;
+
 typedef struct stf_damage_unit_result {
     bool skipped;
     bool matched_slot;
@@ -44,6 +52,12 @@ typedef struct stf_damage_unit_result {
  * Later crush-parts/audio/particle effects remain outside this CPU-state
  * contract.
  */
+bool stf_calc_up_down_damage_apply_model2(
+    uint8_t *fighter,
+    size_t fighter_size,
+    stf_up_down_damage_result *result
+);
+
 bool stf_damage_unit_apply_model2(
     const uint8_t *attacker,
     size_t attacker_size,
