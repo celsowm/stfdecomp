@@ -179,7 +179,12 @@ tests:
 - energy-difference damage scaling and finish-blow detection;
 - post-hit reaction classification;
 - normal post-hit motion/stun state through 0x2B554;
-- down/special reaction state through the pre-physics boundary at 0x2B624.
+- down/special reaction state through 0x2B624;
+- calc_mht_adr motion-hit table traversal;
+- pre-COP motion scaling and angle selection through the 0x2B738 handoff;
+- scaled sine/cosine COP semantics and 3D knockback vector through 0x2B898;
+- hit-motion row selection plus SNC_DOWN remap (sub_2B94C/sub_2BA44);
+- damage_calculation/ketchup energy application and KO/ring-scatter events.
 
 These helpers intentionally report external actions such as sound, skill
 accounting, stance/motion lookup, or set_kamae_ram as events or explicit input
@@ -195,12 +200,14 @@ actual target program.
 
 ### Current attack_hit frontier
 
-The semantically recovered path now crosses hit-sound selection without
-embedding audio behavior, covers energy scaling / finish-blow checks, and
-recovers the major normal/down reaction state branches.
+The main post-hit path now crosses the previous `calc_mht_adr` / motion-physics
+boundary. The portable layer recovers the pre-COP motion parameters, the
+0x24/0x25 scaled sine/cosine operations, the resulting XYZ knockback vector,
+the hit-motion selector/remap, and the shared `damage_calculation` energy
+application contract.
 
-The current hard frontier is the motion-physics handoff around
-`calc_mht_adr` after the down reaction path (roughly 0x2B624 onward).
-That boundary is deliberate: animation/motion-table decoding and reaction
-physics should be recovered as separate contracts instead of being folded into
-the hit-state helpers.
+The next useful frontier is no longer unknown COP math. It is integration and
+coverage of the remaining `attack_hit` side exits/orchestration (notably the
+`loc_2B8C8` early path) plus external event boundaries such as sound, skill
+accounting and ring-scatter execution. Those should remain explicit events or
+separate recovered contracts rather than being hidden inside the math helpers.

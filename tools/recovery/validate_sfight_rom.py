@@ -58,6 +58,12 @@ HIT_MOTION_SELECTOR_SHA256 = (
     "e6d41cfb273af74a309f3331d783f0eff74e5a908de2c57d2f5c801ec29ac061"
 )
 
+DAMAGE_CALCULATION_START = 0x000196DC
+DAMAGE_CALCULATION_END = 0x000197C0
+DAMAGE_CALCULATION_SHA256 = (
+    "c768ac5a1f08f886f37dfb40a3b05e45456ee5429b91bd984846c19e7631b880"
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2:
@@ -160,6 +166,23 @@ def validate(path: Path) -> int:
     )
     if hit_motion_selector_digest != HIT_MOTION_SELECTOR_SHA256:
         return 8
+
+    damage_calculation_digest = hashlib.sha256(
+        program[DAMAGE_CALCULATION_START:DAMAGE_CALCULATION_END]
+    ).hexdigest()
+    damage_calculation_status = (
+        "ok"
+        if damage_calculation_digest == DAMAGE_CALCULATION_SHA256
+        else "FAIL"
+    )
+    print(
+        "damage-calculation corridor "
+        f"[0x{DAMAGE_CALCULATION_START:08X},"
+        f"0x{DAMAGE_CALCULATION_END:08X}) "
+        f"sha256={damage_calculation_digest} {damage_calculation_status}"
+    )
+    if damage_calculation_digest != DAMAGE_CALCULATION_SHA256:
+        return 9
 
     print("sfight reference collision/attack signatures: verified")
     return 0
