@@ -185,8 +185,8 @@ static int run_accepted_hit(void)
     memset(&motion_in, 0, sizeof(motion_in));
     memset(&hit_profile, 0, sizeof(hit_profile));
     memset(&motion_runtime, 0, sizeof(motion_runtime));
-    memset(animation_offsets, 0, sizeof(animation_offsets));
-    memset(motion_blob, 0, sizeof(motion_blob));
+    memset(motion_image, 0, sizeof(motion_image));
+    memset(&motion_rom, 0, sizeof(motion_rom));
     memset(hit_profile_table, 0, sizeof(hit_profile_table));
     memset(sound_table, 0, sizeof(sound_table));
     memset(&vector_in, 0, sizeof(vector_in));
@@ -224,10 +224,18 @@ static int run_accepted_hit(void)
     hit_motion_fixture.selector = UINT8_C(0);
     hit_motion_fixture.words[18] = UINT32_C(0x10);
 
-    animation_offsets[0x10u] = 0u;
-    motion_blob[0x0Du] = UINT8_C(0x11);
-    write_le16(motion_blob + 0x0Eu, UINT16_C(0));
-    write_le32(motion_blob + 0x10u, UINT32_C(0x3F800000));
+    motion_rom.image = motion_image;
+    motion_rom.image_size = sizeof(motion_image);
+    motion_rom.base_address = UINT32_C(0x00100000);
+    motion_rom.animation_related_address = UINT32_C(0x00100020);
+    motion_rom.animation_count = 64u;
+    write_le32(
+        motion_image + 0x20u + 0x10u * 4u,
+        UINT32_C(0x00100080)
+    );
+    motion_image[0x80u + 0x0Du] = UINT8_C(0x11);
+    write_le16(motion_image + 0x80u + 0x0Eu, UINT16_C(0));
+    write_le32(motion_image + 0x80u + 0x10u, UINT32_C(0x3F800000));
     write_le32(defender, UINT32_C(1) << 29u);
 
     kamae_fixture.selectors[0] = UINT16_C(0x1010);
@@ -448,21 +456,16 @@ static int run_accepted_hit(void)
     motion_in.limit_xang = INT16_C(100);
     motion_in.defender_5d8_bits = UINT32_C(0x42700000);
 
-    if (!stf_attack_hit_motion_prefix_resolve(
+    if (!stf_attack_hit_motion_prefix_resolve_rom(
             normal_runtime.motion.motion,
             &motion_in,
-            animation_offsets,
-            sizeof(animation_offsets) / sizeof(animation_offsets[0]),
-            motion_blob,
-            sizeof(motion_blob),
-            NULL,
-            0u,
+            &motion_rom,
             &hit_profile.fallback,
             &motion_runtime
         ) ||
         motion_runtime.lookup_status != STF_MOTION_HIT_FOUND ||
         !motion_runtime.used_mht_record ||
-        motion_runtime.record_offset != UINT32_C(0x0D) ||
+        motion_runtime.record_offset != UINT32_C(0x8D) ||
         motion_runtime.prefix.source != STF_MOTION_PREFIX_RECORD ||
         motion_runtime.prefix.angle_r6 != 0 ||
         motion_runtime.prefix.sqrt_r4_bits == 0u) {
