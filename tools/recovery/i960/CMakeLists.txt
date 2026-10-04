@@ -246,6 +246,12 @@ add_executable(stf_recovered_attack_hit_side_exit_tests
 
 target_link_libraries(stf_recovered_attack_hit_side_exit_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_attack_hit_flow_tests
+    tests/test_recovered_attack_hit_flow.c
+)
+
+target_link_libraries(stf_recovered_attack_hit_flow_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
@@ -275,3 +281,4 @@ add_test(NAME stf_recovered_attack_hit_motion_vector_tests COMMAND stf_recovered
 add_test(NAME stf_recovered_hit_motion_selector_tests COMMAND stf_recovered_hit_motion_selector_tests)
 add_test(NAME stf_recovered_damage_calculation_tests COMMAND stf_recovered_damage_calculation_tests)
 add_test(NAME stf_recovered_attack_hit_side_exit_tests COMMAND stf_recovered_attack_hit_side_exit_tests)
+add_test(NAME stf_recovered_attack_hit_flow_tests COMMAND stf_recovered_attack_hit_flow_tests)

@@ -186,7 +186,8 @@ tests:
 - hit-motion row selection plus SNC_DOWN remap (sub_2B94C/sub_2BA44);
 - damage_calculation/ketchup energy application and KO/ring-scatter events;
 - attack_hit side-exit classification around 0x2AC74/0x2AE40;
-- loc_2B8C8 lifecycle rollback of +0x1234 and enemy +0x108 markers.
+- loc_2B8C8 lifecycle rollback of +0x1234 and enemy +0x108 markers;
+- composed accepted-hit and rejected-hit flow tests across the portable layer.
 
 These helpers intentionally report external actions such as sound, skill
 accounting, stance/motion lookup, or set_kamae_ram as events or explicit input
@@ -209,8 +210,9 @@ the hit-motion selector/remap, and the shared `damage_calculation` energy
 application contract.
 
 The `loc_2B8C8` rollback and its major incoming side-exit predicates are now
-recovered explicitly. The next useful frontier is integration: exercise an
-accepted hit and a rejected/rolled-back hit through the portable contracts as
-coherent flows, then continue lifting the remaining event boundaries (sound,
-skill accounting, set_kamae_ram and ring-scatter execution) without hiding
-those effects inside arithmetic helpers.
+recovered explicitly, and integration tests compose both an accepted hit and
+a rejected/rolled-back hit across the portable contracts. The next frontier is
+therefore the remaining event/orchestration boundary: sound requests, skill
+accounting, set_kamae_ram and ring-scatter execution should be lifted as typed
+events/contracts so a complete attack_hit transaction can be replayed without
+embedding Model 2 devices in gameplay code.
