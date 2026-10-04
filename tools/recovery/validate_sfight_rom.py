@@ -42,6 +42,9 @@ ATTACK_HIT_PREFIX_SHA256 = (
 
 ATTACK_HIT_STRENGTH_START = 0x0002A8F8
 ATTACK_HIT_STRENGTH_END = 0x0002A9F0
+ATTACK_HIT_STRENGTH_SHA256 = (
+    "25312023a692dad8587001c48bb78a94096c9362fa5ea9217d4d5cbae129c0ca"
+)
 
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
@@ -100,12 +103,17 @@ def validate(path: Path) -> int:
     strength_digest = hashlib.sha256(
         program[ATTACK_HIT_STRENGTH_START:ATTACK_HIT_STRENGTH_END]
     ).hexdigest()
+    strength_status = (
+        "ok" if strength_digest == ATTACK_HIT_STRENGTH_SHA256 else "FAIL"
+    )
     print(
         "attack_hit strength corridor "
         f"[0x{ATTACK_HIT_STRENGTH_START:08X},"
         f"0x{ATTACK_HIT_STRENGTH_END:08X}) "
-        f"sha256={strength_digest}"
+        f"sha256={strength_digest} {strength_status}"
     )
+    if strength_digest != ATTACK_HIT_STRENGTH_SHA256:
+        return 6
 
     print("sfight reference collision signatures: verified")
     return 0
