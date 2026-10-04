@@ -283,7 +283,13 @@ calc_mht_adr directly. The accepted hit integration path now uses that absolute
 pointer representation rather than pre-converted animation_offsets. Sound-table
 resolution has the same treatment: a caller-supplied addressable image plus the
 recovered sfight/schamp table bases is enough to resolve the concrete sound IDs
-without slicing a table first. Remaining work in the accepted-hit corridor is
+without slicing a table first.
+ The stance path now has the same
+addressable-view treatment for offset_list_motions, and the hit-motion selector
+can resolve the original defender-character chain
+ptr_DA0B4[character] -> uk_hit_motions[selector] -> 44-word motion table
+without a synthetic callback table. The accepted transaction uses those
+absolute-pointer views directly. Remaining work in the accepted-hit corridor is
 therefore mostly true backend integration: supplying the original data images
 and executing target effects such as playback/rendering around otherwise
 recovered gameplay state transitions.
