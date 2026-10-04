@@ -90,5 +90,36 @@ int main(void)
         return 5;
     }
 
+    {
+        uint32_t scaled = 0u;
+
+        if (!stf_attack_hit_strength_scale_bits(
+                UINT32_C(0x40800000), /* 4.0 */
+                UINT32_C(0x3F800000), /* x1.0 */
+                &scaled
+            ) ||
+            scaled != UINT32_C(0x3E000000)) { /* 0.125 */
+            return 6;
+        }
+
+        if (!stf_attack_hit_strength_scale_bits(
+                UINT32_C(0x41800000), /* 16.0 */
+                UINT32_C(0x40000000), /* x2.0 */
+                &scaled
+            ) ||
+            scaled != UINT32_C(0x3F000000)) { /* 0.5 */
+            return 7;
+        }
+
+        if (!stf_attack_hit_strength_scale_bits(
+                UINT32_C(0x00000000),
+                UINT32_C(0x3F800000),
+                &scaled
+            ) ||
+            scaled != 0u) {
+            return 8;
+        }
+    }
+
     return 0;
 }
