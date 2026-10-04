@@ -15,6 +15,77 @@ static uint32_t read_le32(const uint8_t *data)
            ((uint32_t)data[3] << 24u);
 }
 
+
+bool stf_attack_hit_guard_common_apply_transaction_model2(
+    uint8_t *attacker,
+    size_t attacker_size,
+    uint8_t *defender,
+    size_t defender_size,
+    uint8_t *workspace,
+    size_t workspace_size,
+    uint8_t *enemy_slot,
+    size_t enemy_slot_size,
+    uint16_t hit_flags_50fe00,
+    uint8_t hit_flags_50fe03,
+    uint8_t guard_limit,
+    stf_hit_motion_table_resolver resolver,
+    void *resolver_user_data,
+    uint16_t rank_mode,
+    uint32_t select0_flag,
+    uint32_t select1_flag,
+    uint32_t total_skill_before,
+    stf_guard_common_transaction_result *result
+)
+{
+    stf_guard_common_transaction_result local;
+
+    if (attacker == NULL || result == NULL) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+
+    if (!stf_attack_hit_guard_common_apply_resolved_model2(
+            attacker,
+            attacker_size,
+            defender,
+            defender_size,
+            workspace,
+            workspace_size,
+            enemy_slot,
+            enemy_slot_size,
+            hit_flags_50fe00,
+            hit_flags_50fe03,
+            guard_limit,
+            resolver,
+            resolver_user_data,
+            &local.runtime
+        )) {
+        return false;
+    }
+
+    if (local.runtime.guard.skipped) {
+        local.skill.total_skill_after = total_skill_before;
+        *result = local;
+        return true;
+    }
+
+    if (!stf_total_skill_add(
+            rank_mode,
+            select0_flag,
+            select1_flag,
+            attacker[4u],
+            local.runtime.guard.skill_amount,
+            total_skill_before,
+            &local.skill
+        )) {
+        return false;
+    }
+
+    *result = local;
+    return true;
+}
+
 bool stf_attack_hit_guard_common_apply_resolved_model2(
     uint8_t *attacker,
     size_t attacker_size,
