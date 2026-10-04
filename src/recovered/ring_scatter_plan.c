@@ -39,28 +39,28 @@ bool stf_ring_scatter_plan_compute(
     if (inputs->defender_motion_1a8 == STF_RING_SPECIAL_MOTION) {
         local.ring_count =
             inputs->stage_num == STF_RING_SPECIAL_STAGE ? UINT8_C(4) : UINT8_C(8);
-        local.visible_from_frame = UINT16_C(90);
+        local.blink_from_frame = UINT16_C(90);
         local.expire_at_frame = UINT16_C(140);
         local.profile = STF_RING_SCATTER_SPECIAL_MOTION;
         local.drop_mode = STF_RING_DROP_FIXED_5;
     } else if (inputs->damage <= UINT32_C(20)) {
         local.ring_count = UINT8_C(2);
-        local.visible_from_frame = UINT16_C(60);
+        local.blink_from_frame = UINT16_C(60);
         local.expire_at_frame = UINT16_C(90);
         local.profile = STF_RING_SCATTER_DAMAGE_2;
     } else if (inputs->damage <= UINT32_C(30)) {
         local.ring_count = UINT8_C(4);
-        local.visible_from_frame = UINT16_C(90);
+        local.blink_from_frame = UINT16_C(90);
         local.expire_at_frame = UINT16_C(140);
         local.profile = STF_RING_SCATTER_DAMAGE_4;
     } else if (inputs->damage <= UINT32_C(60)) {
         local.ring_count = UINT8_C(8);
-        local.visible_from_frame = UINT16_C(120);
+        local.blink_from_frame = UINT16_C(120);
         local.expire_at_frame = UINT16_C(180);
         local.profile = STF_RING_SCATTER_DAMAGE_8;
     } else {
         local.ring_count = UINT8_C(16);
-        local.visible_from_frame = UINT16_C(150);
+        local.blink_from_frame = UINT16_C(150);
         local.expire_at_frame = UINT16_C(210);
         local.profile = STF_RING_SCATTER_DAMAGE_16;
     }
