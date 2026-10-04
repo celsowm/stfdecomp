@@ -4,11 +4,20 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum {
+    STF_MOTION_HIT_RECORD_SIZE_COUNT = 25u
+};
+
 typedef enum stf_motion_hit_lookup_status {
     STF_MOTION_HIT_FOUND = 0,
     STF_MOTION_HIT_NOT_FOUND,
     STF_MOTION_HIT_INVALID
 } stf_motion_hit_lookup_status;
+
+/*
+ * Canonical byte_1D006 stride table used by calc_mht_adr.
+ */
+const uint8_t *stf_motion_hit_default_record_sizes(size_t *count);
 
 /*
  * Portable recovery of calc_mht_adr.
