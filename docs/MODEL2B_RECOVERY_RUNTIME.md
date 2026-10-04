@@ -240,8 +240,13 @@ zero-height samples damp horizontal velocity by 0.7, the -1.0f trajectory
 sentinel transitions the ring to landed state, and the former
 visible_from_frame field is corrected to blink_from_frame with the original
 two-on/two-off bit-1 cadence. Sonic Championship pins the full 0x78E84..0x791F4
-runtime corridor plus the 0x791F8..0x79270 pool bit helpers. The remaining ring
-frontier is the renderer/drop asset-selection event layer, including the
-per-slot 1..4 random Egg drop variant versus fixed special variant 5. In
-parallel, the stance decoder can now be composed into the full action
-initialization path before the complete attack_hit transaction replay.
+runtime corridor plus the 0x791F8..0x79270 pool bit helpers. The renderer/drop asset-selection layer is now recovered as typed output as
+well: normal ring animation IDs, stage-2 secondary IDs, concrete Egg variants
+1..4, fixed special variant 5, and the original 16-step spin phase. The
+damage_calculation ring event is also composed through a Model 2 adapter into
+ring_tobitiri_set, reading the original fighter fields and creating real pool
+slots. The accepted attack_hit integration test now continues through damage
+application into ring scatter spawn instead of stopping at a boolean request.
+The remaining attack-hit frontier is therefore no longer the ring handoff; it
+is composing the stance/action initialization path before the full transaction
+replay and then replacing remaining explicit external dependencies one by one.
