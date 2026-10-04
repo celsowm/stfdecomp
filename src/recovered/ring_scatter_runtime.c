@@ -183,6 +183,137 @@ bool stf_ring_profile_select(
     }
 }
 
+
+bool stf_ring_slot_tick(
+    const stf_ring_tick_inputs *inputs,
+    stf_ring_pool *pool,
+    uint8_t slot_index,
+    stf_ring_slot slots[STF_RING_POOL_SLOT_COUNT],
+    stf_ring_tick_result *result
+)
+{
+    stf_ring_tick_result local;
+    stf_ring_slot *slot = NULL;
+    stf_ring_trajectory_info info;
+    uint32_t sample_bits = 0u;
+    float x = 0.0f;
+    float z = 0.0f;
+    float vx = 0.0f;
+    float vz = 0.0f;
+
+    if (inputs == NULL || pool == NULL || slots == NULL ||
+        slot_index >= STF_RING_POOL_SLOT_COUNT ||
+        (pool->occupied_mask & (UINT32_C(1) << slot_index)) == 0u) {
+        return false;
+    }
+
+    slot = &slots[slot_index];
+    if (!slot->active ||
+        !stf_ring_trajectory_info_get(slot->trajectory, &info) ||
+        inputs->curve_words == NULL ||
+        inputs->curve_word_count < (size_t)info.sample_count + 1u ||
+        inputs->curve_words[info.sample_count] != UINT32_C(0xBF800000)) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+
+    if (!inputs->paused) {
+        ++slot->age;
+
+        if (slot->age >= slot->expire_at_frame) {
+            stf_ring_pool_release(pool, slot_index);
+            slot->active = false;
+            local.released = true;
+            if (result != NULL) {
+                *result = local;
+            }
+            return true;
+        }
+    }
+
+    local.render_x_bits = slot->x_bits;
+    local.render_y_bits = slot->y_bits;
+    local.render_z_bits = slot->z_bits;
+
+    /*
+     * The original stores -1.0f in slot Y once the trajectory lands.  Later
+     * frames detect the sign bit before horizontal integration, leave the slot
+     * frozen, and substitute 0.0f only for rendering.
+     */
+    if ((slot->y_bits & UINT32_C(0x80000000)) != 0u) {
+        local.landed = true;
+        local.render_y_bits = 0u;
+    } else if (!inputs->paused) {
+        x = bits_to_float(slot->x_bits);
+        z = bits_to_float(slot->z_bits);
+        vx = bits_to_float(slot->vx_bits);
+        vz = bits_to_float(slot->vz_bits);
+
+        if (!isfinite(x) || !isfinite(z) ||
+            !isfinite(vx) || !isfinite(vz)) {
+            return false;
+        }
+
+        x += vx;
+        z += vz;
+
+        if (fabsf(x) >= 7.5f) {
+            slot->vx_bits ^= UINT32_C(0x80000000);
+            x = copysignf(7.5f, x);
+        }
+        if (fabsf(z) >= 7.5f) {
+            slot->vz_bits ^= UINT32_C(0x80000000);
+            z = copysignf(7.5f, z);
+        }
+
+        slot->x_bits = float_to_bits(x);
+        slot->z_bits = float_to_bits(z);
+
+        if (slot->age > info.sample_count) {
+            return false;
+        }
+
+        sample_bits = inputs->curve_words[slot->age];
+        if ((sample_bits & UINT32_C(0x80000000)) != 0u) {
+            if (slot->age != info.sample_count ||
+                sample_bits != UINT32_C(0xBF800000)) {
+                return false;
+            }
+            slot->y_bits = sample_bits;
+            local.landed = true;
+            local.render_y_bits = 0u;
+        } else {
+            const float sample = bits_to_float(sample_bits);
+            if (!isfinite(sample)) {
+                return false;
+            }
+
+            slot->y_bits = sample_bits;
+            local.render_y_bits = sample_bits;
+
+            if (sample_bits == 0u) {
+                slot->vx_bits =
+                    float_to_bits(bits_to_float(slot->vx_bits) * 0.7f);
+                slot->vz_bits =
+                    float_to_bits(bits_to_float(slot->vz_bits) * 0.7f);
+            }
+        }
+
+        local.render_x_bits = slot->x_bits;
+        local.render_z_bits = slot->z_bits;
+    }
+
+    local.visible =
+        slot->age < slot->blink_from_frame ||
+        (slot->age & UINT16_C(2)) == 0u;
+
+    if (result != NULL) {
+        *result = local;
+    }
+    return true;
+}
+
 bool stf_ring_scatter_spawn(
     const stf_ring_scatter_plan *plan,
     const stf_ring_scatter_spawn_inputs *inputs,
