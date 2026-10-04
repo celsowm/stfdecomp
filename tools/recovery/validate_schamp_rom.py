@@ -48,6 +48,12 @@ COLI_CONSTANTS = {
     0x00029400: 0x40400000,
 }
 
+ATTACK_HIT_PREFIX_START = 0x0002A858
+ATTACK_HIT_PREFIX_END = 0x0002A8F8
+ATTACK_HIT_PREFIX_SHA256 = (
+    "75468d8e674e8b6b8c6334cdb1512f6f69fe2067c3ca2d9ac05a354c55ab671a"
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2 != 0:
@@ -106,6 +112,19 @@ def validate(path: Path) -> int:
         )
         if actual != expected:
             return 5
+
+    attack_hit_prefix = program[ATTACK_HIT_PREFIX_START:ATTACK_HIT_PREFIX_END]
+    attack_hit_digest = hashlib.sha256(attack_hit_prefix).hexdigest()
+    attack_status = (
+        "ok" if attack_hit_digest == ATTACK_HIT_PREFIX_SHA256 else "FAIL"
+    )
+    print(
+        "attack_hit prefix "
+        f"[0x{ATTACK_HIT_PREFIX_START:08X},0x{ATTACK_HIT_PREFIX_END:08X}) "
+        f"sha256={attack_hit_digest} {attack_status}"
+    )
+    if attack_hit_digest != ATTACK_HIT_PREFIX_SHA256:
+        return 6
 
     print("schamp collision signature: verified (secondary evidence)")
     return 0
