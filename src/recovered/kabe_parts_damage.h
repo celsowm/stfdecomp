@@ -14,9 +14,9 @@ typedef struct stf_kabe_parts_damage_result {
 
 /*
  * Recover kabe_parts_damage:
- *   per_part = damage / 4
- *   add per_part to all 16 +0x1F00 accumulators
- *   calc_up_down_damage
+ *   per_part = floor(damage / 4), narrowed to the 16-bit part accumulator type
+ *   add per_part to all 16 +0x1F00 accumulators with 16-bit modular wrap
+ *   calc_up_down_damage from the stored post-wrap values
  */
 bool stf_kabe_parts_damage_apply_model2(
     uint8_t *fighter,
