@@ -44,6 +44,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_common.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_combo.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_damage.c"
+    "${STF_REPO_ROOT}/src/recovered/attack_hit_finish.c"
 )
 
 target_include_directories(stf_recovered_game
@@ -176,6 +177,12 @@ add_executable(stf_recovered_attack_hit_damage_tests
 
 target_link_libraries(stf_recovered_attack_hit_damage_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_attack_hit_finish_tests
+    tests/test_recovered_attack_hit_finish.c
+)
+
+target_link_libraries(stf_recovered_attack_hit_finish_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
@@ -195,3 +202,4 @@ add_test(NAME stf_recovered_attack_hit_guard_state_tests COMMAND stf_recovered_a
 add_test(NAME stf_recovered_attack_hit_guard_common_tests COMMAND stf_recovered_attack_hit_guard_common_tests)
 add_test(NAME stf_recovered_attack_hit_combo_tests COMMAND stf_recovered_attack_hit_combo_tests)
 add_test(NAME stf_recovered_attack_hit_damage_tests COMMAND stf_recovered_attack_hit_damage_tests)
+add_test(NAME stf_recovered_attack_hit_finish_tests COMMAND stf_recovered_attack_hit_finish_tests)
