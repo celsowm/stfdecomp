@@ -33,6 +33,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/coli_init.c"
     "${STF_REPO_ROOT}/src/recovered/collision_finish.c"
     "${STF_REPO_ROOT}/src/recovered/collision_ball.c"
+    "${STF_REPO_ROOT}/src/recovered/collision_support.c"
 )
 
 target_include_directories(stf_recovered_game
@@ -98,6 +99,12 @@ add_executable(stf_recovered_collision_ball_tests
 
 target_link_libraries(stf_recovered_collision_ball_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_collision_support_tests
+    tests/test_recovered_collision_support.c
+)
+
+target_link_libraries(stf_recovered_collision_support_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
@@ -106,3 +113,4 @@ add_test(NAME stf_recovery_model2b_memory_tests COMMAND stf_recovery_model2b_mem
 add_test(NAME stf_recovered_coli_tests COMMAND stf_recovered_coli_tests)
 add_test(NAME stf_recovered_collision_tests COMMAND stf_recovered_collision_tests)
 add_test(NAME stf_recovered_collision_ball_tests COMMAND stf_recovered_collision_ball_tests)
+add_test(NAME stf_recovered_collision_support_tests COMMAND stf_recovered_collision_support_tests)
