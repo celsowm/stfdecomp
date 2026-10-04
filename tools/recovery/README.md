@@ -116,3 +116,22 @@ Compare a recovered snapshot with a controlled reference:
 - Probe allowances make a run exploratory.
 - Do not commit ROMs, reconstructed ROM regions, extracted proprietary assets,
   or large raw traces.
+
+
+## Sonic Championship ROM-backed secondary check
+
+A local `schamp.zip` can be used as secondary evidence without committing ROM
+bytes:
+
+    python tools/recovery/validate_schamp_rom.py /path/to/schamp.zip
+
+The validator checks the CRCs of the schamp asset ROMs used by the repository,
+interleaves `epr-19141.15` + `epr-19142.16` in memory, and verifies the
+collision-corridor signature observed in Sonic Championship:
+
+- `coli_init` at `0x000293B8`;
+- embedded `collision` address `0x00029418`;
+- recovered initialization constants at their expected offsets.
+
+This is intentionally marked **secondary evidence**. The reference STF i960
+program remains the `sfight` set (`epr-19001.15` + `epr-19002.16`).
