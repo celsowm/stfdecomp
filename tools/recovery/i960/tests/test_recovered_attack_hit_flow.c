@@ -21,6 +21,7 @@
 #include "attack_hit_profile.h"
 #include "damage_calculation.h"
 #include "damage_unit.h"
+#include "damage_unit_post.h"
 #include "skill_accounting.h"
 #include "ring_scatter_damage_flow.h"
 #include "kamae_motion_rom_view.h"
@@ -124,6 +125,7 @@ static int run_accepted_hit(void)
     stf_damage_calculation_result damage;
     stf_damage_unit_effect_state damage_unit_effect;
     stf_damage_unit_result damage_unit;
+    stf_damage_unit_post_result damage_unit_post;
     stf_skill_accounting_result skill;
     stf_ring_damage_flow_inputs ring_inputs;
     stf_ring_damage_flow_result ring_flow;
@@ -571,6 +573,22 @@ static int run_accepted_hit(void)
         damage_unit.down_total_1f78 != UINT32_C(0) ||
         (damage_unit.flags_7f0 & UINT32_C(1)) == 0u) {
         return 23;
+    }
+
+    if (!stf_damage_unit_post_apply_model2(
+            defender, sizeof(defender),
+            workspace, sizeof(workspace),
+            &damage_unit_effect,
+            UINT8_C(0), UINT8_C(0),
+            &damage_unit_post
+        ) ||
+        !damage_unit_post.crush_table_inert ||
+        damage_unit_post.early_mode_return ||
+        !damage_unit_post.request_particle_setup ||
+        damage_unit_post.effect_flags_908 != (UINT16_C(1) << 1u) ||
+        damage_unit_post.defender_75c != (UINT16_C(1) << 4u) ||
+        damage_unit_post.defender_75e != (UINT16_C(1) << 1u)) {
+        return 24;
     }
 
     return 0;
