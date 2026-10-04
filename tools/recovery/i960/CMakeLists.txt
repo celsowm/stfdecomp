@@ -60,6 +60,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/get_kamae_value.c"
     "${STF_REPO_ROOT}/src/recovered/ring_scatter_plan.c"
     "${STF_REPO_ROOT}/src/recovered/ring_scatter_runtime.c"
+    "${STF_REPO_ROOT}/src/recovered/ring_scatter_damage_flow.c"
 )
 
 target_include_directories(stf_recovered_game
