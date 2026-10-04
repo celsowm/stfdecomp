@@ -16,6 +16,7 @@ int main(void)
     uint8_t attacker[STF_ATTACK_HIT_SOUND_ATTACKER_MIN_SIZE];
     uint8_t defender[STF_ATTACK_HIT_SOUND_DEFENDER_MIN_SIZE];
     stf_attack_hit_sound_plan plan;
+    stf_attack_hit_sound_source_info info;
 
     memset(attacker, 0, sizeof(attacker));
     memset(defender, 0, sizeof(defender));
@@ -111,6 +112,40 @@ int main(void)
             &plan
         )) {
         return 10;
+    }
+
+
+    if (!stf_attack_hit_sound_source_info_get(
+            STF_ATTACK_HIT_SOUND_SOURCE_OFF_DBE44, &info
+        ) ||
+        info.sfight_base_address != UINT32_C(0x000DBE44) ||
+        info.schamp_base_address != UINT32_C(0x000DBF7C) ||
+        !info.source_index_is_byte_offset ||
+        !stf_attack_hit_sound_source_info_get(
+            STF_ATTACK_HIT_SOUND_SOURCE_AUDIO_LIST, &info
+        ) ||
+        info.sfight_base_address != UINT32_C(0x000DBECC) ||
+        info.schamp_base_address != UINT32_C(0x000DC004) ||
+        !info.source_index_is_byte_offset ||
+        !stf_attack_hit_sound_source_info_get(
+            STF_ATTACK_HIT_SOUND_SOURCE_OFF_DBF4C, &info
+        ) ||
+        info.sfight_base_address != UINT32_C(0x000DBF4C) ||
+        info.schamp_base_address != UINT32_C(0x000DC084) ||
+        !info.source_index_is_byte_offset ||
+        !stf_attack_hit_sound_source_info_get(
+            STF_ATTACK_HIT_SOUND_SOURCE_DWORD_DB6F4, &info
+        ) ||
+        info.sfight_base_address != UINT32_C(0x000DB6F4) ||
+        info.schamp_base_address != UINT32_C(0x000DB82C) ||
+        info.source_index_is_byte_offset ||
+        !stf_attack_hit_sound_source_info_get(
+            STF_ATTACK_HIT_SOUND_SOURCE_DWORD_DB964, &info
+        ) ||
+        info.sfight_base_address != UINT32_C(0x000DB964) ||
+        info.schamp_base_address != UINT32_C(0x000DBA9C) ||
+        info.source_index_is_byte_offset) {
+        return 11;
     }
 
     return 0;
