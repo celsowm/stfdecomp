@@ -41,6 +41,7 @@ int main(void)
     uint8_t enemy[STF_GUARD_COMMON_ENEMY_MIN_SIZE];
     fixture fx;
     stf_guard_common_runtime_result result;
+    stf_guard_common_transaction_result transaction;
 
     memset(attacker, 0, sizeof(attacker));
     memset(defender, 0, sizeof(defender));
@@ -81,6 +82,37 @@ int main(void)
             resolve_table, &fx, &result
         )) {
         return 2;
+    }
+
+
+    memset(attacker, 0, sizeof(attacker));
+    memset(defender, 0, sizeof(defender));
+    memset(workspace, 0, sizeof(workspace));
+    memset(enemy, 0, sizeof(enemy));
+    fx.selector = UINT8_C(0);
+    fx.words[2] = UINT32_C(0x222);
+    attacker[0x822u] = UINT8_C(15);
+    attacker[4u] = UINT8_C(0);
+    write_le32(attacker + 0x1234u, UINT32_C(5));
+    write_le32(attacker + 0x1238u, UINT32_C(9));
+
+    if (!stf_attack_hit_guard_common_apply_transaction_model2(
+            attacker, sizeof(attacker),
+            defender, sizeof(defender),
+            workspace, sizeof(workspace),
+            enemy, sizeof(enemy),
+            UINT16_C(0), UINT8_C(0), UINT8_C(20),
+            resolve_table, &fx,
+            UINT16_C(1),
+            UINT32_C(1) << 2u,
+            UINT32_C(0),
+            UINT32_C(100),
+            &transaction
+        ) ||
+        transaction.runtime.guard.skill_amount != UINT32_C(7) ||
+        !transaction.skill.applied ||
+        transaction.skill.total_skill_after != UINT32_C(107)) {
+        return 3;
     }
 
     return 0;
