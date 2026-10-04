@@ -73,8 +73,8 @@ int main(void)
     write_le16(attacker + 0x1226u, UINT16_C(0x3344));
     write_le16(attacker + 0x1248u, UINT16_C(2));
     write_le16(attacker + 0x124Au, UINT16_C(0x7788));
-    write_le16(attacker + 0x1AAu, UINT16_C(40));
-    write_le16(attacker + 0x80Cu, UINT16_C(10));
+    write_le16(attacker + 0x1AAu, UINT16_C(10));
+    write_le16(attacker + 0x80Cu, UINT16_C(40));
     write_le32(workspace + 0x26Cu, UINT32_C(1));
 
     if (!stf_attack_hit_guard_common_apply_model2(
@@ -127,8 +127,8 @@ int main(void)
         return 4;
     }
 
-    write_le16(attacker + 0x808u, UINT16_C(80));
-    write_le16(attacker + 0x80Cu, UINT16_C(10));
+    write_le16(attacker + 0x808u, UINT16_C(10));
+    write_le16(attacker + 0x80Cu, UINT16_C(80));
 
     if (!stf_attack_hit_guard_common_apply_model2(
             attacker, sizeof(attacker),
