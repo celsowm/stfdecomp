@@ -22,7 +22,7 @@ static void write_le32(uint8_t *data, uint32_t value)
 
 int main(void)
 {
-    uint8_t attacker[STF_ATTACK_SIDE_EXIT_ATTACKER_MIN_SIZE];
+    uint8_t attacker[STF_ATTACK_ABORT_CLEANUP_ATTACKER_MIN_SIZE];
     uint8_t defender[STF_ATTACK_HIT_OPPONENT_MODEL2_MIN_SIZE];
     uint8_t workspace[STF_ATTACK_HIT_WORKSPACE_MODEL2_MIN_SIZE];
     uint8_t enemy0[STF_ATTACK_SIDE_EXIT_ENEMY_MIN_SIZE];
@@ -30,6 +30,15 @@ int main(void)
     stf_attack_side_exit_result side;
     stf_attack_abort_cleanup_result cleanup;
     stf_attack_hit_prefix_result prefix;
+
+    if (stf_attack_hit_side_exit_apply_model2(
+            STF_ATTACK_SIDE_EXIT_GUARD_2AC74,
+            attacker, STF_ATTACK_SIDE_EXIT_CLASSIFIER_ATTACKER_MIN_SIZE - 1u,
+            defender, sizeof(defender),
+            &side
+        )) {
+        return 14;
+    }
 
     memset(attacker, 0, sizeof(attacker));
     memset(defender, 0, sizeof(defender));

@@ -1,5 +1,7 @@
 #include "attack_hit_combo.h"
 
+#include "attack_hit_side_exit.h"
+
 #include <stddef.h>
 #include <string.h>
 
@@ -47,22 +49,8 @@ bool stf_attack_hit_combo_apply_model2(
 )
 {
     stf_attack_hit_combo_result local;
-    const uint32_t attacker_70c =
-        attacker != NULL && attacker_size >= STF_ATTACK_HIT_COMBO_ATTACKER_MIN_SIZE
-            ? read_le32(attacker + 0x70Cu)
-            : 0u;
-    const uint32_t attacker_5b8 =
-        attacker != NULL && attacker_size >= STF_ATTACK_HIT_COMBO_ATTACKER_MIN_SIZE
-            ? read_le32(attacker + 0x5B8u)
-            : 0u;
-    const uint32_t attacker_860 =
-        attacker != NULL && attacker_size >= STF_ATTACK_HIT_COMBO_ATTACKER_MIN_SIZE
-            ? read_le32(attacker + 0x860u)
-            : 0u;
-    uint32_t defender_flags = 0u;
+    stf_attack_side_exit_result side_exit;
     uint32_t workspace_flags = 0u;
-    uint32_t attacker_720 = 0u;
-    uint32_t attacker_19c = 0u;
     uint32_t attacker_1a4 = 0u;
     uint8_t combo = 0u;
 
@@ -75,7 +63,18 @@ bool stf_attack_hit_combo_apply_model2(
 
     memset(&local, 0, sizeof(local));
 
-    if (!bit32(attacker_70c, 20u) && bit32(attacker_5b8, 0u)) {
+    if (!stf_attack_hit_side_exit_apply_model2(
+            STF_ATTACK_SIDE_EXIT_NORMAL_2AE40,
+            attacker,
+            attacker_size,
+            defender,
+            defender_size,
+            &side_exit
+        )) {
+        return false;
+    }
+
+    if (side_exit.path == STF_ATTACK_SIDE_EXIT_ABORT_2B8C8) {
         local.skipped = true;
         if (result != NULL) {
             *result = local;
@@ -83,38 +82,7 @@ bool stf_attack_hit_combo_apply_model2(
         return true;
     }
 
-    defender_flags = read_le32(defender + 0x000u);
-    if (bit32(defender_flags, 29u)) {
-        if (bit32(attacker_860, 19u)) {
-            local.skipped = true;
-            if (result != NULL) {
-                *result = local;
-            }
-            return true;
-        }
-
-        defender_flags &= ~(UINT32_C(1) << 29u);
-        write_le32(defender + 0x000u, defender_flags);
-        local.requires_set_kamae = true;
-    }
-
-    if (bit32(attacker_860, 19u)) {
-        attacker_720 = read_le32(attacker + 0x720u);
-        attacker_19c = read_le32(attacker + 0x19Cu);
-
-        if (bit32(attacker_720, 12u) ||
-            (bit32(attacker_720, 6u) && bit32(attacker_19c, 16u)) ||
-            (!bit32(attacker_720, 6u) &&
-             bit32(attacker_720, 7u) &&
-             bit32(attacker_19c, 17u)) ||
-            attacker[0x822u] == 0u) {
-            local.skipped = true;
-            if (result != NULL) {
-                *result = local;
-            }
-            return true;
-        }
-    }
+    local.requires_set_kamae = side_exit.request_set_kamae;
 
     if (read_le16(defender + 0xA0Eu) >= UINT16_C(1000)) {
         local.bonus_skill = UINT32_C(2000);

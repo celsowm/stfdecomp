@@ -185,7 +185,7 @@ tests:
 - scaled sine/cosine COP semantics and 3D knockback vector through 0x2B898;
 - hit-motion row selection plus SNC_DOWN remap (sub_2B94C/sub_2BA44);
 - damage_calculation/ketchup energy application and KO/ring-scatter events;
-- attack_hit side-exit classification around 0x2AC74/0x2AE40;
+- centralized attack_hit side-exit classification around 0x2AC74/0x2AE40;
 - loc_2B8C8 lifecycle rollback of +0x1234 and enemy +0x108 markers;
 - composed accepted-hit and rejected-hit flow tests across the portable layer.
 
@@ -211,7 +211,9 @@ application contract.
 
 The `loc_2B8C8` rollback and its major incoming side-exit predicates are now
 recovered explicitly, and integration tests compose both an accepted hit and
-a rejected/rolled-back hit across the portable contracts. The next frontier is
+a rejected/rolled-back hit across the portable contracts. Guard-common and
+combo bookkeeping now share that classifier instead of duplicating its branch
+logic. The next frontier is
 therefore the remaining event/orchestration boundary: sound requests, skill
 accounting, set_kamae_ram and ring-scatter execution should be lifted as typed
 events/contracts so a complete attack_hit transaction can be replayed without

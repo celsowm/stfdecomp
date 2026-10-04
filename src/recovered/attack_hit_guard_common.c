@@ -1,5 +1,7 @@
 #include "attack_hit_guard_common.h"
 
+#include "attack_hit_side_exit.h"
+
 #include <stddef.h>
 #include <string.h>
 
@@ -28,11 +30,6 @@ static void write_le32(uint8_t *data, uint32_t value)
     data[1] = (uint8_t)(value >> 8u);
     data[2] = (uint8_t)(value >> 16u);
     data[3] = (uint8_t)(value >> 24u);
-}
-
-static bool bit32(uint32_t value, unsigned bit)
-{
-    return (value & (UINT32_C(1) << bit)) != 0u;
 }
 
 static bool bit16(uint16_t value, unsigned bit)
@@ -66,6 +63,7 @@ bool stf_attack_hit_guard_common_apply_model2(
 )
 {
     stf_guard_common_result local;
+    stf_attack_side_exit_result side_exit;
     uint8_t raw_strength = 0u;
     uint16_t flags_1224 = 0u;
     uint16_t flags_1248 = 0u;
@@ -85,7 +83,18 @@ bool stf_attack_hit_guard_common_apply_model2(
     memset(&local, 0, sizeof(local));
     raw_strength = attacker[0x822u];
 
-    if (bit32(read_le32(attacker + 0x860u), 19u) && raw_strength == 0u) {
+    if (!stf_attack_hit_side_exit_apply_model2(
+            STF_ATTACK_SIDE_EXIT_GUARD_2AC74,
+            attacker,
+            attacker_size,
+            defender,
+            defender_size,
+            &side_exit
+        )) {
+        return false;
+    }
+
+    if (side_exit.path == STF_ATTACK_SIDE_EXIT_ABORT_2B8C8) {
         local.skipped = true;
         if (result != NULL) {
             *result = local;

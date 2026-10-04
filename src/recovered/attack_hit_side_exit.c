@@ -38,8 +38,8 @@ bool stf_attack_hit_side_exit_apply_model2(
     uint32_t flags_860 = 0u;
 
     if (attacker == NULL || defender == NULL || result == NULL ||
-        attacker_size < STF_ATTACK_SIDE_EXIT_ATTACKER_MIN_SIZE ||
-        defender_size < STF_ATTACK_SIDE_EXIT_DEFENDER_MIN_SIZE) {
+        attacker_size < STF_ATTACK_SIDE_EXIT_CLASSIFIER_ATTACKER_MIN_SIZE ||
+        defender_size < STF_ATTACK_SIDE_EXIT_CLASSIFIER_DEFENDER_MIN_SIZE) {
         return false;
     }
 
@@ -126,7 +126,7 @@ bool stf_attack_hit_abort_cleanup_apply_model2(
     uint32_t counter = 0u;
 
     if (attacker == NULL || enemy0 == NULL || enemy1 == NULL ||
-        attacker_size < STF_ATTACK_SIDE_EXIT_ATTACKER_MIN_SIZE ||
+        attacker_size < STF_ATTACK_ABORT_CLEANUP_ATTACKER_MIN_SIZE ||
         enemy0_size < STF_ATTACK_SIDE_EXIT_ENEMY_MIN_SIZE ||
         enemy1_size < STF_ATTACK_SIDE_EXIT_ENEMY_MIN_SIZE) {
         return false;
