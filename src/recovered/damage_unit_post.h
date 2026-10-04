@@ -11,6 +11,8 @@ typedef struct stf_damage_unit_post_result {
     bool crush_table_inert;
     bool early_mode_return;
     bool request_particle_setup;
+    uint16_t particle_draw_kind;
+    uint8_t particle_flag_set_mask;
     uint16_t effect_flags_908;
     uint16_t defender_75c;
     uint16_t defender_75e;
@@ -24,7 +26,9 @@ typedef struct stf_damage_unit_post_result {
  * In this program every ptr_CE1CC character entry points to word_CE1CC and
  * all 16 8-byte crush records at its head are zero, so the crush loop cannot
  * call efc_crush_parts_put_cont. The helper therefore recovers the observable
- * CPU state that follows that inert loop.
+ * CPU state that follows that inert loop. Particle-producing branches also
+ * expose the exact staging writes performed before sub_32A5C: draw_particle=1
+ * and bit 0 set in the 0x50A416 request flags byte.
  */
 bool stf_damage_unit_post_apply_model2(
     uint8_t *defender,
