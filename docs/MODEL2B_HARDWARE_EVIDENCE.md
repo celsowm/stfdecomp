@@ -160,6 +160,40 @@ recovered operation, not the full FIFO/device transport and not a claim of
 bit-identical reproduction of the cpres1 lookup table. The Model 2B device
 range therefore remains fail-closed by default.
 
+### Recovered hit-motion selector and down-motion remap
+
+The helper at `sub_2B94C` chooses a hit-motion from the row selected by the
+`0x50FE00` state and then calls `sub_2BA44`. The inner row selection is fully
+deterministic from the i960 code:
+
+- slot `5` selects row index `40`;
+- other slots start at `slot * 8`;
+- one parity bit is formed from `0x50FE00[15]`, the XOR of the two fighters'
+  flags shifted by 6, and target `+0x1A4` shifted by 21;
+- the selector adds `2` when bit 15 of
+  `source[0x82A] + source[0x26] - target[0x5B4] + 0x4000` is clear.
+
+The selected motion is then passed through the recovered `sub_2BA44` rule:
+
+    if motion == 225 and target[0x1F8] <= 0.9:
+        motion = 0x106
+
+The portable implementation intentionally accepts the already-resolved motion
+row as an argument. That keeps the game-logic selector recovered without
+pretending that the surrounding external motion-table data has been fully
+named or structurally recovered.
+
+The implementation lives in:
+
+    src/recovered/hit_motion_selector.c
+
+The reference ROM corridor `[0x0002B94C,0x0002BA68)` is pinned by
+`tools/recovery/validate_sfight_rom.py` with SHA-256:
+
+    e6d41cfb273af74a309f3331d783f0eff74e5a908de2c57d2f5c801ec29ac061
+
+Confidence: **high, STF-direct semantic recovery**.
+
 ### Buffer RAM
 
 STF declares:

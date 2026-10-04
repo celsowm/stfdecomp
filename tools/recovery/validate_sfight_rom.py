@@ -52,6 +52,12 @@ ATTACK_HIT_MOTION_VECTOR_SHA256 = (
     "689813368538becefc91d2de834e4e51c952c4724ca2aee6dabebb336090479f"
 )
 
+HIT_MOTION_SELECTOR_START = 0x0002B94C
+HIT_MOTION_SELECTOR_END = 0x0002BA68
+HIT_MOTION_SELECTOR_SHA256 = (
+    "e6d41cfb273af74a309f3331d783f0eff74e5a908de2c57d2f5c801ec29ac061"
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2:
@@ -137,6 +143,23 @@ def validate(path: Path) -> int:
     )
     if motion_vector_digest != ATTACK_HIT_MOTION_VECTOR_SHA256:
         return 7
+
+    hit_motion_selector_digest = hashlib.sha256(
+        program[HIT_MOTION_SELECTOR_START:HIT_MOTION_SELECTOR_END]
+    ).hexdigest()
+    hit_motion_selector_status = (
+        "ok"
+        if hit_motion_selector_digest == HIT_MOTION_SELECTOR_SHA256
+        else "FAIL"
+    )
+    print(
+        "hit-motion selector corridor "
+        f"[0x{HIT_MOTION_SELECTOR_START:08X},"
+        f"0x{HIT_MOTION_SELECTOR_END:08X}) "
+        f"sha256={hit_motion_selector_digest} {hit_motion_selector_status}"
+    )
+    if hit_motion_selector_digest != HIT_MOTION_SELECTOR_SHA256:
+        return 8
 
     print("sfight reference collision/attack signatures: verified")
     return 0
