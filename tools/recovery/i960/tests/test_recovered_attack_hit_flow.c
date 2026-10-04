@@ -22,6 +22,7 @@
 #include "damage_calculation.h"
 #include "skill_accounting.h"
 #include "ring_scatter_damage_flow.h"
+#include "kamae_motion_rom_view.h"
 
 enum {
     FLOW_ATTACKER_SIZE = STF_DAMAGE_DEALER_MIN_SIZE,
@@ -82,40 +83,11 @@ static bool resolve_flow_hit_motion(
     return true;
 }
 
-typedef struct flow_kamae_fixture {
-    uint16_t selectors[4];
-    uint8_t records[4][512];
-} flow_kamae_fixture;
-
 static uint32_t float_bits(float value)
 {
     uint32_t bits = 0u;
     memcpy(&bits, &value, sizeof(bits));
     return bits;
-}
-
-static bool resolve_flow_motion(
-    uint16_t selector,
-    const uint8_t **motion_record,
-    size_t *motion_record_size,
-    void *user_data
-)
-{
-    flow_kamae_fixture *fixture = (flow_kamae_fixture *)user_data;
-    size_t index = 0u;
-
-    if (fixture == NULL || motion_record == NULL || motion_record_size == NULL) {
-        return false;
-    }
-
-    for (index = 0u; index < 4u; ++index) {
-        if (fixture->selectors[index] == selector) {
-            *motion_record = fixture->records[index];
-            *motion_record_size = sizeof(fixture->records[index]);
-            return true;
-        }
-    }
-    return false;
 }
 
 static void build_flow_motion_record(uint8_t *record, float base)
@@ -148,7 +120,8 @@ static int run_accepted_hit(void)
     stf_attack_hit_state_prelude_result state_prelude;
     uint8_t selector_block[STF_SET_KAMAE_FULL_SELECTOR_MIN_SIZE];
     uint8_t stance_ram[2048];
-    flow_kamae_fixture kamae_fixture;
+    uint8_t kamae_image[4096];
+    stf_kamae_motion_rom_view kamae_rom;
     stf_attack_hit_combo_result combo;
     stf_attack_damage_result damage_transform;
     stf_attack_hit_sound_plan sound;
@@ -196,7 +169,8 @@ static int run_accepted_hit(void)
     memset(&ring_inputs, 0, sizeof(ring_inputs));
     memset(selector_block, 0, sizeof(selector_block));
     memset(stance_ram, 0, sizeof(stance_ram));
-    memset(&kamae_fixture, 0, sizeof(kamae_fixture));
+    memset(kamae_image, 0, sizeof(kamae_image));
+    memset(&kamae_rom, 0, sizeof(kamae_rom));
     memset(ring_slots, 0, sizeof(ring_slots));
     stf_ring_pool_init(&ring_pool);
 
@@ -241,18 +215,26 @@ static int run_accepted_hit(void)
     write_le32(motion_image + 0x80u + 0x10u, UINT32_C(0x3F800000));
     write_le32(defender, UINT32_C(1) << 29u);
 
-    kamae_fixture.selectors[0] = UINT16_C(0x1010);
-    kamae_fixture.selectors[1] = UINT16_C(0x2020);
-    kamae_fixture.selectors[2] = UINT16_C(0x3030);
-    kamae_fixture.selectors[3] = UINT16_C(0x4040);
-    write_le16(selector_block + 0x00u, kamae_fixture.selectors[0]);
-    write_le16(selector_block + 0x08u, kamae_fixture.selectors[1]);
-    write_le16(selector_block + 0x0Au, kamae_fixture.selectors[2]);
-    write_le16(selector_block + 0x50u, kamae_fixture.selectors[3]);
-    build_flow_motion_record(kamae_fixture.records[0], 10.0f);
-    build_flow_motion_record(kamae_fixture.records[1], 20.0f);
-    build_flow_motion_record(kamae_fixture.records[2], 30.0f);
-    build_flow_motion_record(kamae_fixture.records[3], 40.0f);
+    kamae_rom.image = kamae_image;
+    kamae_rom.image_size = sizeof(kamae_image);
+    kamae_rom.base_address = UINT32_C(0x00200000);
+    kamae_rom.offset_list_address = UINT32_C(0x00200020);
+    kamae_rom.motion_count = 8u;
+
+    write_le16(selector_block + 0x00u, UINT16_C(1));
+    write_le16(selector_block + 0x08u, UINT16_C(2));
+    write_le16(selector_block + 0x0Au, UINT16_C(3));
+    write_le16(selector_block + 0x50u, UINT16_C(4));
+
+    write_le32(kamae_image + 0x20u + 1u * 4u, UINT32_C(0x00200400));
+    write_le32(kamae_image + 0x20u + 2u * 4u, UINT32_C(0x00200600));
+    write_le32(kamae_image + 0x20u + 3u * 4u, UINT32_C(0x00200800));
+    write_le32(kamae_image + 0x20u + 4u * 4u, UINT32_C(0x00200A00));
+
+    build_flow_motion_record(kamae_image + 0x400u, 10.0f);
+    build_flow_motion_record(kamae_image + 0x600u, 20.0f);
+    build_flow_motion_record(kamae_image + 0x800u, 30.0f);
+    build_flow_motion_record(kamae_image + 0xA00u, 40.0f);
 
     if (!stf_attack_hit_prefix_apply_model2(
             attacker, sizeof(attacker),
@@ -309,14 +291,14 @@ static int run_accepted_hit(void)
             0u,
             stance_ram,
             sizeof(stance_ram),
-            resolve_flow_motion,
-            &kamae_fixture,
+            stf_kamae_motion_resolve_rom,
+            &kamae_rom,
             &stance_result
         ) ||
         !stance_result.executed ||
         stance_result.kamae.request_count != 4u ||
-        stance_result.kamae.selectors[0] != kamae_fixture.selectors[0] ||
-        stance_result.kamae.selectors[3] != kamae_fixture.selectors[3] ||
+        stance_result.kamae.selectors[0] != UINT16_C(1) ||
+        stance_result.kamae.selectors[3] != UINT16_C(4) ||
         read_le16(stance_ram + 0x1E0u) != UINT16_C(10) ||
         read_le16(stance_ram + 0x5A0u) != UINT16_C(40)) {
         return 19;
