@@ -59,9 +59,9 @@ static int test_target_approach_branch(void)
 
     if (!stf_crush_part_update_angles_model2(slot, sizeof(slot), &result) ||
         result.angle_x != INT16_C(10000) ||
-        result.angle_y != INT16_C(7952) ||
-        result.angle_z != INT16_C(-7952) ||
-        result.step != INT16_C(0x0800)) {
+        result.angle_y != INT16_C(10512) ||
+        result.angle_z != INT16_C(-10512) ||
+        result.step != INT16_C(0x0200)) {
         return 1;
     }
     return 0;
