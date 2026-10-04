@@ -23,6 +23,7 @@
 #include "skill_accounting.h"
 #include "ring_scatter_damage_flow.h"
 #include "kamae_motion_rom_view.h"
+#include "hit_motion_rom_view.h"
 
 enum {
     FLOW_ATTACKER_SIZE = STF_DAMAGE_DEALER_MIN_SIZE,
@@ -57,31 +58,6 @@ static void write_le32(uint8_t *data, uint32_t value)
 }
 
 
-
-typedef struct flow_hit_motion_fixture {
-    uint8_t selector;
-    uint32_t words[64];
-} flow_hit_motion_fixture;
-
-static bool resolve_flow_hit_motion(
-    uint8_t selector,
-    const uint32_t **table_words,
-    size_t *table_word_count,
-    void *user_data
-)
-{
-    flow_hit_motion_fixture *fixture =
-        (flow_hit_motion_fixture *)user_data;
-
-    if (fixture == NULL || table_words == NULL || table_word_count == NULL ||
-        selector != fixture->selector) {
-        return false;
-    }
-
-    *table_words = fixture->words;
-    *table_word_count = sizeof(fixture->words) / sizeof(fixture->words[0]);
-    return true;
-}
 
 static uint32_t float_bits(float value)
 {
@@ -133,7 +109,8 @@ static int run_accepted_hit(void)
     stf_attack_reaction_path reaction_path;
     stf_normal_reaction_result normal;
     stf_normal_reaction_runtime_result normal_runtime;
-    flow_hit_motion_fixture hit_motion_fixture;
+    uint8_t hit_motion_image[1024];
+    stf_hit_motion_rom_view hit_motion_rom;
     stf_motion_prefix_inputs motion_in;
     stf_attack_hit_profile hit_profile;
     stf_attack_hit_motion_runtime_result motion_runtime;
@@ -156,7 +133,8 @@ static int run_accepted_hit(void)
     memset(workspace, 0, sizeof(workspace));
     memset(enemy0, 0, sizeof(enemy0));
     memset(&reaction_in, 0, sizeof(reaction_in));
-    memset(&hit_motion_fixture, 0, sizeof(hit_motion_fixture));
+    memset(hit_motion_image, 0, sizeof(hit_motion_image));
+    memset(&hit_motion_rom, 0, sizeof(hit_motion_rom));
     memset(&motion_in, 0, sizeof(motion_in));
     memset(&hit_profile, 0, sizeof(hit_profile));
     memset(&motion_runtime, 0, sizeof(motion_runtime));
@@ -198,8 +176,26 @@ static int run_accepted_hit(void)
     write_le32(defender + 0x20Cu, UINT32_C(0x41200000));
     write_le32(defender + 0x210u, UINT32_C(0x40000000));
     write_le32(defender + 0x214u, UINT32_C(0x41A00000));
-    hit_motion_fixture.selector = UINT8_C(0);
-    hit_motion_fixture.words[18] = UINT32_C(0x10);
+    defender[0x1B1u] = UINT8_C(0);
+    hit_motion_rom.image = hit_motion_image;
+    hit_motion_rom.image_size = sizeof(hit_motion_image);
+    hit_motion_rom.base_address = UINT32_C(0x00300000);
+    hit_motion_rom.character_table_address = UINT32_C(0x00300020);
+    hit_motion_rom.character_count = 4u;
+    hit_motion_rom.selector_count = 8u;
+    hit_motion_rom.character = defender[0x1B1u];
+    write_le32(
+        hit_motion_image + 0x20u,
+        UINT32_C(0x00300080)
+    );
+    write_le32(
+        hit_motion_image + 0x80u,
+        UINT32_C(0x00300180)
+    );
+    write_le32(
+        hit_motion_image + 0x180u + 18u * 4u,
+        UINT32_C(0x10)
+    );
 
     motion_rom.image = motion_image;
     motion_rom.image_size = sizeof(motion_image);
@@ -436,8 +432,8 @@ static int run_accepted_hit(void)
             UINT8_C(0),
             damage_transform.damage,
             damage_transform.hit_mode,
-            resolve_flow_hit_motion,
-            &hit_motion_fixture,
+            stf_hit_motion_resolve_rom,
+            &hit_motion_rom,
             &normal_runtime
         ) ||
         normal_runtime.motion.table_index != UINT32_C(18) ||
