@@ -16,6 +16,7 @@
 #include "attack_hit_state_prelude.h"
 #include "attack_hit_sound.h"
 #include "attack_hit_sound_runtime.h"
+#include "attack_hit_sound_rom_view.h"
 #include "attack_hit_strength.h"
 #include "attack_hit_profile.h"
 #include "damage_calculation.h"
@@ -152,7 +153,8 @@ static int run_accepted_hit(void)
     stf_attack_damage_result damage_transform;
     stf_attack_hit_sound_plan sound;
     stf_attack_hit_sound_resolved sound_resolved;
-    uint8_t sound_table[32];
+    uint8_t sound_image[0x400];
+    stf_attack_hit_sound_rom_view sound_rom;
     stf_attack_finish_result finish;
     stf_attack_reaction_inputs reaction_in;
     stf_attack_reaction_path reaction_path;
@@ -188,7 +190,8 @@ static int run_accepted_hit(void)
     memset(motion_image, 0, sizeof(motion_image));
     memset(&motion_rom, 0, sizeof(motion_rom));
     memset(hit_profile_table, 0, sizeof(hit_profile_table));
-    memset(sound_table, 0, sizeof(sound_table));
+    memset(sound_image, 0, sizeof(sound_image));
+    memset(&sound_rom, 0, sizeof(sound_rom));
     memset(&vector_in, 0, sizeof(vector_in));
     memset(&ring_inputs, 0, sizeof(ring_inputs));
     memset(selector_block, 0, sizeof(selector_block));
@@ -393,11 +396,24 @@ static int run_accepted_hit(void)
         return 8;
     }
 
-    write_le32(sound_table + 0u, UINT32_C(0x111));
-    write_le32(sound_table + 4u, UINT32_C(0x222));
-    write_le32(sound_table + 8u, UINT32_C(0x333));
-    if (!stf_attack_hit_sound_resolve(
-            &sound, sound_table, sizeof(sound_table), &sound_resolved
+    sound_rom.image = sound_image;
+    sound_rom.image_size = sizeof(sound_image);
+    sound_rom.base_address = UINT32_C(0x000DB600);
+    sound_rom.use_schamp_addresses = false;
+    write_le32(
+        sound_image + (0xDB6F4u - 0xDB600u) + 0u,
+        UINT32_C(0x111)
+    );
+    write_le32(
+        sound_image + (0xDB6F4u - 0xDB600u) + 4u,
+        UINT32_C(0x222)
+    );
+    write_le32(
+        sound_image + (0xDB6F4u - 0xDB600u) + 8u,
+        UINT32_C(0x333)
+    );
+    if (!stf_attack_hit_sound_resolve_rom(
+            &sound, &sound_rom, &sound_resolved
         ) ||
         sound_resolved.id_count != 1u ||
         sound_resolved.ids[0] != UINT32_C(0x222)) {
