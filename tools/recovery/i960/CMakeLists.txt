@@ -37,6 +37,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/collision_no_unit.c"
     "${STF_REPO_ROOT}/src/recovered/collision_attack.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit.c"
+    "${STF_REPO_ROOT}/src/recovered/attack_hit_strength.c"
 )
 
 target_include_directories(stf_recovered_game
@@ -126,6 +127,12 @@ add_executable(stf_recovered_attack_hit_tests
 
 target_link_libraries(stf_recovered_attack_hit_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_attack_hit_strength_tests
+    tests/test_recovered_attack_hit_strength.c
+)
+
+target_link_libraries(stf_recovered_attack_hit_strength_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
@@ -138,3 +145,4 @@ add_test(NAME stf_recovered_collision_support_tests COMMAND stf_recovered_collis
 add_test(NAME stf_recovered_collision_no_unit_tests COMMAND stf_recovered_collision_no_unit_tests)
 add_test(NAME stf_recovered_collision_attack_tests COMMAND stf_recovered_collision_attack_tests)
 add_test(NAME stf_recovered_attack_hit_tests COMMAND stf_recovered_attack_hit_tests)
+add_test(NAME stf_recovered_attack_hit_strength_tests COMMAND stf_recovered_attack_hit_strength_tests)
