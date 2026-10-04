@@ -89,6 +89,8 @@ bool stf_attack_hit_damage_apply_model2(
 
     memset(&local, 0, sizeof(local));
     local.reason = STF_ATTACK_DAMAGE_HIT;
+    local.hit_mode = UINT32_C(2);
+    local.attacker_194 = read_le32(attacker + 0x194u);
 
     attacker_flags = read_le32(attacker + 0x000u);
     defender_flags = read_le32(defender + 0x1A4u);
