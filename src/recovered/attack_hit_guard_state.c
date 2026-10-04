@@ -136,6 +136,10 @@ bool stf_attack_hit_guard_apply_model2(
     local.defender_5de = min_i16(candidate, (int16_t)(delta + 6));
     write_le16(defender + 0x5DEu, (uint16_t)local.defender_5de);
 
+    flags |= UINT32_C(1) << 2u;
+    write_le32(workspace + 0x26Cu, flags);
+    local.workspace_26c = flags;
+
     if (result != NULL) {
         *result = local;
     }
