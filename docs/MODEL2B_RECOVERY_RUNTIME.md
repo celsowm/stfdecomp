@@ -287,3 +287,9 @@ without slicing a table first. Remaining work in the accepted-hit corridor is
 therefore mostly true backend integration: supplying the original data images
 and executing target effects such as playback/rendering around otherwise
 recovered gameplay state transitions.
+
+
+The branch transaction suite now resolves guard/down sub_2B94C calls internally:
+group 0 for guard-common, group 1 for guard block B, group 4 for generic down,
+and group 5 for SPECIAL_BIT16. Generic down also continues through calc_mht_adr
+and the shared knockback vector, while guard-common composes total_skill_adder_g7.
