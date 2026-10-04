@@ -40,4 +40,26 @@ bool stf_copro_scalar_cos_scale_bits(
     uint32_t *output_bits
 );
 
+/*
+ * Ring-scatter semantic helpers for the cpres1 0x27/0x29 path.
+ *
+ * ring_tobitiri_set feeds the horizontal fighter delta to command 0x27,
+ * installs the resulting angle as a Y rotation, then sends local X/Z vectors
+ * through command 0x29.  These helpers recover that observable behavior
+ * without pretending to emulate the complete coprocessor matrix stack.
+ */
+bool stf_copro_scalar_atan2_angle_bits(
+    uint32_t x_bits,
+    uint32_t z_bits,
+    uint16_t *angle_word
+);
+
+bool stf_copro_scalar_rotate_y_xz_bits(
+    uint16_t angle_word,
+    uint32_t x_bits,
+    uint32_t z_bits,
+    uint32_t *out_x_bits,
+    uint32_t *out_z_bits
+);
+
 #endif
