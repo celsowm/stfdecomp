@@ -276,7 +276,11 @@ integration flow no longer injects manual 1.0 profile constants. calc_mht_adr is
 now composed into that same flow: the motion selected by sub_2B94C is searched
 for tag 0x11, a found MHT record drives the prefix path, and NOT_FOUND falls
 back automatically to the decoded 0x50A800 profile. The original byte_1D006
-record-stride table is recovered in the portable core too. Remaining work in
-the accepted-hit corridor is now mostly data/backend integration: supplying the
-animation_related pointer table and animation blobs, plus target effects around
-otherwise recovered gameplay state transitions.
+record-stride table is recovered in the portable core too. The animation_related frontier is now reduced further by a ROM-backed adapter:
+the portable runtime can read the original absolute animation pointers from a
+caller-supplied image/base-address view, translate them to blob offsets, and run
+calc_mht_adr directly. The accepted hit integration path now uses that absolute
+pointer representation rather than pre-converted animation_offsets. Remaining
+work in the accepted-hit corridor is therefore mostly external data/backend
+integration: supplying the original animation image itself and target effects
+around otherwise recovered gameplay state transitions.
