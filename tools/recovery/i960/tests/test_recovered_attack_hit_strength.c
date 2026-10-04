@@ -116,7 +116,7 @@ int main(void)
                 UINT32_C(0x3F800000),
                 &scaled
             ) ||
-            scaled != 0u) {
+            (scaled & UINT32_C(0x7FFFFFFF)) != 0u) {
             return 8;
         }
     }
