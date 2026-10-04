@@ -1,4 +1,7 @@
 #include "attack_hit_strength.h"
+#include "copro_scalar.h"
+
+#include <string.h>
 
 static uint16_t read_le16(const uint8_t *data)
 {
@@ -77,5 +80,49 @@ bool stf_attack_hit_strength_prepare_model2(
     local.workspace_26c = flags;
 
     *result = local;
+    return true;
+}
+
+
+static float stf_bits_to_float(uint32_t bits)
+{
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+static uint32_t stf_float_to_bits(float value)
+{
+    uint32_t bits = 0u;
+    memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
+bool stf_attack_hit_strength_scale_bits(
+    uint32_t raw_strength_float_bits,
+    uint32_t hit_kind_scale_bits,
+    uint32_t *result_bits
+)
+{
+    uint32_t sqrt_bits = 0u;
+    float value = 0.0f;
+    const float raw_strength = stf_bits_to_float(raw_strength_float_bits);
+    const float hit_kind_scale = stf_bits_to_float(hit_kind_scale_bits);
+
+    if (result_bits == NULL) {
+        return false;
+    }
+
+    value = raw_strength * 0.01f;
+    if (!stf_copro_scalar_sqrt_bits(stf_float_to_bits(value), &sqrt_bits)) {
+        return false;
+    }
+
+    value = stf_bits_to_float(sqrt_bits);
+    value *= 50.0f;
+    value *= 0.0024999999f;
+    value *= hit_kind_scale;
+
+    *result_bits = stf_float_to_bits(value);
     return true;
 }
