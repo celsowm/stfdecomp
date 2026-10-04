@@ -75,6 +75,8 @@ int main(void)
             &result
         ) ||
         !result.request_particle_setup ||
+        result.particle_draw_kind != UINT16_C(1) ||
+        result.particle_flag_set_mask != UINT8_C(1) ||
         (result.effect_flags_908 & (UINT16_C(1) << 7u)) == 0u ||
         (result.effect_flags_908 & (UINT16_C(1) << 6u)) == 0u ||
         (read_le32(defender) & (UINT32_C(1) << 28u)) == 0u ||
@@ -115,6 +117,8 @@ int main(void)
         ) ||
         result.early_mode_return ||
         !result.request_particle_setup ||
+        result.particle_draw_kind != UINT16_C(1) ||
+        result.particle_flag_set_mask != UINT8_C(1) ||
         (result.effect_flags_908 & (UINT16_C(1) << 1u)) == 0u ||
         read_le16(defender + 0x75Eu) != result.effect_flags_908) {
         return 4;
