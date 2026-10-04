@@ -280,7 +280,10 @@ record-stride table is recovered in the portable core too. The animation_related
 the portable runtime can read the original absolute animation pointers from a
 caller-supplied image/base-address view, translate them to blob offsets, and run
 calc_mht_adr directly. The accepted hit integration path now uses that absolute
-pointer representation rather than pre-converted animation_offsets. Remaining
-work in the accepted-hit corridor is therefore mostly external data/backend
-integration: supplying the original animation image itself and target effects
-around otherwise recovered gameplay state transitions.
+pointer representation rather than pre-converted animation_offsets. Sound-table
+resolution has the same treatment: a caller-supplied addressable image plus the
+recovered sfight/schamp table bases is enough to resolve the concrete sound IDs
+without slicing a table first. Remaining work in the accepted-hit corridor is
+therefore mostly true backend integration: supplying the original data images
+and executing target effects such as playback/rendering around otherwise
+recovered gameplay state transitions.
