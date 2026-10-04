@@ -6,6 +6,7 @@
 #include "attack_hit_damage.h"
 #include "attack_hit_finish.h"
 #include "attack_hit_motion_prefix.h"
+#include "attack_hit_motion_runtime.h"
 #include "attack_hit_motion_vector.h"
 #include "attack_hit_normal_reaction.h"
 #include "attack_hit_normal_reaction_runtime.h"
@@ -159,8 +160,11 @@ static int run_accepted_hit(void)
     stf_normal_reaction_runtime_result normal_runtime;
     flow_hit_motion_fixture hit_motion_fixture;
     stf_motion_prefix_inputs motion_in;
-    stf_motion_fallback_profile profile;
     stf_attack_hit_profile hit_profile;
+    stf_attack_hit_motion_runtime_result motion_runtime;
+    uint32_t animation_offsets[64];
+    uint8_t motion_blob[64];
+    uint8_t motion_strides[32];
     uint8_t hit_profile_table[STF_ATTACK_HIT_PROFILE_RECORD_SIZE];
     stf_motion_prefix_result motion_prefix;
     stf_motion_vector_inputs vector_in;
@@ -180,8 +184,11 @@ static int run_accepted_hit(void)
     memset(&reaction_in, 0, sizeof(reaction_in));
     memset(&hit_motion_fixture, 0, sizeof(hit_motion_fixture));
     memset(&motion_in, 0, sizeof(motion_in));
-    memset(&profile, 0, sizeof(profile));
     memset(&hit_profile, 0, sizeof(hit_profile));
+    memset(&motion_runtime, 0, sizeof(motion_runtime));
+    memset(animation_offsets, 0, sizeof(animation_offsets));
+    memset(motion_blob, 0, sizeof(motion_blob));
+    memset(motion_strides, 0, sizeof(motion_strides));
     memset(hit_profile_table, 0, sizeof(hit_profile_table));
     memset(sound_table, 0, sizeof(sound_table));
     memset(&vector_in, 0, sizeof(vector_in));
@@ -218,6 +225,11 @@ static int run_accepted_hit(void)
     write_le32(defender + 0x214u, UINT32_C(0x41A00000));
     hit_motion_fixture.selector = UINT8_C(0);
     hit_motion_fixture.words[18] = UINT32_C(0x10);
+
+    animation_offsets[0x10u] = 0u;
+    motion_blob[0x0Du] = UINT8_C(0x11);
+    write_le16(motion_blob + 0x0Eu, UINT16_C(0));
+    write_le32(motion_blob + 0x10u, UINT32_C(0x3F800000));
     write_le32(defender, UINT32_C(1) << 29u);
 
     kamae_fixture.selectors[0] = UINT16_C(0x1010);
@@ -437,15 +449,28 @@ static int run_accepted_hit(void)
     motion_in.initial_r9_bits = strength_bits;
     motion_in.limit_xang = INT16_C(100);
     motion_in.defender_5d8_bits = UINT32_C(0x42700000);
-    profile = hit_profile.fallback;
 
-    if (!stf_attack_hit_motion_prefix_compute(
-            &motion_in, NULL, 0u, &profile, &motion_prefix
+    if (!stf_attack_hit_motion_prefix_resolve(
+            normal_runtime.motion.motion,
+            &motion_in,
+            animation_offsets,
+            sizeof(animation_offsets) / sizeof(animation_offsets[0]),
+            motion_blob,
+            sizeof(motion_blob),
+            motion_strides,
+            sizeof(motion_strides),
+            &hit_profile.fallback,
+            &motion_runtime
         ) ||
-        motion_prefix.angle_r6 != 0 ||
-        motion_prefix.sqrt_r4_bits == 0u) {
+        motion_runtime.lookup_status != STF_MOTION_HIT_FOUND ||
+        !motion_runtime.used_mht_record ||
+        motion_runtime.record_offset != UINT32_C(0x0D) ||
+        motion_runtime.prefix.source != STF_MOTION_PREFIX_RECORD ||
+        motion_runtime.prefix.angle_r6 != 0 ||
+        motion_runtime.prefix.sqrt_r4_bits == 0u) {
         return 12;
     }
+    motion_prefix = motion_runtime.prefix;
 
     vector_in.hit_mode = damage_transform.hit_mode;
     vector_in.profile_horizontal_scale_bits =
