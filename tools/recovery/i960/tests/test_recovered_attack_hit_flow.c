@@ -13,6 +13,7 @@
 #include "attack_hit_stance.h"
 #include "attack_hit_state_prelude.h"
 #include "attack_hit_sound.h"
+#include "attack_hit_sound_runtime.h"
 #include "attack_hit_strength.h"
 #include "damage_calculation.h"
 #include "skill_accounting.h"
@@ -121,6 +122,8 @@ static int run_accepted_hit(void)
     stf_attack_hit_combo_result combo;
     stf_attack_damage_result damage_transform;
     stf_attack_hit_sound_plan sound;
+    stf_attack_hit_sound_resolved sound_resolved;
+    uint8_t sound_table[32];
     stf_attack_finish_result finish;
     stf_attack_reaction_inputs reaction_in;
     stf_attack_reaction_path reaction_path;
@@ -145,6 +148,7 @@ static int run_accepted_hit(void)
     memset(&reaction_in, 0, sizeof(reaction_in));
     memset(&motion_in, 0, sizeof(motion_in));
     memset(&profile, 0, sizeof(profile));
+    memset(sound_table, 0, sizeof(sound_table));
     memset(&vector_in, 0, sizeof(vector_in));
     memset(&ring_inputs, 0, sizeof(ring_inputs));
     memset(selector_block, 0, sizeof(selector_block));
@@ -318,6 +322,17 @@ static int run_accepted_hit(void)
         sound.tier != STF_ATTACK_HIT_SOUND_TIER_MEDIUM ||
         sound.source_index != UINT32_C(1)) {
         return 8;
+    }
+
+    write_le32(sound_table + 0u, UINT32_C(0x111));
+    write_le32(sound_table + 4u, UINT32_C(0x222));
+    write_le32(sound_table + 8u, UINT32_C(0x333));
+    if (!stf_attack_hit_sound_resolve(
+            &sound, sound_table, sizeof(sound_table), &sound_resolved
+        ) ||
+        sound_resolved.id_count != 1u ||
+        sound_resolved.ids[0] != UINT32_C(0x222)) {
+        return 21;
     }
 
     if (!stf_attack_hit_finish_apply_model2(
