@@ -233,8 +233,15 @@ threshold/scale/trajectory selection, and linked-list slot acquire/recycle are
 covered by host tests. The ROM-backed A/B/C vertical trajectory tables are now
 described without embedding proprietary data: sfight addresses are pinned,
 Sonic Championship addresses are corroborated at +0x138, and the exact
-sentinel-delimited sample counts are A=99, B=119, C=139. The remaining ring
-frontier is applying those caller-supplied curve samples to the original
-per-frame ring_tobitiri lifecycle/render/drop behavior. In parallel, the stance
-decoder can now be composed into the full action initialization path before the
-complete attack_hit transaction replay.
+sentinel-delimited sample counts are A=99, B=119, C=139. The CPU-visible
+per-frame ring_tobitiri lifecycle is also recovered: pause freezes age/physics,
+expiry unlinks the slot before simulation, X/Z integrate and bounce at +/-7.5,
+zero-height samples damp horizontal velocity by 0.7, the -1.0f trajectory
+sentinel transitions the ring to landed state, and the former
+visible_from_frame field is corrected to blink_from_frame with the original
+two-on/two-off bit-1 cadence. Sonic Championship pins the full 0x78E84..0x791F4
+runtime corridor plus the 0x791F8..0x79270 pool bit helpers. The remaining ring
+frontier is the renderer/drop asset-selection event layer, including the
+per-slot 1..4 random Egg drop variant versus fixed special variant 5. In
+parallel, the stance decoder can now be composed into the full action
+initialization path before the complete attack_hit transaction replay.
