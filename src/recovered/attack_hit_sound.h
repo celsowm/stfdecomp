@@ -39,6 +39,12 @@ typedef struct stf_attack_hit_sound_plan {
     bool zero_terminated_list;
 } stf_attack_hit_sound_plan;
 
+typedef struct stf_attack_hit_sound_source_info {
+    uint32_t sfight_base_address;
+    uint32_t schamp_base_address;
+    bool source_index_is_byte_offset;
+} stf_attack_hit_sound_source_info;
+
 /*
  * Recover the sound-selection logic at 0x2B33C..ah_hit_sd_end (0x2B3FC).
  *
@@ -53,6 +59,11 @@ typedef struct stf_attack_hit_sound_plan {
  *   defender[0x1B0] * 3 + tier
  * where tier is light for damage 0..14, medium for 15..29, heavy for 30+.
  */
+bool stf_attack_hit_sound_source_info_get(
+    stf_attack_hit_sound_source source,
+    stf_attack_hit_sound_source_info *info
+);
+
 bool stf_attack_hit_sound_plan_model2(
     const uint8_t *attacker,
     size_t attacker_size,
