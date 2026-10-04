@@ -247,6 +247,11 @@ damage_calculation ring event is also composed through a Model 2 adapter into
 ring_tobitiri_set, reading the original fighter fields and creating real pool
 slots. The accepted attack_hit integration test now continues through damage
 application into ring scatter spawn instead of stopping at a boolean request.
-The remaining attack-hit frontier is therefore no longer the ring handoff; it
-is composing the stance/action initialization path before the full transaction
-replay and then replacing remaining explicit external dependencies one by one.
+The remaining attack-hit frontier is therefore no longer the ring handoff.
+The stance wrapper and decoder are now composed too: set_kamae_ram planning
+feeds get_kamae_value through an explicit offset_list_motions resolver, covering
+both the normal four-request path and the bit-29 short path while keeping ROM
+asset lookup outside the portable core. The next frontier is wiring that stance
+runtime into the larger fighter action-initialization transaction before the
+full attack_hit replay, then replacing remaining explicit external dependencies
+one by one.
