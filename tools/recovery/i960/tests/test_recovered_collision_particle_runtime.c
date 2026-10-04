@@ -303,7 +303,7 @@ static int test_flag3_scale_sequence(void)
 
     write_le32(slots + 0x1Cu, UINT32_C(0x4000));
     slots[0x18u] = UINT8_C(6);
-    slots[0x19u] = UINT8_C(1u << 3u);
+    slots[0x19u] = (uint8_t)(UINT8_C(1) << 3u);
 
     if (!stf_collision_particle_update_model2(
             slots, sizeof(slots), desc, &result
