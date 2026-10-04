@@ -86,7 +86,8 @@ bool stf_attack_hit_guard_apply_model2(
     write_le32(defender + 0xC70u, (uint32_t)c70);
     local.defender_c70 = c70;
 
-    write_le32(attacker + 0x194u, UINT32_C(0x10000002));
+    local.attacker_194 = UINT32_C(0x10000002);
+    write_le32(attacker + 0x194u, local.attacker_194);
 
     if (kind == STF_GUARD_BLOCK_A) {
         local.defender_198 = UINT32_C(0x0A00013D);
