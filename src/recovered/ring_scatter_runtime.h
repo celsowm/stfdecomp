@@ -29,7 +29,7 @@ typedef struct stf_ring_slot {
     uint32_t vx_bits;
     uint32_t vz_bits;
     stf_ring_trajectory trajectory;
-    uint16_t visible_from_frame;
+    uint16_t blink_from_frame;
     uint16_t expire_at_frame;
     stf_ring_drop_mode drop_mode;
 } stf_ring_slot;
