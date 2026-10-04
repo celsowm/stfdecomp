@@ -227,8 +227,14 @@ stance path keeps offset_list_motions resolution explicit, then reproduces the
 20x3 descriptor decode, count-stream skips, row-copy/zero semantics, and the
 final cvtri pass against caller-provided stance RAM. The CPU-visible half of
 ring_tobitiri_set is now recovered as a typed planner, including the 24-slot
-spanbit/setbit allocation policy. The remaining ring frontier is the coprocessor
-vector transform, ROM-backed velocity/lifetime tables, linked-list mutation and
-per-frame ring_tobitiri simulation. In parallel, the stance decoder can now be
-composed into the full action initialization path before the complete attack_hit
-transaction replay.
+spanbit/setbit allocation policy. The spawn half is also recovered: horizontal
+atan/Y rotation, the eight local vector records, exact profile
+threshold/scale/trajectory selection, and linked-list slot acquire/recycle are
+covered by host tests. The ROM-backed A/B/C vertical trajectory tables are now
+described without embedding proprietary data: sfight addresses are pinned,
+Sonic Championship addresses are corroborated at +0x138, and the exact
+sentinel-delimited sample counts are A=99, B=119, C=139. The remaining ring
+frontier is applying those caller-supplied curve samples to the original
+per-frame ring_tobitiri lifecycle/render/drop behavior. In parallel, the stance
+decoder can now be composed into the full action initialization path before the
+complete attack_hit transaction replay.
