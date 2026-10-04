@@ -64,6 +64,24 @@ DAMAGE_CALCULATION_SHA256 = (
     "c768ac5a1f08f886f37dfb40a3b05e45456ee5429b91bd984846c19e7631b880"
 )
 
+ATTACK_HIT_ABORT_PRECHECK_START = 0x0002AC74
+ATTACK_HIT_ABORT_PRECHECK_END = 0x0002AC84
+ATTACK_HIT_ABORT_PRECHECK_SHA256 = (
+    "410dae3ae17a9623485e4b5882928338fd86f7a0cab745b2e66ae88df76da499"
+)
+
+ATTACK_HIT_SIDE_EXIT_START = 0x0002AE40
+ATTACK_HIT_SIDE_EXIT_END = 0x0002AFB8
+ATTACK_HIT_SIDE_EXIT_SHA256 = (
+    "9bc7f589a1b3a2ca582f7c97cc405585f98bef222fb611417902a2c7676e111d"
+)
+
+ATTACK_HIT_ABORT_CLEANUP_START = 0x0002B8C8
+ATTACK_HIT_ABORT_CLEANUP_END = 0x0002B900
+ATTACK_HIT_ABORT_CLEANUP_SHA256 = (
+    "49e3c6bda5ae14a5d2e52a58923244ee60a5ed7d737e0917b4e525fa80450dd9"
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2:
@@ -183,6 +201,39 @@ def validate(path: Path) -> int:
     )
     if damage_calculation_digest != DAMAGE_CALCULATION_SHA256:
         return 9
+
+    abort_precheck_digest = hashlib.sha256(
+        program[ATTACK_HIT_ABORT_PRECHECK_START:ATTACK_HIT_ABORT_PRECHECK_END]
+    ).hexdigest()
+    print(
+        "attack-hit abort precheck "
+        f"sha256={abort_precheck_digest} "
+        f"{\"ok\" if abort_precheck_digest == ATTACK_HIT_ABORT_PRECHECK_SHA256 else \"FAIL\"}"
+    )
+    if abort_precheck_digest != ATTACK_HIT_ABORT_PRECHECK_SHA256:
+        return 10
+
+    side_exit_digest = hashlib.sha256(
+        program[ATTACK_HIT_SIDE_EXIT_START:ATTACK_HIT_SIDE_EXIT_END]
+    ).hexdigest()
+    print(
+        "attack-hit side-exit corridor "
+        f"sha256={side_exit_digest} "
+        f"{\"ok\" if side_exit_digest == ATTACK_HIT_SIDE_EXIT_SHA256 else \"FAIL\"}"
+    )
+    if side_exit_digest != ATTACK_HIT_SIDE_EXIT_SHA256:
+        return 11
+
+    abort_cleanup_digest = hashlib.sha256(
+        program[ATTACK_HIT_ABORT_CLEANUP_START:ATTACK_HIT_ABORT_CLEANUP_END]
+    ).hexdigest()
+    print(
+        "attack-hit abort cleanup "
+        f"sha256={abort_cleanup_digest} "
+        f"{\"ok\" if abort_cleanup_digest == ATTACK_HIT_ABORT_CLEANUP_SHA256 else \"FAIL\"}"
+    )
+    if abort_cleanup_digest != ATTACK_HIT_ABORT_CLEANUP_SHA256:
+        return 12
 
     print("sfight reference collision/attack signatures: verified")
     return 0

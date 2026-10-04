@@ -184,7 +184,9 @@ tests:
 - pre-COP motion scaling and angle selection through the 0x2B738 handoff;
 - scaled sine/cosine COP semantics and 3D knockback vector through 0x2B898;
 - hit-motion row selection plus SNC_DOWN remap (sub_2B94C/sub_2BA44);
-- damage_calculation/ketchup energy application and KO/ring-scatter events.
+- damage_calculation/ketchup energy application and KO/ring-scatter events;
+- attack_hit side-exit classification around 0x2AC74/0x2AE40;
+- loc_2B8C8 lifecycle rollback of +0x1234 and enemy +0x108 markers.
 
 These helpers intentionally report external actions such as sound, skill
 accounting, stance/motion lookup, or set_kamae_ram as events or explicit input
@@ -206,8 +208,9 @@ boundary. The portable layer recovers the pre-COP motion parameters, the
 the hit-motion selector/remap, and the shared `damage_calculation` energy
 application contract.
 
-The next useful frontier is no longer unknown COP math. It is integration and
-coverage of the remaining `attack_hit` side exits/orchestration (notably the
-`loc_2B8C8` early path) plus external event boundaries such as sound, skill
-accounting and ring-scatter execution. Those should remain explicit events or
-separate recovered contracts rather than being hidden inside the math helpers.
+The `loc_2B8C8` rollback and its major incoming side-exit predicates are now
+recovered explicitly. The next useful frontier is integration: exercise an
+accepted hit and a rejected/rolled-back hit through the portable contracts as
+coherent flows, then continue lifting the remaining event boundaries (sound,
+skill accounting, set_kamae_ram and ring-scatter execution) without hiding
+those effects inside arithmetic helpers.
