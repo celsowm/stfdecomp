@@ -3,6 +3,34 @@
 
 #include "collision_attack.h"
 
+static void write_le16(uint8_t *data, uint16_t value)
+{
+    data[0] = (uint8_t)value;
+    data[1] = (uint8_t)(value >> 8u);
+}
+
+static void write_le32(uint8_t *data, uint32_t value)
+{
+    data[0] = (uint8_t)value;
+    data[1] = (uint8_t)(value >> 8u);
+    data[2] = (uint8_t)(value >> 16u);
+    data[3] = (uint8_t)(value >> 24u);
+}
+
+static uint16_t read_le16(const uint8_t *data)
+{
+    return (uint16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
+}
+
+static uint32_t read_le32(const uint8_t *data)
+{
+    return (uint32_t)data[0] |
+           ((uint32_t)data[1] << 8u) |
+           ((uint32_t)data[2] << 16u) |
+           ((uint32_t)data[3] << 24u);
+}
+
+
 static void reset(
     stf_collision_attack_inputs *inputs,
     uint16_t mapping[STF_COLLISION_ATTACK_MAPPING_COUNT]
@@ -144,6 +172,67 @@ int main(void)
     inputs.fighter_index = 2u;
     if (stf_collision_attack_resolve(&inputs, mapping, &result)) {
         return 11;
+    }
+
+    {
+        uint8_t fighter[STF_COLLISION_ATTACK_FIGHTER_MODEL2_MIN_SIZE];
+        uint8_t opponent[STF_COLLISION_ATTACK_OPPONENT_MODEL2_MIN_SIZE];
+        uint8_t workspace[STF_COLLISION_ATTACK_WORKSPACE_MODEL2_MIN_SIZE];
+
+        memset(fighter, 0, sizeof(fighter));
+        memset(opponent, 0, sizeof(opponent));
+        memset(workspace, 0, sizeof(workspace));
+        memset(mapping, 0, sizeof(mapping));
+
+        fighter[4u] = 1u;
+        write_le16(fighter + 0x1A8u, UINT16_C(12));
+        write_le32(fighter + 0x1A4u, UINT32_C(1) << 8u);
+        write_le16(fighter + 0x1AAu, UINT16_C(10));
+        write_le16(fighter + 0x808u, UINT16_C(5));
+        write_le16(workspace + 0x8Eu, UINT16_C(12));
+        mapping[3] = UINT16_C(1) << 2u;
+        mapping[6] = UINT16_C(1) << 2u;
+
+        if (!stf_collision_attack_apply_model2(
+                fighter,
+                sizeof(fighter),
+                opponent,
+                sizeof(opponent),
+                workspace,
+                sizeof(workspace),
+                UINT32_C(1) << 2u,
+                mapping,
+                &result
+            )) {
+            return 12;
+        }
+
+        if (!result.hit ||
+            read_le16(opponent + 0x6F0u) != UINT16_C(0x0048) ||
+            read_le32(opponent + 0x7E0u) != UINT32_C(6) ||
+            read_le16(workspace + 0x90u) != UINT16_C(2) ||
+            read_le16(workspace + 0x276u) != UINT16_C(1) ||
+            read_le32(workspace + 0x2ACu) != UINT32_C(8)) {
+            return 13;
+        }
+
+        /* A gated miss still clears the per-fighter hit latch. */
+        write_le32(fighter + 0x720u, UINT32_C(1) << 15u);
+        write_le16(workspace + 0x276u, UINT16_C(0xFFFF));
+        if (!stf_collision_attack_apply_model2(
+                fighter,
+                sizeof(fighter),
+                opponent,
+                sizeof(opponent),
+                workspace,
+                sizeof(workspace),
+                UINT32_C(1) << 2u,
+                mapping,
+                &result
+            ) ||
+            read_le16(workspace + 0x276u) != 0u) {
+            return 14;
+        }
     }
 
     return 0;
