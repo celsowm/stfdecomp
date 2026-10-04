@@ -119,8 +119,8 @@ int main(void)
     attacker[0x1F5Cu] = UINT8_C(1);
     attacker[0x7D2u] = UINT8_C(1);
     write_le16(defender + 0x6F0u, UINT16_C(1));
-    write_le32(defender + 0xAF0u, UINT32_C(0x1000u * 9u));
-    write_le32(defender + 0xAF4u, UINT32_C(0x1000u * 7u));
+    write_le32(defender + 0xAF0u, (UINT32_C(0x1000) * UINT32_C(9)));
+    write_le32(defender + 0xAF4u, (UINT32_C(0x1000) * UINT32_C(7)));
     write_le32(defender + 0x1F74u, UINT32_C(111));
     write_le32(defender + 0x1F78u, UINT32_C(222));
 
@@ -134,8 +134,8 @@ int main(void)
         effect.active_914 != UINT32_C(1) ||
         read_le16(defender + 0x1F00u) != UINT16_C(0x1000) ||
         read_le16(defender + 0x1F1Eu) != UINT16_C(0x1000) ||
-        result.up_total_1f74 != UINT32_C(0x1000u * 9u) ||
-        result.down_total_1f78 != UINT32_C(0x1000u * 7u) ||
+        result.up_total_1f74 != (UINT32_C(0x1000) * UINT32_C(9)) ||
+        result.down_total_1f78 != (UINT32_C(0x1000) * UINT32_C(7)) ||
         read_le32(defender + 0x1F7Cu) != UINT32_C(111) ||
         read_le32(defender + 0x1F80u) != UINT32_C(222)) {
         return 5;
