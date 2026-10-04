@@ -1,0 +1,1 @@
+#include "test_recovered_attack_hit_down_reaction_runtime.c"
