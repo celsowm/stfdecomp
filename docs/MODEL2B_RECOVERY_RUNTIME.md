@@ -194,9 +194,11 @@ tests:
 - get_kamae_value motion-record decode, count-stream traversal, opcode execution, and final i960 cvtri conversion;
 - ring_tobitiri_set CPU policy: exclusions, 2/4/8/16-ring damage tiers, special-motion profile, sound/drop policy, and 24-slot allocation mask.
 
-These helpers intentionally report external actions such as sound,
-stance/motion lookup, or get_kamae_value execution as events or explicit input
-dependencies rather than silently emulating unrecovered subsystems.
+These helpers keep genuinely external resources explicit rather than silently
+emulating them. Motion-record lookup remains caller-supplied through the
+offset_list_motions resolver, and sound playback remains an event for the target
+audio backend. The recovered core now includes the stance execution itself,
+ring lifecycle/render selection, and sfight/schamp sound-table address metadata.
 
 The reference Japanese sfight ROM is validated locally through:
 
@@ -221,8 +223,10 @@ finish/reaction classification, normal reaction, knockback motion and final
 energy application; the rejected transaction verifies rollback. Guard-common and
 combo bookkeeping now share that classifier instead of duplicating its branch
 logic. The hit-sound branch now has a typed plan describing which original sound table
-would be used and which entry/tier is selected; actual table dereference and
-sound playback remain outside the portable layer. Skill accounting, the set_kamae_ram wrapper, and get_kamae_value are now recovered. The
+and entry/tier is selected. The portable layer also exposes the exact sfight and
+Sonic Championship base address for each table family, including the byte-offset
+semantics of the list-pointer tables. Table bytes and actual sound playback
+remain outside the portable layer. Skill accounting, the set_kamae_ram wrapper, and get_kamae_value are now recovered. The
 stance path keeps offset_list_motions resolution explicit, then reproduces the
 20x3 descriptor decode, count-stream skips, row-copy/zero semantics, and the
 final cvtri pass against caller-provided stance RAM. The CPU-visible half of
@@ -257,6 +261,10 @@ attack_hit gate as well: the recovered side-exit classifier clears defender bit
 set_kamae refresh before continuing. The previously skipped
 0x2B0D0..0x2B124 state prelude is also recovered, including +0x194 and the
 conditional +0x122x/+0x124x state propagation before damage transformation.
-The next frontier is the remaining code between this prelude and the already
-recovered contextual-damage/reaction blocks, then further replacement of
-explicit external dependencies one by one.
+The contextual-damage block immediately following that prelude is already
+recovered. Hit-sound table addressing is now pinned too, including the +0x138
+Sonic Championship relocation for all five table families. Remaining work in
+the accepted-hit corridor is increasingly integration-oriented: concrete
+ROM-backed sound-list dereference when a caller supplies table data, plus the
+few still-external target/backend effects surrounding otherwise recovered
+gameplay state transitions.
