@@ -7,7 +7,10 @@
 
 enum {
     STF_SPARK_EFFECT_SLOT_COUNT = 6u,
-    STF_SPARK_EFFECT_SLOT_SIZE = 0x20u
+    STF_SPARK_EFFECT_SLOT_SIZE = 0x20u,
+    STF_SPARK_EFFECT_SLOT_ACCESS_SIZE = 0x24u,
+    STF_SPARK_EFFECT_POOL_SIZE =
+        STF_SPARK_EFFECT_SLOT_COUNT * STF_SPARK_EFFECT_SLOT_SIZE + 4u
 };
 
 typedef struct stf_spark_effect_descriptor {
@@ -44,6 +47,11 @@ typedef struct stf_spark_effect_render_result {
  * +0x1A as a frame-table index. Each tick decrements the countdown and
  * increments the index. efc_disp resolves frame_table[index], uses +0x00 as
  * position, and +0x0C/+0x10/+0x20 as independent XYZ scales.
+ *
+ * The original stride is 0x20 even though +0x20 is accessed. This means each
+ * slot's Z-scale aliases the next slot's +0x00 X-position; the final slot
+ * reaches four bytes beyond the six-slot stride region. The portable model
+ * intentionally preserves that layout and therefore requires POOL_SIZE bytes.
  */
 bool stf_spark_effect_init_slot_model2(
     uint8_t *slot,
