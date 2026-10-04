@@ -186,6 +186,11 @@ static int test_full_pool_consumes_nonzero_stage(void)
     return 0;
 }
 
+static int test_updates_frame_and_age(void);
+static int test_releases_expired_slot(void);
+static int test_flag3_scale_sequence(void);
+static int test_updater_scans_only_first_16_slots(void);
+
 int main(void)
 {
     if (test_zero_request_keeps_stage() != 0) return 1;
@@ -246,7 +251,8 @@ static int test_releases_expired_slot(void)
     stf_collision_particle_descriptor desc[STF_COLLISION_PARTICLE_KIND_COUNT];
     stf_collision_particle_update_result result;
 
-    memset(slots, 0xAA, sizeof(slots));
+    memset(slots, 0, sizeof(slots));
+    memset(slots, 0xAA, STF_COLLISION_PARTICLE_SLOT_SIZE);
     memset(desc, 0, sizeof(desc));
 
     desc[1].effect_address = UINT32_C(0x3000);
