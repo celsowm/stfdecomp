@@ -49,6 +49,7 @@ bool stf_attack_hit_guard_apply_model2(
     uint8_t *workspace,
     size_t workspace_size,
     uint16_t hit_flags_50fe00,
+    uint32_t block_b_motion_g0,
     stf_guard_state_result *result
 )
 {
@@ -90,7 +91,7 @@ bool stf_attack_hit_guard_apply_model2(
     if (kind == STF_GUARD_BLOCK_A) {
         local.defender_198 = UINT32_C(0x0A00013D);
     } else {
-        local.defender_198 = UINT32_C(0x0B000000);
+        local.defender_198 = UINT32_C(0x0B000000) + block_b_motion_g0;
         local.requires_sub_2b94c = true;
     }
     write_le32(defender + 0x198u, local.defender_198);
@@ -122,7 +123,7 @@ bool stf_attack_hit_guard_apply_model2(
 
         if (kind == STF_GUARD_BLOCK_A) {
             candidate = min_i16(candidate, INT16_C(30));
-        } else if (bit16(hit_flags_50fe00, 13u) && candidate < 40) {
+        } else if (bit16(hit_flags_50fe00, 13u) && candidate > 40) {
             candidate = (int16_t)(candidate + 40);
         }
     }
