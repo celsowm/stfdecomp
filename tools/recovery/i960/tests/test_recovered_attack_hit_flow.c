@@ -11,6 +11,7 @@
 #include "attack_hit_reaction.h"
 #include "attack_hit_side_exit.h"
 #include "attack_hit_stance.h"
+#include "attack_hit_state_prelude.h"
 #include "attack_hit_sound.h"
 #include "attack_hit_strength.h"
 #include "damage_calculation.h"
@@ -113,6 +114,7 @@ static int run_accepted_hit(void)
     uint32_t strength_bits = 0u;
     stf_attack_side_exit_result side;
     stf_attack_hit_stance_result stance_result;
+    stf_attack_hit_state_prelude_result state_prelude;
     uint8_t selector_block[STF_SET_KAMAE_FULL_SELECTOR_MIN_SIZE];
     uint8_t stance_ram[2048];
     flow_kamae_fixture kamae_fixture;
@@ -274,6 +276,24 @@ static int run_accepted_hit(void)
         return 16;
     }
     total_skill = skill.total_skill_after;
+
+    write_le16(attacker + 0x1224u, UINT16_C(1));
+    write_le16(attacker + 0x1226u, UINT16_C(0xFFF6));
+    write_le32(attacker + 0x1228u, UINT32_C(0xCAFEBABE));
+    write_le16(attacker + 0x1248u, UINT16_C(1));
+    write_le16(attacker + 0x124Au, UINT16_C(0xFFEC));
+
+    if (!stf_attack_hit_state_prelude_apply_model2(
+            attacker, sizeof(attacker), &state_prelude
+        ) ||
+        state_prelude.attacker_194 != UINT32_C(0x10000001) ||
+        !state_prelude.copied_122x ||
+        !state_prelude.copied_124x ||
+        read_le32(attacker + 0x121Cu) != UINT32_C(0xCAFEBABE) ||
+        (int16_t)read_le16(attacker + 0x1220u) != INT16_C(-10) ||
+        (int16_t)read_le16(attacker + 0x1244u) != INT16_C(-20)) {
+        return 20;
+    }
 
     if (!stf_attack_hit_damage_apply_model2(
             attacker, sizeof(attacker),
