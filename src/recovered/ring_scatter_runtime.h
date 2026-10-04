@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #include "ring_scatter_plan.h"
 
@@ -49,6 +50,12 @@ typedef struct stf_ring_scatter_spawn_result {
     uint8_t slot_indices[16];
 } stf_ring_scatter_spawn_result;
 
+typedef struct stf_ring_trajectory_info {
+    uint32_t sfight_rom_address;
+    uint32_t schamp_rom_address;
+    uint16_t sample_count;
+} stf_ring_trajectory_info;
+
 /*
  * The profile records below are the small CPU-visible descriptor tables used by
  * ring_tobitiri_set.  Large per-frame trajectory curves remain external ROM
@@ -65,6 +72,27 @@ bool stf_ring_profile_select(
     stf_ring_scatter_profile profile,
     uint8_t ring_index,
     stf_ring_profile_record *record
+);
+
+/*
+ * Describe and consume the ROM-backed per-frame vertical trajectory curves.
+ *
+ * The repository deliberately does not embed the curve payloads. Callers may
+ * provide words extracted from their own sfight/schamp ROM. Each table is a
+ * run of IEEE-754 samples followed by the exact -1.0f sentinel used by the
+ * original program.
+ */
+bool stf_ring_trajectory_info_get(
+    stf_ring_trajectory trajectory,
+    stf_ring_trajectory_info *info
+);
+
+bool stf_ring_trajectory_sample_bits(
+    stf_ring_trajectory trajectory,
+    const uint32_t *curve_words,
+    size_t curve_word_count,
+    uint16_t frame,
+    uint32_t *sample_bits
 );
 
 /*
