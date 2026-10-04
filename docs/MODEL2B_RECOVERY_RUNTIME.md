@@ -175,7 +175,11 @@ tests:
 - guard block A/B CPU-side state;
 - common guard path through 0x2AE28;
 - combo bookkeeping through 0x2B018;
-- contextual damage transform through 0x2B318.
+- contextual damage transform through 0x2B318;
+- energy-difference damage scaling and finish-blow detection;
+- post-hit reaction classification;
+- normal post-hit motion/stun state through 0x2B554;
+- down/special reaction state through the pre-physics boundary at 0x2B624.
 
 These helpers intentionally report external actions such as sound, skill
 accounting, stance/motion lookup, or set_kamae_ram as events or explicit input
@@ -191,9 +195,12 @@ actual target program.
 
 ### Current attack_hit frontier
 
-The semantically recovered path currently reaches the persistent-state update at
-0x2B318. The next unrecovered region starts with hit-sound selection and then
-continues into life/damage application and follow-up reaction branches.
+The semantically recovered path now crosses hit-sound selection without
+embedding audio behavior, covers energy scaling / finish-blow checks, and
+recovers the major normal/down reaction state branches.
 
-That boundary is deliberate: audio tables and later reaction logic should be
-recovered as separate contracts rather than folded into the damage transform.
+The current hard frontier is the motion-physics handoff around
+`calc_mht_adr` after the down reaction path (roughly 0x2B624 onward).
+That boundary is deliberate: animation/motion-table decoding and reaction
+physics should be recovered as separate contracts instead of being folded into
+the hit-state helpers.
