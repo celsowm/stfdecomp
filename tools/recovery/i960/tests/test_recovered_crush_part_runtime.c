@@ -185,7 +185,7 @@ static int test_floor_bounce_and_stop(void)
     memset(slot, 0, sizeof(slot));
     memset(&env, 0, sizeof(env));
 
-    write_f32(slot + 0x04u, 0.01f);
+    write_f32(slot + 0x04u, 0.001f);
     write_f32(slot + 0x10u, -0.001f);
     write_f32(slot + 0x34u, 1.0f);
     write_f32(slot + 0x40u, 0.0f);
