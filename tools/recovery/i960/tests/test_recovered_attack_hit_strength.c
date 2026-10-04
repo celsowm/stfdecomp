@@ -98,7 +98,7 @@ int main(void)
                 UINT32_C(0x3F800000), /* x1.0 */
                 &scaled
             ) ||
-            scaled != UINT32_C(0x3E000000)) { /* 0.125 */
+            scaled != UINT32_C(0x3CCCCCCD)) { /* 0.025 */
             return 6;
         }
 
@@ -107,7 +107,7 @@ int main(void)
                 UINT32_C(0x40000000), /* x2.0 */
                 &scaled
             ) ||
-            scaled != UINT32_C(0x3F000000)) { /* 0.5 */
+            scaled != UINT32_C(0x3DCCCCCD)) { /* 0.1 */
             return 7;
         }
 
