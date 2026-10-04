@@ -65,7 +65,7 @@ int main(void)
     }
 
     if (result.workspace_26c != UINT32_C(9) ||
-        result.sound != STF_GUARD_SOUND_KNOCK_9 ||
+        result.sound != STF_GUARD_SOUND_KNOCK_3 ||
         result.defender_c70 != 1 ||
         result.attacker_194 != UINT32_C(0x10000002) ||
         result.defender_198 != UINT32_C(0x0A00013D) ||
