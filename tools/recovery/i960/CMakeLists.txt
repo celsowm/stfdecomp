@@ -59,6 +59,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/set_kamae_plan.c"
     "${STF_REPO_ROOT}/src/recovered/get_kamae_value.c"
     "${STF_REPO_ROOT}/src/recovered/ring_scatter_plan.c"
+    "${STF_REPO_ROOT}/src/recovered/ring_scatter_runtime.c"
 )
 
 target_include_directories(stf_recovered_game
@@ -287,6 +288,12 @@ add_executable(stf_recovered_ring_scatter_plan_tests
 
 target_link_libraries(stf_recovered_ring_scatter_plan_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_ring_scatter_runtime_tests
+    tests/test_recovered_ring_scatter_runtime.c
+)
+
+target_link_libraries(stf_recovered_ring_scatter_runtime_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
@@ -322,3 +329,4 @@ add_test(NAME stf_recovered_skill_accounting_tests COMMAND stf_recovered_skill_a
 add_test(NAME stf_recovered_set_kamae_plan_tests COMMAND stf_recovered_set_kamae_plan_tests)
 add_test(NAME stf_recovered_get_kamae_value_tests COMMAND stf_recovered_get_kamae_value_tests)
 add_test(NAME stf_recovered_ring_scatter_plan_tests COMMAND stf_recovered_ring_scatter_plan_tests)
+add_test(NAME stf_recovered_ring_scatter_runtime_tests COMMAND stf_recovered_ring_scatter_runtime_tests)
