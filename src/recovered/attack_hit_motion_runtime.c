@@ -17,12 +17,18 @@ bool stf_attack_hit_motion_prefix_resolve(
 {
     stf_attack_hit_motion_runtime_result local;
     uint32_t record_offset = 0u;
+    const uint8_t *sizes = record_size_by_tag;
+    size_t size_count = record_size_count;
 
     if (prefix_inputs == NULL || result == NULL) {
         return false;
     }
 
     memset(&local, 0, sizeof(local));
+
+    if (sizes == NULL) {
+        sizes = stf_motion_hit_default_record_sizes(&size_count);
+    }
 
     local.lookup_status = stf_motion_hit_table_find_offset(
         selected_motion,
@@ -31,8 +37,8 @@ bool stf_attack_hit_motion_prefix_resolve(
         animation_count,
         motion_blob,
         motion_blob_size,
-        record_size_by_tag,
-        record_size_count,
+        sizes,
+        size_count,
         &record_offset
     );
 
