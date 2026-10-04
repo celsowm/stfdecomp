@@ -75,6 +75,18 @@ RING_PROFILE_SHA256 = (
     "27a66a49e2968878d069dfda5fa81b9be1fd500f1450a32cb7079e77e876a534"
 )
 
+RING_RUNTIME_START = 0x00078E84
+RING_RUNTIME_END = 0x000791F4
+RING_RUNTIME_SHA256 = (
+    "2acb82139cd59c3adb3456242abb3425912eaafa31f909fb7a1bf59bdbf62460"
+)
+
+RING_POOL_HELPERS_START = 0x000791F8
+RING_POOL_HELPERS_END = 0x00079270
+RING_POOL_HELPERS_SHA256 = (
+    "2a6956dc83fdb627fdc7e9a0a737273f386f1fae1553baae8abdbdb471183779"
+)
+
 RING_TRAJECTORIES = {
     "A": (0x000AE5C0, 99),
     "B": (0x000AE750, 119),
@@ -225,6 +237,36 @@ def validate(path: Path) -> int:
         )
         if sentinel != 0xBF800000:
             return 13
+
+    ring_runtime = program[RING_RUNTIME_START:RING_RUNTIME_END]
+    ring_runtime_digest = hashlib.sha256(ring_runtime).hexdigest()
+    ring_runtime_status = (
+        "ok" if ring_runtime_digest == RING_RUNTIME_SHA256 else "FAIL"
+    )
+    print(
+        "ring per-frame runtime "
+        f"[0x{RING_RUNTIME_START:08X},0x{RING_RUNTIME_END:08X}) "
+        f"sha256={ring_runtime_digest} {ring_runtime_status}"
+    )
+    if ring_runtime_digest != RING_RUNTIME_SHA256:
+        return 14
+
+    ring_pool_helpers = program[
+        RING_POOL_HELPERS_START:RING_POOL_HELPERS_END
+    ]
+    ring_pool_helpers_digest = hashlib.sha256(ring_pool_helpers).hexdigest()
+    ring_pool_helpers_status = (
+        "ok"
+        if ring_pool_helpers_digest == RING_POOL_HELPERS_SHA256
+        else "FAIL"
+    )
+    print(
+        "ring pool bit helpers "
+        f"[0x{RING_POOL_HELPERS_START:08X},0x{RING_POOL_HELPERS_END:08X}) "
+        f"sha256={ring_pool_helpers_digest} {ring_pool_helpers_status}"
+    )
+    if ring_pool_helpers_digest != RING_POOL_HELPERS_SHA256:
+        return 15
 
     print("schamp collision/ring signatures: verified (secondary evidence)")
     return 0
