@@ -164,7 +164,6 @@ static int run_accepted_hit(void)
     stf_attack_hit_motion_runtime_result motion_runtime;
     uint32_t animation_offsets[64];
     uint8_t motion_blob[64];
-    uint8_t motion_strides[32];
     uint8_t hit_profile_table[STF_ATTACK_HIT_PROFILE_RECORD_SIZE];
     stf_motion_prefix_result motion_prefix;
     stf_motion_vector_inputs vector_in;
@@ -188,7 +187,6 @@ static int run_accepted_hit(void)
     memset(&motion_runtime, 0, sizeof(motion_runtime));
     memset(animation_offsets, 0, sizeof(animation_offsets));
     memset(motion_blob, 0, sizeof(motion_blob));
-    memset(motion_strides, 0, sizeof(motion_strides));
     memset(hit_profile_table, 0, sizeof(hit_profile_table));
     memset(sound_table, 0, sizeof(sound_table));
     memset(&vector_in, 0, sizeof(vector_in));
@@ -457,8 +455,8 @@ static int run_accepted_hit(void)
             sizeof(animation_offsets) / sizeof(animation_offsets[0]),
             motion_blob,
             sizeof(motion_blob),
-            motion_strides,
-            sizeof(motion_strides),
+            NULL,
+            0u,
             &hit_profile.fallback,
             &motion_runtime
         ) ||
