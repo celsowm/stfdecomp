@@ -98,10 +98,176 @@ static int test_draw_extraction(void)
     return 0;
 }
 
+static int test_position_air_integration(void);
+static int test_floor_bounce_and_stop(void);
+static int test_wall_reflection(void);
+static int test_dormant_visibility_deactivation(void);
+
 int main(void)
 {
     if (test_free_spin_branch() != 0) return 1;
     if (test_target_approach_branch() != 0) return 1;
     if (test_draw_extraction() != 0) return 1;
+    if (test_position_air_integration() != 0) return 1;
+    if (test_floor_bounce_and_stop() != 0) return 1;
+    if (test_wall_reflection() != 0) return 1;
+    if (test_dormant_visibility_deactivation() != 0) return 1;
+    return 0;
+}
+
+
+static uint32_t fbits(float value)
+{
+    uint32_t bits;
+    memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
+static float read_f32(const uint8_t *p)
+{
+    uint32_t bits =
+        (uint32_t)p[0] |
+        ((uint32_t)p[1] << 8u) |
+        ((uint32_t)p[2] << 16u) |
+        ((uint32_t)p[3] << 24u);
+    float value;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+static void write_f32(uint8_t *p, float value)
+{
+    write_le32(p, fbits(value));
+}
+
+static int test_position_air_integration(void)
+{
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    stf_crush_part_physics_env env;
+    stf_crush_part_physics_result result;
+
+    memset(slot, 0, sizeof(slot));
+    memset(&env, 0, sizeof(env));
+
+    write_f32(slot + 0x00u, 1.0f);
+    write_f32(slot + 0x04u, 5.0f);
+    write_f32(slot + 0x08u, 2.0f);
+    write_f32(slot + 0x0Cu, 1.0f);
+    write_f32(slot + 0x10u, 2.0f);
+    write_f32(slot + 0x14u, -1.0f);
+    write_f32(slot + 0x40u, -100.0f);
+    env.gravity_bits = fbits(0.5f);
+    env.stage_x_bits = fbits(100.0f);
+    env.cage_height_bits = fbits(100.0f);
+
+    if (!stf_crush_part_update_position_model2(
+            slot, sizeof(slot), &env, &result
+        ) ||
+        result.floor_hit ||
+        read_f32(slot + 0x00u) < 1.979f ||
+        read_f32(slot + 0x00u) > 1.981f ||
+        read_f32(slot + 0x04u) < 6.499f ||
+        read_f32(slot + 0x04u) > 6.501f ||
+        read_f32(slot + 0x08u) < 1.019f ||
+        read_f32(slot + 0x08u) > 1.021f) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_floor_bounce_and_stop(void)
+{
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    stf_crush_part_physics_env env;
+    stf_crush_part_physics_result result;
+
+    memset(slot, 0, sizeof(slot));
+    memset(&env, 0, sizeof(env));
+
+    write_f32(slot + 0x04u, 0.01f);
+    write_f32(slot + 0x10u, -0.001f);
+    write_f32(slot + 0x34u, 1.0f);
+    write_f32(slot + 0x40u, 0.0f);
+    env.gravity_bits = fbits(0.001f);
+    env.stage_x_bits = fbits(100.0f);
+    env.cage_height_bits = fbits(100.0f);
+
+    if (!stf_crush_part_update_position_model2(
+            slot, sizeof(slot), &env, &result
+        ) ||
+        !result.floor_hit ||
+        !result.request_floor_effect ||
+        !result.stopped_bouncing ||
+        result.ground_contacts != UINT32_C(1) ||
+        (result.flags & (UINT32_C(1) << 7u)) == 0u ||
+        read_f32(slot + 0x0Cu) != 0.0f ||
+        read_f32(slot + 0x10u) != 0.0f ||
+        read_f32(slot + 0x14u) != 0.0f) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_wall_reflection(void)
+{
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    stf_crush_part_physics_env env;
+    stf_crush_part_physics_result result;
+
+    memset(slot, 0, sizeof(slot));
+    memset(&env, 0, sizeof(env));
+
+    write_f32(slot + 0x00u, 9.5f);
+    write_f32(slot + 0x04u, 0.0f);
+    write_f32(slot + 0x08u, 0.0f);
+    write_f32(slot + 0x0Cu, 1.0f);
+    write_f32(slot + 0x18u, 1.0f);
+    write_f32(slot + 0x40u, -100.0f);
+
+    env.gravity_bits = fbits(0.0f);
+    env.stage_x_bits = fbits(10.0f);
+    env.cage_height_bits = fbits(100.0f);
+
+    if (!stf_crush_part_update_position_model2(
+            slot, sizeof(slot), &env, &result
+        ) ||
+        !result.hit_x_wall ||
+        read_f32(slot + 0x00u) < 8.999f ||
+        read_f32(slot + 0x00u) > 9.001f ||
+        read_f32(slot + 0x0Cu) > -0.293f ||
+        read_f32(slot + 0x0Cu) < -0.295f) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_dormant_visibility_deactivation(void)
+{
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    stf_crush_part_physics_env env;
+    stf_crush_part_physics_result result;
+
+    memset(slot, 0, sizeof(slot));
+    memset(&env, 0, sizeof(env));
+
+    write_le16(slot + 0x22u, INT16_C(9));
+    write_le32(slot + 0x24u,
+               (UINT32_C(1) << 7u) | (UINT32_C(1) << 3u));
+    env.effect_active_914 = UINT32_C(0);
+    env.visibility_mask = UINT32_C(0);
+
+    if (!stf_crush_part_update_position_model2(
+            slot, sizeof(slot), &env, &result
+        ) ||
+        !result.deactivated ||
+        slot[0x22u] != UINT8_C(0) ||
+        slot[0x23u] != UINT8_C(0) ||
+        result.flags != UINT32_C(0)) {
+        return 1;
+    }
+
     return 0;
 }
