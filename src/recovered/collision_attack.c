@@ -2,6 +2,33 @@
 
 #include <string.h>
 
+static uint16_t read_le16(const uint8_t *data)
+{
+    return (uint16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
+}
+
+static uint32_t read_le32(const uint8_t *data)
+{
+    return (uint32_t)data[0] |
+           ((uint32_t)data[1] << 8u) |
+           ((uint32_t)data[2] << 16u) |
+           ((uint32_t)data[3] << 24u);
+}
+
+static void write_le16(uint8_t *data, uint16_t value)
+{
+    data[0] = (uint8_t)value;
+    data[1] = (uint8_t)(value >> 8u);
+}
+
+static void write_le32(uint8_t *data, uint32_t value)
+{
+    data[0] = (uint8_t)value;
+    data[1] = (uint8_t)(value >> 8u);
+    data[2] = (uint8_t)(value >> 16u);
+    data[3] = (uint8_t)(value >> 24u);
+}
+
 static bool bit_is_set32(uint32_t value, unsigned bit)
 {
     return bit < 32u && (value & (UINT32_C(1) << bit)) != 0u;
@@ -131,6 +158,7 @@ bool stf_collision_attack_resolve(
     );
     overlap = (uint16_t)(overlap & (uint16_t)~inputs->opponent_suppression_6f8);
     result->overlap_mask = overlap;
+    result->overlap_evaluated = true;
 
     if (overlap == 0u) {
         return true;
@@ -144,5 +172,82 @@ bool stf_collision_attack_resolve(
     result->hit_latch = UINT16_C(1);
     result->next_lockout_2ac = UINT32_C(8);
     result->hit = true;
+    return true;
+}
+
+
+bool stf_collision_attack_apply_model2(
+    uint8_t *fighter,
+    size_t fighter_size,
+    uint8_t *opponent,
+    size_t opponent_size,
+    uint8_t *workspace,
+    size_t workspace_size,
+    uint32_t attack_profile_bits,
+    const uint16_t mapping[STF_COLLISION_ATTACK_MAPPING_COUNT],
+    stf_collision_attack_result *result
+)
+{
+    stf_collision_attack_inputs inputs;
+    stf_collision_attack_result local_result;
+    uint8_t fighter_index = 0u;
+
+    if (fighter == NULL || opponent == NULL || workspace == NULL ||
+        mapping == NULL ||
+        fighter_size < STF_COLLISION_ATTACK_FIGHTER_MODEL2_MIN_SIZE ||
+        opponent_size < STF_COLLISION_ATTACK_OPPONENT_MODEL2_MIN_SIZE ||
+        workspace_size < STF_COLLISION_ATTACK_WORKSPACE_MODEL2_MIN_SIZE) {
+        return false;
+    }
+
+    fighter_index = fighter[4u];
+    if (fighter_index > 1u) {
+        return false;
+    }
+
+    memset(&inputs, 0, sizeof(inputs));
+    inputs.fighter_index = fighter_index;
+    inputs.previous_motion =
+        read_le16(workspace + 0x8Cu + (size_t)fighter_index * 2u);
+    inputs.current_motion = read_le16(fighter + 0x1A8u);
+    inputs.flags_1a4 = read_le32(fighter + 0x1A4u);
+    inputs.flags_720 = read_le32(fighter + 0x720u);
+    inputs.flags_860 = read_le32(fighter + 0x860u);
+    inputs.field_1aa = read_le16(fighter + 0x1AAu);
+    inputs.field_808 = read_le16(fighter + 0x808u);
+    inputs.hit_history_090 = read_le16(workspace + 0x90u);
+    inputs.lockout_2ac = read_le32(workspace + 0x2ACu);
+    inputs.attack_profile_bits = attack_profile_bits;
+    inputs.opponent_suppression_6f8 = read_le16(opponent + 0x6F8u);
+
+    if (!stf_collision_attack_resolve(&inputs, mapping, &local_result)) {
+        return false;
+    }
+
+    if (local_result.previous_motion_written) {
+        write_le16(
+            workspace + 0x8Cu + (size_t)fighter_index * 2u,
+            local_result.next_previous_motion
+        );
+    }
+
+    write_le16(workspace + 0x90u, local_result.next_hit_history_090);
+    write_le16(
+        workspace + 0x274u + (size_t)fighter_index * 2u,
+        local_result.hit_latch
+    );
+
+    if (local_result.overlap_evaluated) {
+        write_le16(opponent + 0x6F0u, local_result.overlap_mask);
+    }
+
+    if (local_result.hit) {
+        write_le32(opponent + 0x7E0u, local_result.selected_unit);
+        write_le32(workspace + 0x2ACu, local_result.next_lockout_2ac);
+    }
+
+    if (result != NULL) {
+        *result = local_result;
+    }
     return true;
 }
