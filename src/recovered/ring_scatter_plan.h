@@ -37,7 +37,7 @@ typedef struct stf_ring_scatter_plan {
     bool suppressed;
     bool request_ring_sound;
     uint8_t ring_count;
-    uint16_t visible_from_frame;
+    uint16_t blink_from_frame;
     uint16_t expire_at_frame;
     stf_ring_scatter_profile profile;
     stf_ring_drop_mode drop_mode;
