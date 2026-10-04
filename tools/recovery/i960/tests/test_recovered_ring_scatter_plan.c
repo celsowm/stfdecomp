@@ -42,6 +42,7 @@ int main(void)
     stf_ring_scatter_plan plan;
     stf_ring_pool pool;
     uint8_t slot = 0u;
+    bool recycled = false;
     unsigned index = 0u;
 
     if (expect_plan(20u, 0u, 0u, 0u, 2u, 60u, 90u,
@@ -87,23 +88,51 @@ int main(void)
     }
 
     stf_ring_pool_init(&pool);
-    if (pool.occupied_mask != 0u || pool.head != STF_RING_POOL_EMPTY) {
+    if (pool.occupied_mask != 0u ||
+        pool.head != STF_RING_POOL_EMPTY ||
+        pool.tail != STF_RING_POOL_EMPTY) {
         return 6;
     }
 
     for (index = 0u; index < STF_RING_POOL_SLOT_COUNT; ++index) {
-        if (!stf_ring_pool_allocate(&pool, &slot) || slot != index) {
+        const uint8_t expected =
+            (uint8_t)(STF_RING_POOL_SLOT_COUNT - 1u - index);
+        if (!stf_ring_pool_allocate_ex(&pool, &slot, &recycled) ||
+            recycled || slot != expected) {
             return 7;
         }
     }
-    if (stf_ring_pool_allocate(&pool, &slot) ||
-        pool.occupied_mask != UINT32_C(0x00FFFFFF)) {
+
+    if (pool.occupied_mask != UINT32_C(0x00FFFFFF) ||
+        pool.head != UINT8_C(23) ||
+        pool.tail != UINT8_C(0)) {
         return 8;
     }
 
-    stf_ring_pool_release(&pool, 7u);
-    if (!stf_ring_pool_allocate(&pool, &slot) || slot != 7u) {
+    if (!stf_ring_pool_allocate_ex(&pool, &slot, &recycled) ||
+        !recycled ||
+        slot != UINT8_C(23) ||
+        pool.head != UINT8_C(22) ||
+        pool.tail != UINT8_C(23) ||
+        pool.occupied_mask != UINT32_C(0x00FFFFFF)) {
         return 9;
+    }
+
+    stf_ring_pool_release(&pool, UINT8_C(7));
+    if ((pool.occupied_mask & (UINT32_C(1) << 7u)) != 0u) {
+        return 10;
+    }
+
+    if (!stf_ring_pool_allocate_ex(&pool, &slot, &recycled) ||
+        recycled ||
+        slot != UINT8_C(7) ||
+        pool.tail != UINT8_C(7)) {
+        return 11;
+    }
+
+    stf_ring_pool_release(&pool, pool.head);
+    if (pool.head == UINT8_C(22)) {
+        return 12;
     }
 
     return 0;
