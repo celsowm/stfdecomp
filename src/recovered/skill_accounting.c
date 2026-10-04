@@ -1,5 +1,7 @@
 #include "skill_accounting.h"
 
+#include <stddef.h>
+
 bool stf_total_skill_add(
     uint16_t rank_mode,
     uint32_t select0_flag,
