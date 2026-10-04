@@ -61,6 +61,20 @@ ATTACK_HIT_PREFIX_SHA256 = (
     "75468d8e674e8b6b8c6334cdb1512f6f69fe2067c3ca2d9ac05a354c55ab671a"
 )
 
+# Sonic Championship keeps the same ring-scatter data layout as sfight but the
+# secondary program shifts these tables by +0x138.
+RING_VECTOR_START = 0x000AE4E0
+RING_VECTOR_END = 0x000AE560
+RING_VECTOR_SHA256 = (
+    "e9be122322393d39f1eaf69189797b43bb67c9d31578b572fa639cac9d5460f4"
+)
+
+RING_PROFILE_START = 0x000AE560
+RING_PROFILE_END = 0x000AE5C0
+RING_PROFILE_SHA256 = (
+    "27a66a49e2968878d069dfda5fa81b9be1fd500f1450a32cb7079e77e876a534"
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2 != 0:
@@ -145,7 +159,33 @@ def validate(path: Path) -> int:
     if attack_hit_digest != ATTACK_HIT_PREFIX_SHA256:
         return 8
 
-    print("schamp collision signature: verified (secondary evidence)")
+    ring_vectors = program[RING_VECTOR_START:RING_VECTOR_END]
+    ring_vector_digest = hashlib.sha256(ring_vectors).hexdigest()
+    ring_vector_status = (
+        "ok" if ring_vector_digest == RING_VECTOR_SHA256 else "FAIL"
+    )
+    print(
+        "ring scatter local vectors "
+        f"[0x{RING_VECTOR_START:08X},0x{RING_VECTOR_END:08X}) "
+        f"sha256={ring_vector_digest} {ring_vector_status}"
+    )
+    if ring_vector_digest != RING_VECTOR_SHA256:
+        return 9
+
+    ring_profiles = program[RING_PROFILE_START:RING_PROFILE_END]
+    ring_profile_digest = hashlib.sha256(ring_profiles).hexdigest()
+    ring_profile_status = (
+        "ok" if ring_profile_digest == RING_PROFILE_SHA256 else "FAIL"
+    )
+    print(
+        "ring scatter profile records "
+        f"[0x{RING_PROFILE_START:08X},0x{RING_PROFILE_END:08X}) "
+        f"sha256={ring_profile_digest} {ring_profile_status}"
+    )
+    if ring_profile_digest != RING_PROFILE_SHA256:
+        return 10
+
+    print("schamp collision/ring signatures: verified (secondary evidence)")
     return 0
 
 
