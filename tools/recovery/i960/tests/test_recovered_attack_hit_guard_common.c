@@ -54,6 +54,7 @@ int main(void)
             0u, 30u, UINT32_C(0x123), &result
         ) ||
         !result.skipped ||
+        result.request_sound_cane_2d ||
         read_le32(attacker + 0x1238u) != 0u ||
         enemy[0x109u] != 0u) {
         return 1;
@@ -92,6 +93,7 @@ int main(void)
         result.attacker_counter_1238 != UINT32_C(10) ||
         result.enemy_109 != UINT8_C(1) ||
         result.skill_amount != UINT32_C(7) ||
+        !result.request_sound_cane_2d ||
         result.attacker_194 != UINT32_C(0x10000002) ||
         result.defender_198 != UINT32_C(0x0A000222) ||
         result.defender_6d8 != -2 ||

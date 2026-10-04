@@ -88,6 +88,12 @@ ATTACK_HIT_SOUND_SHA256 = (
     "c752171318f48276a316afe6fa45d0653ababe001bd08908c9b8f4825d542fe8"
 )
 
+ATTACK_HIT_GUARD_COMMON_START = 0x0002AC84
+ATTACK_HIT_GUARD_COMMON_END = 0x0002AE28
+ATTACK_HIT_GUARD_COMMON_SHA256 = (
+    "2e41fd87b6f6abb5d05ab02e6e020eff84a4cf35ac9af5a8135fcbefd0d26202"
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2:
@@ -262,6 +268,21 @@ def validate(path: Path) -> int:
     )
     if sound_digest != ATTACK_HIT_SOUND_SHA256:
         return 13
+
+    guard_common_digest = hashlib.sha256(
+        program[ATTACK_HIT_GUARD_COMMON_START:ATTACK_HIT_GUARD_COMMON_END]
+    ).hexdigest()
+    guard_common_status = (
+        "ok" if guard_common_digest == ATTACK_HIT_GUARD_COMMON_SHA256 else "FAIL"
+    )
+    print(
+        "attack-hit guard-common corridor "
+        f"[0x{ATTACK_HIT_GUARD_COMMON_START:08X},"
+        f"0x{ATTACK_HIT_GUARD_COMMON_END:08X}) "
+        f"sha256={guard_common_digest} {guard_common_status}"
+    )
+    if guard_common_digest != ATTACK_HIT_GUARD_COMMON_SHA256:
+        return 14
 
     print("sfight reference collision/attack signatures: verified")
     return 0

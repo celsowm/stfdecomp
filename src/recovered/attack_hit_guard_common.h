@@ -18,6 +18,7 @@ typedef struct stf_guard_common_result {
     uint32_t attacker_counter_1238;
     uint8_t enemy_109;
     uint32_t skill_amount;
+    bool request_sound_cane_2d;
     uint32_t attacker_194;
     uint32_t defender_198;
     int16_t defender_6d8;
@@ -32,7 +33,8 @@ typedef struct stf_guard_common_result {
  * Recover attack_hit common guard path 0x2AC74..0x2AE28.
  *
  * sub_2B94C remains an external table/motion lookup; its resulting g0 is
- * supplied by the caller. Sound/skill calls are represented as result fields.
+ * supplied by the caller. The total-skill amount and unconditional
+ * play_sd_cane_2d request are represented as result fields.
  */
 bool stf_attack_hit_guard_common_apply_model2(
     uint8_t *attacker,

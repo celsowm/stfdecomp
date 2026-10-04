@@ -110,6 +110,7 @@ bool stf_attack_hit_guard_common_apply_model2(
     enemy_slot[0x109u] = UINT8_C(1);
     local.enemy_109 = UINT8_C(1);
     local.skill_amount = (uint32_t)raw_strength >> 1u;
+    local.request_sound_cane_2d = true;
 
     local.attacker_194 = UINT32_C(0x10000002);
     write_le32(attacker + 0x194u, local.attacker_194);

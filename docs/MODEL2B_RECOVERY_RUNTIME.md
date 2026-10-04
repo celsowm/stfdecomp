@@ -173,7 +173,7 @@ tests:
 - post-sqrt attack strength scaling;
 - guard/counter branch classification;
 - guard block A/B CPU-side state;
-- common guard path through 0x2AE28;
+- common guard path through 0x2AE28, including typed skill and cane-2d sound events;
 - combo bookkeeping through 0x2B018;
 - contextual damage transform through 0x2B318;
 - energy-difference damage scaling and finish-blow detection;
