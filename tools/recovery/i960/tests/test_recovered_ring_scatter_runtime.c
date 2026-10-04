@@ -149,6 +149,7 @@ int main(void)
     memset(slots, 0, sizeof(slots));
     stf_ring_pool_init(&pool);
 
+    memset(&spawn_inputs, 0, sizeof(spawn_inputs));
     spawn_inputs.defender_angle_x_bits = float_to_bits(1.0f);
     spawn_inputs.defender_angle_z_bits = float_to_bits(0.0f);
     spawn_inputs.attacker_angle_x_bits = float_to_bits(0.0f);
@@ -254,6 +255,7 @@ int main(void)
         stf_ring_tick_result tick_result;
 
         tick_inputs.paused = false;
+        tick_inputs.stage_num = 0u;
         tick_inputs.curve_words = curve_a;
         tick_inputs.curve_word_count =
             sizeof(curve_a) / sizeof(curve_a[0]);
@@ -267,7 +269,10 @@ int main(void)
             !nearf_value(bits_to_float(slots[slot].x_bits), 7.5f) ||
             !nearf_value(bits_to_float(slots[slot].z_bits), 0.02f) ||
             !nearf_value(bits_to_float(slots[slot].vx_bits), -0.04f) ||
-            !nearf_value(bits_to_float(tick_result.render_y_bits), 1.5f)) {
+            !nearf_value(bits_to_float(tick_result.render_y_bits), 1.5f) ||
+            tick_result.primary_asset_id != UINT32_C(0x2C4) ||
+            tick_result.draw_secondary ||
+            tick_result.drop_variant != 0u) {
             return 21;
         }
 
@@ -314,6 +319,7 @@ int main(void)
             slots[slot].age != 99u ||
             slots[slot].y_bits != UINT32_C(0xBF800000) ||
             tick_result.render_y_bits != 0u ||
+            tick_result.primary_asset_id != UINT32_C(0x2C6) ||
             !nearf_value(bits_to_float(slots[slot].x_bits), 1.1f) ||
             !nearf_value(bits_to_float(slots[slot].z_bits), 1.9f)) {
             return 24;
@@ -334,6 +340,42 @@ int main(void)
             }
         }
 
+
+        /*
+         * Stage 2 draws a second ring asset.  Concrete drop variants use the
+         * five-entry drop table and expose the original 16-step spin phase.
+         */
+        tick_inputs.paused = true;
+        tick_inputs.stage_num = STF_RING_SPECIAL_STAGE;
+        slots[slot].age = 100u;
+        slots[slot].blink_from_frame = 200u;
+        slots[slot].y_bits = UINT32_C(0xBF800000);
+        slots[slot].drop_variant = 0u;
+        if (!stf_ring_slot_tick(
+                &tick_inputs, &pool, slot, slots, &tick_result
+            ) ||
+            !tick_result.visible ||
+            tick_result.primary_asset_id != UINT32_C(0x2C7) ||
+            tick_result.secondary_asset_id != UINT32_C(0x336) ||
+            !tick_result.draw_secondary) {
+            return 26;
+        }
+
+        slots[slot].drop_variant = 5u;
+        if (!stf_ring_slot_tick(
+                &tick_inputs, &pool, slot, slots, &tick_result
+            ) ||
+            tick_result.primary_asset_id != UINT32_C(0x6AC) ||
+            tick_result.secondary_asset_id != UINT32_C(0x6AC) ||
+            tick_result.spin_phase != UINT16_C(0x4000) ||
+            tick_result.drop_variant != 5u ||
+            !tick_result.draw_secondary) {
+            return 27;
+        }
+
+        tick_inputs.paused = false;
+        tick_inputs.stage_num = 0u;
+        slots[slot].drop_variant = 0u;
         slots[slot].age = 119u;
         slots[slot].expire_at_frame = 120u;
         if (!stf_ring_slot_tick(
@@ -344,8 +386,31 @@ int main(void)
             (pool.occupied_mask & (UINT32_C(1) << slot)) != 0u ||
             pool.head != STF_RING_POOL_EMPTY ||
             pool.tail != STF_RING_POOL_EMPTY) {
-            return 26;
+            return 28;
         }
+    }
+
+    /*
+     * Egg variants store the concrete RNG result (1..4) in each slot rather
+     * than a generic "random" mode.
+     */
+    plan_inputs.damage = 20u;
+    plan_inputs.defender_character = 11u;
+    plan_inputs.defender_motion_1a8 = 0u;
+    plan_inputs.stage_num = 0u;
+    if (!stf_ring_scatter_plan_compute(&plan_inputs, &plan)) {
+        return 29;
+    }
+    memset(slots, 0, sizeof(slots));
+    stf_ring_pool_init(&pool);
+    spawn_inputs.drop_random_values[0] = UINT32_C(2);
+    spawn_inputs.drop_random_values[1] = UINT32_C(7);
+    if (!stf_ring_scatter_spawn(
+            &plan, &spawn_inputs, &pool, slots, &spawn_result
+        ) ||
+        slots[23].drop_variant != 3u ||
+        slots[22].drop_variant != 4u) {
+        return 30;
     }
 
     return 0;
