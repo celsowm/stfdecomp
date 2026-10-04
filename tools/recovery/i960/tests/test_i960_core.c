@@ -168,6 +168,96 @@ static int test_call_return_frames(void)
     return 0;
 }
 
+static int test_chkbit_boolean_branches(void)
+{
+    uint8_t image[16] = {0u};
+    stf_model2b_bus model2b;
+    stf_i960_cpu cpu;
+    stf_status status = STF_OK;
+
+    /*
+     * chkbit 31, r5
+     * bno +8
+     *
+     * Intel documents chkbit as CC=000 for clear and CC=010 for set.
+     * Therefore bno is branch-if-false and bo is branch-if-true.
+     */
+    write_le32(image + 0u, UINT32_C(0x5A014F1F));
+    write_le32(image + 4u, UINT32_C(0x10000008));
+
+    if (stf_model2b_bus_init(&model2b) != STF_OK) {
+        return 1;
+    }
+    if (stf_model2b_bus_attach_program(&model2b, image, sizeof(image)) != STF_OK) {
+        stf_model2b_bus_destroy(&model2b);
+        return 2;
+    }
+
+    stf_i960_cpu_reset(&cpu, 0u, 0u, 0u);
+    cpu.registers[5] = 0u;
+
+    status = stf_i960_step(
+        &cpu, stf_model2b_bus_i960(&model2b), NULL
+    );
+    if (status != STF_OK || cpu.ip != 4u ||
+        cpu.compare_result != STF_I960_COMPARE_NONE ||
+        (cpu.arithmetic_control & UINT32_C(7)) != 0u) {
+        stf_model2b_bus_destroy(&model2b);
+        return 3;
+    }
+
+    status = stf_i960_step(
+        &cpu, stf_model2b_bus_i960(&model2b), NULL
+    );
+    if (status != STF_OK || cpu.ip != 12u) {
+        stf_model2b_bus_destroy(&model2b);
+        return 4;
+    }
+
+    stf_i960_cpu_reset(&cpu, 0u, 0u, 0u);
+    cpu.registers[5] = UINT32_C(0x80000000);
+
+    status = stf_i960_step(
+        &cpu, stf_model2b_bus_i960(&model2b), NULL
+    );
+    if (status != STF_OK || cpu.ip != 4u ||
+        cpu.compare_result != STF_I960_COMPARE_EQUAL ||
+        (cpu.arithmetic_control & UINT32_C(7)) != UINT32_C(2)) {
+        stf_model2b_bus_destroy(&model2b);
+        return 5;
+    }
+
+    status = stf_i960_step(
+        &cpu, stf_model2b_bus_i960(&model2b), NULL
+    );
+    if (status != STF_OK || cpu.ip != 8u) {
+        stf_model2b_bus_destroy(&model2b);
+        return 6;
+    }
+
+    write_le32(image + 4u, UINT32_C(0x17000008));
+    stf_i960_cpu_reset(&cpu, 0u, 0u, 0u);
+    cpu.registers[5] = UINT32_C(0x80000000);
+
+    status = stf_i960_step(
+        &cpu, stf_model2b_bus_i960(&model2b), NULL
+    );
+    if (status != STF_OK) {
+        stf_model2b_bus_destroy(&model2b);
+        return 7;
+    }
+    status = stf_i960_step(
+        &cpu, stf_model2b_bus_i960(&model2b), NULL
+    );
+    if (status != STF_OK || cpu.ip != 12u) {
+        stf_model2b_bus_destroy(&model2b);
+        return 8;
+    }
+
+    stf_model2b_bus_destroy(&model2b);
+    return 0;
+}
+
 static int test_model2b_fail_closed(void)
 {
     uint8_t image[16] = {0u};
@@ -229,10 +319,16 @@ int main(void)
         return 30 + result;
     }
 
+    result = test_chkbit_boolean_branches();
+    if (result != 0) {
+        fprintf(stderr, "chkbit boolean-branch test failed: %d\n", result);
+        return 40 + result;
+    }
+
     result = test_model2b_fail_closed();
     if (result != 0) {
         fprintf(stderr, "Model 2B fail-closed test failed: %d\n", result);
-        return 40 + result;
+        return 50 + result;
     }
 
     puts("stf recovery i960 tests: ok");
