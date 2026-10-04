@@ -38,7 +38,7 @@ bool stf_spark_effect_init_slot_model2(
 )
 {
     if (slot == NULL || position == NULL || descriptor == NULL ||
-        slot_size < STF_SPARK_EFFECT_SLOT_SIZE) {
+        slot_size < STF_SPARK_EFFECT_SLOT_ACCESS_SIZE) {
         return false;
     }
 
@@ -64,7 +64,7 @@ bool stf_spark_effect_update_model2(
     unsigned i;
 
     if (slots == NULL || result == NULL ||
-        slots_size < STF_SPARK_EFFECT_SLOT_COUNT * STF_SPARK_EFFECT_SLOT_SIZE) {
+        slots_size < STF_SPARK_EFFECT_POOL_SIZE) {
         return false;
     }
 
@@ -109,7 +109,7 @@ bool stf_spark_effect_build_draws_model2(
 
     if (slots == NULL || descriptors == NULL || frame_table_tokens == NULL ||
         result == NULL ||
-        slots_size < STF_SPARK_EFFECT_SLOT_COUNT * STF_SPARK_EFFECT_SLOT_SIZE) {
+        slots_size < STF_SPARK_EFFECT_POOL_SIZE) {
         return false;
     }
 
