@@ -30,4 +30,18 @@ bool stf_attack_hit_strength_prepare_model2(
     stf_attack_hit_strength_input *result
 );
 
+/*
+ * Continue the ROM-observed strength formula after raw_822 conversion:
+ *
+ *   sqrt(raw_strength * 0.01f) * 50.0f * 0.0025f * hit_kind_scale
+ *
+ * hit_kind_scale is the float read from the per-kind table at
+ * 0x50A800 + hit_kind * 40 + 8 in the original program.
+ */
+bool stf_attack_hit_strength_scale_bits(
+    uint32_t raw_strength_float_bits,
+    uint32_t hit_kind_scale_bits,
+    uint32_t *result_bits
+);
+
 #endif
