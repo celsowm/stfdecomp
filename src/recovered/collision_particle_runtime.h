@@ -15,6 +15,10 @@ enum {
 typedef struct stf_collision_particle_descriptor {
     uint32_t effect_address;
     uint32_t initial_value;
+    uint16_t duration;
+    uint16_t frame_divisor;
+    const uint16_t *frames;
+    size_t frame_count;
 } stf_collision_particle_descriptor;
 
 typedef struct stf_collision_particle_stage {
@@ -32,6 +36,12 @@ typedef struct stf_collision_particle_result {
     uint32_t effect_address;
     uint32_t initial_value;
 } stf_collision_particle_result;
+
+typedef struct stf_collision_particle_update_result {
+    uint8_t active_before;
+    uint8_t advanced;
+    uint8_t released;
+} stf_collision_particle_update_result;
 
 /*
  * Recover sub_32A5C, the collision-particle slot allocator.
@@ -53,6 +63,23 @@ bool stf_collision_particle_put_model2(
         descriptors[STF_COLLISION_PARTICLE_KIND_COUNT],
     stf_collision_particle_stage *stage,
     stf_collision_particle_result *result
+);
+
+/*
+ * Recover sub_32B10, the per-frame updater for collision-particle slots.
+ *
+ * Unlike sub_32A5C's special 32-slot allocation mode, this routine scans
+ * exactly the first 16 slots. Active slots resolve their +0x1C address token
+ * against descriptors, select frames using age / frame_divisor, optionally
+ * apply the original bit-3 scale sequence, increment age, and release all
+ * CPU-visible slot state when age reaches duration.
+ */
+bool stf_collision_particle_update_model2(
+    uint8_t *slot_bytes,
+    size_t slot_bytes_size,
+    const stf_collision_particle_descriptor
+        descriptors[STF_COLLISION_PARTICLE_KIND_COUNT],
+    stf_collision_particle_update_result *result
 );
 
 #endif
