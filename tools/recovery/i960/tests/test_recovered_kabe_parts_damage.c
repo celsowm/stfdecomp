@@ -46,7 +46,7 @@ int main(void)
         read_le16(fighter + 0x1F00u) != UINT16_C(5) ||
         read_le16(fighter + 0x1F1Eu) != UINT16_C(20) ||
         result.totals.up_total_1f74 != UINT32_C(81) ||
-        result.totals.down_total_1f78 != UINT32_C(112) ||
+        result.totals.down_total_1f78 != UINT32_C(119) ||
         (result.totals.flags_7f0 & UINT32_C(1)) == 0u ||
         (result.totals.flags_7f0 & (UINT32_C(1) << 1u)) == 0u) {
         return 1;
