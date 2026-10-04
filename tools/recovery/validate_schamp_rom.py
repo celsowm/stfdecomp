@@ -61,6 +61,24 @@ ATTACK_HIT_PREFIX_SHA256 = (
     "75468d8e674e8b6b8c6334cdb1512f6f69fe2067c3ca2d9ac05a354c55ab671a"
 )
 
+ATTACK_HIT_KAMAE_GATE_START = 0x0002AE80
+ATTACK_HIT_KAMAE_GATE_END = 0x0002AF24
+ATTACK_HIT_KAMAE_GATE_SHA256 = (
+    "b6df86ba6e0452c65d0b28c3eb2ca70c50596c1ad126e04357287ff90b39457f"
+)
+
+SET_KAMAE_START = 0x0002F274
+SET_KAMAE_END = 0x0002F2DC
+SET_KAMAE_SHA256 = (
+    "41020fa4dfa07e52157e41511cd0c6fd6577a2658b4684114ff7b5af108ac222"
+)
+
+GET_KAMAE_START = 0x0002FDB0
+GET_KAMAE_END = 0x0002FF34
+GET_KAMAE_SHA256 = (
+    "3e426637f59d11beb7e7616687d2346de8618cd4d9ba854bd0788ad373aa2daa"
+)
+
 # Sonic Championship keeps the same ring-scatter data layout as sfight but the
 # secondary program shifts these tables by +0x138.
 RING_RENDER_TABLE_START = 0x000AE44C
@@ -203,6 +221,26 @@ def validate(path: Path) -> int:
     )
     if attack_hit_digest != ATTACK_HIT_PREFIX_SHA256:
         return 8
+
+
+    for label, start, end, expected_digest in (
+        (
+            "attack_hit set_kamae gate",
+            ATTACK_HIT_KAMAE_GATE_START,
+            ATTACK_HIT_KAMAE_GATE_END,
+            ATTACK_HIT_KAMAE_GATE_SHA256,
+        ),
+        ("set_kamae_ram", SET_KAMAE_START, SET_KAMAE_END, SET_KAMAE_SHA256),
+        ("get_kamae_value", GET_KAMAE_START, GET_KAMAE_END, GET_KAMAE_SHA256),
+    ):
+        digest = hashlib.sha256(program[start:end]).hexdigest()
+        status = "ok" if digest == expected_digest else "FAIL"
+        print(
+            f"{label} [0x{start:08X},0x{end:08X}) "
+            f"sha256={digest} {status}"
+        )
+        if digest != expected_digest:
+            return 16
 
     ring_render_tables = program[
         RING_RENDER_TABLE_START:RING_RENDER_TABLE_END
