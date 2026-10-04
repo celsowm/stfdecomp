@@ -147,11 +147,11 @@ bool stf_ring_pool_allocate_ex(
     pool->tail = chosen;
 
     /*
-     * On the first full-pool recycle this closes the queue into the same
-     * head/tail ring the original memory list forms.  Subsequent rotations
-     * preserve it until a release makes the list sparse again.
+     * The original recycled slot still contains its former next pointer, but
+     * traversal is bounded by finish_wall_flag (the tail), so that pointer is
+     * semantically dead until the slot stops being the tail. Normalize it here.
      */
-    pool->next[chosen] = pool->head;
+    pool->next[chosen] = STF_RING_POOL_EMPTY;
 
     if (recycled != NULL) {
         *recycled = true;
