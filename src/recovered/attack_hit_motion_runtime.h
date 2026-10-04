@@ -7,6 +7,7 @@
 
 #include "attack_hit_motion_prefix.h"
 #include "motion_hit_table.h"
+#include "motion_hit_rom_view.h"
 
 typedef struct stf_attack_hit_motion_runtime_result {
     stf_motion_hit_lookup_status lookup_status;
@@ -26,6 +27,14 @@ typedef struct stf_attack_hit_motion_runtime_result {
  * animation_offsets/motion_blob/record_size_by_tag are caller-supplied
  * portable representations of the original motion data.
  */
+bool stf_attack_hit_motion_prefix_resolve_rom(
+    uint32_t selected_motion,
+    const stf_motion_prefix_inputs *prefix_inputs,
+    const stf_motion_hit_rom_view *rom_view,
+    const stf_motion_fallback_profile *fallback_profile,
+    stf_attack_hit_motion_runtime_result *result
+);
+
 bool stf_attack_hit_motion_prefix_resolve(
     uint32_t selected_motion,
     const stf_motion_prefix_inputs *prefix_inputs,
