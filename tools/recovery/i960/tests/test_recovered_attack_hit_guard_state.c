@@ -49,8 +49,8 @@ int main(void)
     write_le16(attacker + 0x1226u, UINT16_C(0x5566));
     write_le16(attacker + 0x1248u, UINT16_C(2));
     write_le16(attacker + 0x124Au, UINT16_C(0x7788));
-    write_le16(attacker + 0x1AAu, UINT16_C(50));
-    write_le16(attacker + 0x80Cu, UINT16_C(10));
+    write_le16(attacker + 0x1AAu, UINT16_C(10));
+    write_le16(attacker + 0x80Cu, UINT16_C(50));
 
     if (!stf_attack_hit_guard_apply_model2(
             STF_GUARD_BLOCK_A,
@@ -86,8 +86,8 @@ int main(void)
     memset(workspace, 0, sizeof(workspace));
 
     write_le32(defender + 0xC70u, UINT32_C(3));
-    write_le16(attacker + 0x1AAu, UINT16_C(70));
-    write_le16(attacker + 0x80Cu, UINT16_C(20));
+    write_le16(attacker + 0x1AAu, UINT16_C(20));
+    write_le16(attacker + 0x80Cu, UINT16_C(70));
 
     if (!stf_attack_hit_guard_apply_model2(
             STF_GUARD_BLOCK_B,
@@ -114,8 +114,8 @@ int main(void)
     memset(defender, 0, sizeof(defender));
     memset(workspace, 0, sizeof(workspace));
     attacker[0x85Cu] = UINT8_C(12);
-    write_le16(attacker + 0x1AAu, UINT16_C(100));
-    write_le16(attacker + 0x80Cu, UINT16_C(20));
+    write_le16(attacker + 0x1AAu, UINT16_C(20));
+    write_le16(attacker + 0x80Cu, UINT16_C(100));
 
     if (!stf_attack_hit_guard_apply_model2(
             STF_GUARD_BLOCK_A,
