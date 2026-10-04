@@ -162,8 +162,8 @@ static int run_accepted_hit(void)
     stf_motion_prefix_inputs motion_in;
     stf_attack_hit_profile hit_profile;
     stf_attack_hit_motion_runtime_result motion_runtime;
-    uint32_t animation_offsets[64];
-    uint8_t motion_blob[64];
+    uint8_t motion_image[256];
+    stf_motion_hit_rom_view motion_rom;
     uint8_t hit_profile_table[STF_ATTACK_HIT_PROFILE_RECORD_SIZE];
     stf_motion_prefix_result motion_prefix;
     stf_motion_vector_inputs vector_in;
