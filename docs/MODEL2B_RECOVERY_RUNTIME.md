@@ -262,9 +262,13 @@ set_kamae refresh before continuing. The previously skipped
 0x2B0D0..0x2B124 state prelude is also recovered, including +0x194 and the
 conditional +0x122x/+0x124x state propagation before damage transformation.
 The contextual-damage block immediately following that prelude is already
-recovered. Hit-sound table addressing is now pinned too, including the +0x138
-Sonic Championship relocation for all five table families. Remaining work in
-the accepted-hit corridor is increasingly integration-oriented: concrete
-ROM-backed sound-list dereference when a caller supplies table data, plus the
-few still-external target/backend effects surrounding otherwise recovered
-gameplay state transitions.
+recovered. Hit-sound table addressing is pinned too, including the +0x138
+Sonic Championship relocation for all five table families, and caller-supplied
+table bytes can now be resolved into concrete sound IDs (single entry or
+zero-terminated list) without embedding ROM data. The normal reaction path no
+longer needs an externally invented sub_2B94C result either: the selector and
+its sub_2BA44 down-height override are recovered against caller-supplied
+uk_hit_motions tables and composed directly into loc_2B488. Remaining work in
+the accepted-hit corridor is increasingly integration-oriented: resolving the
+fallback r7 motion profile/MHT data from original tables and the few target
+backend effects surrounding otherwise recovered gameplay state transitions.
