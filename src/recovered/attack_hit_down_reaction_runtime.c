@@ -81,6 +81,69 @@ bool stf_attack_hit_special_bit16_reaction_apply_resolved_model2(
     return true;
 }
 
+
+bool stf_attack_hit_generic_down_motion_apply_resolved_model2(
+    const uint8_t *attacker,
+    size_t attacker_size,
+    uint8_t *defender,
+    size_t defender_size,
+    uint16_t hit_flags_50fe00,
+    uint8_t hit_kind_50fe02,
+    uint32_t damage,
+    bool increment_down_combo,
+    stf_hit_motion_table_resolver resolver,
+    void *resolver_user_data,
+    const stf_motion_prefix_inputs *prefix_inputs,
+    const stf_motion_hit_rom_view *rom_view,
+    const stf_motion_fallback_profile *fallback_profile,
+    const stf_motion_vector_inputs *vector_inputs,
+    stf_down_motion_runtime_result *result
+)
+{
+    stf_down_motion_runtime_result local;
+
+    if (prefix_inputs == NULL || rom_view == NULL ||
+        fallback_profile == NULL || vector_inputs == NULL ||
+        result == NULL) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+
+    if (!stf_attack_hit_generic_down_reaction_apply_resolved_model2(
+            attacker,
+            attacker_size,
+            defender,
+            defender_size,
+            hit_flags_50fe00,
+            hit_kind_50fe02,
+            damage,
+            increment_down_combo,
+            resolver,
+            resolver_user_data,
+            &local.down
+        ) ||
+        !local.down.reaction.requires_calc_mht ||
+        !stf_attack_hit_motion_prefix_resolve_rom(
+            local.down.reaction.selected_motion,
+            prefix_inputs,
+            rom_view,
+            fallback_profile,
+            &local.prefix
+        ) ||
+        !stf_attack_hit_motion_vector_compute(
+            &local.prefix.prefix,
+            vector_inputs,
+            &local.vector
+        )) {
+        return false;
+    }
+
+    local.down.reaction.requires_calc_mht = false;
+    *result = local;
+    return true;
+}
+
 bool stf_attack_hit_generic_down_reaction_apply_resolved_model2(
     const uint8_t *attacker,
     size_t attacker_size,
