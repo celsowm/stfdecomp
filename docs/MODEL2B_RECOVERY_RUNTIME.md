@@ -251,6 +251,20 @@ damage_calculation ring event is also composed through a Model 2 adapter into
 ring_tobitiri_set, reading the original fighter fields and creating real pool
 slots. The accepted attack_hit integration test now continues through damage
 application into ring scatter spawn instead of stopping at a boolean request.
+epc_parts_pos_calc is now recovered for its CPU-visible physics path as well.
+The normal branch subtracts the global gravity term from Y velocity, damps X/Z
+velocity by 0.98, then integrates position. Floor contact uses the slot's +0x40
+reference (plus the stage floor offset when flag bit 19 is set), increments the
++0x3C contact counter, emits the original sub_3FA78 call site as a portable
+event for the first two contacts, reflects Y velocity using
+0.2 + 0.2 / bounce_parameter, and damps X/Z by 0.9 while the rebound remains
+above the original small stop threshold. Once below that threshold, bit 7 is
+set and XYZ velocity is zeroed. Wall handling clamps against stage_x minus the
+slot radius, reflects the matching horizontal velocity by -0.3, respects the
+original finish_wall_flag bits, and sets bit 19 when the fragment escapes the
+outer stage_x + 0.5 bound. The dormant bit-7/bit-3 path can also deactivate the
+part when the recovered sub_3464C visibility mask is zero.
+
 The crush/loose-part slot rooted at mod_fa_effect+0x88 is now partially
 recovered as a portable runtime. The structure is one 0x48-byte slot:
 +0x00..+0x08 position, +0x0C..+0x14 velocity, +0x1C/+0x1E/+0x20 current
