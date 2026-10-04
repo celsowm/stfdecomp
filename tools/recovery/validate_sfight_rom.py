@@ -205,10 +205,14 @@ def validate(path: Path) -> int:
     abort_precheck_digest = hashlib.sha256(
         program[ATTACK_HIT_ABORT_PRECHECK_START:ATTACK_HIT_ABORT_PRECHECK_END]
     ).hexdigest()
+    abort_precheck_status = (
+        "ok"
+        if abort_precheck_digest == ATTACK_HIT_ABORT_PRECHECK_SHA256
+        else "FAIL"
+    )
     print(
         "attack-hit abort precheck "
-        f"sha256={abort_precheck_digest} "
-        f"{\"ok\" if abort_precheck_digest == ATTACK_HIT_ABORT_PRECHECK_SHA256 else \"FAIL\"}"
+        f"sha256={abort_precheck_digest} {abort_precheck_status}"
     )
     if abort_precheck_digest != ATTACK_HIT_ABORT_PRECHECK_SHA256:
         return 10
@@ -216,10 +220,12 @@ def validate(path: Path) -> int:
     side_exit_digest = hashlib.sha256(
         program[ATTACK_HIT_SIDE_EXIT_START:ATTACK_HIT_SIDE_EXIT_END]
     ).hexdigest()
+    side_exit_status = (
+        "ok" if side_exit_digest == ATTACK_HIT_SIDE_EXIT_SHA256 else "FAIL"
+    )
     print(
         "attack-hit side-exit corridor "
-        f"sha256={side_exit_digest} "
-        f"{\"ok\" if side_exit_digest == ATTACK_HIT_SIDE_EXIT_SHA256 else \"FAIL\"}"
+        f"sha256={side_exit_digest} {side_exit_status}"
     )
     if side_exit_digest != ATTACK_HIT_SIDE_EXIT_SHA256:
         return 11
@@ -227,10 +233,14 @@ def validate(path: Path) -> int:
     abort_cleanup_digest = hashlib.sha256(
         program[ATTACK_HIT_ABORT_CLEANUP_START:ATTACK_HIT_ABORT_CLEANUP_END]
     ).hexdigest()
+    abort_cleanup_status = (
+        "ok"
+        if abort_cleanup_digest == ATTACK_HIT_ABORT_CLEANUP_SHA256
+        else "FAIL"
+    )
     print(
         "attack-hit abort cleanup "
-        f"sha256={abort_cleanup_digest} "
-        f"{\"ok\" if abort_cleanup_digest == ATTACK_HIT_ABORT_CLEANUP_SHA256 else \"FAIL\"}"
+        f"sha256={abort_cleanup_digest} {abort_cleanup_status}"
     )
     if abort_cleanup_digest != ATTACK_HIT_ABORT_CLEANUP_SHA256:
         return 12
