@@ -113,6 +113,53 @@ coprocessor transport understood. The default Model 2B bus remains fail-closed
 for that device range. The recovered helper models only the proven scalar
 operation and must not be read as a general TGP/SHARC emulator.
 
+### Recovered scaled sine/cosine commands and attack-hit vector
+
+The cpres1 command words used immediately after the recovered `attack_hit`
+motion prefix are:
+
+    0x12002424
+    0x12802525
+
+STF call sites consistently send a 16-bit angle plus one float scale and read
+one float result. The STF cpres1 firmware analysis published with
+`biggestsonicfan/m2-sdk` identifies the corresponding operations as:
+
+    0x24: sin(angle) * scale
+    0x25: cos(angle) * scale
+
+The command encoding is `(N << 23) | (N << 8) | N`, and angles use one full
+turn over 0x10000 units.
+
+That closes the next `attack_hit` frontier. In `loc_2B7E0..loc_2B898` the
+program constructs the defender knockback vector from the prefix magnitude:
+
+    y          = sin(angle_r6) * magnitude
+    horizontal = cos(angle_r6) * magnitude
+    x          = sin(-r10) * horizontal
+    z          = cos(-r10) * horizontal
+
+It then applies the observed hit-mode/profile multipliers and the
+`flt_2B904` attacker-state scale table before storing the three components at
+defender offsets `+0x5E0/+0x5E4/+0x5E8`.
+
+The portable semantic recovery lives in:
+
+    src/recovered/copro_scalar.c
+    src/recovered/attack_hit_motion_vector.c
+
+The reference ROM corridor `[0x0002B738,0x0002B898)` is pinned by
+`tools/recovery/validate_sfight_rom.py` with SHA-256:
+
+    689813368538becefc91d2de834e4e51c952c4724ca2aee6dabebb336090479f
+
+Confidence: **high, STF-direct usage plus STF cpres1 firmware corroboration**.
+
+As with the square-root helper, the portable trigonometric helpers model the
+recovered operation, not the full FIFO/device transport and not a claim of
+bit-identical reproduction of the cpres1 lookup table. The Model 2B device
+range therefore remains fail-closed by default.
+
 ### Buffer RAM
 
 STF declares:

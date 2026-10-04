@@ -50,6 +50,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/attack_hit_down_reaction.c"
     "${STF_REPO_ROOT}/src/recovered/motion_hit_table.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_motion_prefix.c"
+    "${STF_REPO_ROOT}/src/recovered/attack_hit_motion_vector.c"
 )
 
 target_include_directories(stf_recovered_game
@@ -218,6 +219,12 @@ add_executable(stf_recovered_attack_hit_motion_prefix_tests
 
 target_link_libraries(stf_recovered_attack_hit_motion_prefix_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_attack_hit_motion_vector_tests
+    tests/test_recovered_attack_hit_motion_vector.c
+)
+
+target_link_libraries(stf_recovered_attack_hit_motion_vector_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
@@ -243,3 +250,4 @@ add_test(NAME stf_recovered_attack_hit_normal_reaction_tests COMMAND stf_recover
 add_test(NAME stf_recovered_attack_hit_down_reaction_tests COMMAND stf_recovered_attack_hit_down_reaction_tests)
 add_test(NAME stf_recovered_motion_hit_table_tests COMMAND stf_recovered_motion_hit_table_tests)
 add_test(NAME stf_recovered_attack_hit_motion_prefix_tests COMMAND stf_recovered_attack_hit_motion_prefix_tests)
+add_test(NAME stf_recovered_attack_hit_motion_vector_tests COMMAND stf_recovered_attack_hit_motion_vector_tests)
