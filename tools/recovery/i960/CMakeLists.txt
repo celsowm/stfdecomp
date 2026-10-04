@@ -58,6 +58,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/skill_accounting.c"
     "${STF_REPO_ROOT}/src/recovered/set_kamae_plan.c"
     "${STF_REPO_ROOT}/src/recovered/get_kamae_value.c"
+    "${STF_REPO_ROOT}/src/recovered/set_kamae_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/ring_scatter_plan.c"
     "${STF_REPO_ROOT}/src/recovered/ring_scatter_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/ring_scatter_damage_flow.c"
@@ -283,6 +284,12 @@ add_executable(stf_recovered_get_kamae_value_tests
 
 target_link_libraries(stf_recovered_get_kamae_value_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_set_kamae_runtime_tests
+    tests/test_recovered_set_kamae_runtime.c
+)
+
+target_link_libraries(stf_recovered_set_kamae_runtime_tests PRIVATE stf_recovered_game)
+
 add_executable(stf_recovered_ring_scatter_plan_tests
     tests/test_recovered_ring_scatter_plan.c
 )
@@ -329,5 +336,6 @@ add_test(NAME stf_recovered_attack_hit_sound_tests COMMAND stf_recovered_attack_
 add_test(NAME stf_recovered_skill_accounting_tests COMMAND stf_recovered_skill_accounting_tests)
 add_test(NAME stf_recovered_set_kamae_plan_tests COMMAND stf_recovered_set_kamae_plan_tests)
 add_test(NAME stf_recovered_get_kamae_value_tests COMMAND stf_recovered_get_kamae_value_tests)
+add_test(NAME stf_recovered_set_kamae_runtime_tests COMMAND stf_recovered_set_kamae_runtime_tests)
 add_test(NAME stf_recovered_ring_scatter_plan_tests COMMAND stf_recovered_ring_scatter_plan_tests)
 add_test(NAME stf_recovered_ring_scatter_runtime_tests COMMAND stf_recovered_ring_scatter_runtime_tests)
