@@ -1,5 +1,7 @@
 #include "attack_hit_guard.h"
 
+#include <stddef.h>
+
 static bool bit32(uint32_t value, unsigned bit)
 {
     return (value & (UINT32_C(1) << bit)) != 0u;
