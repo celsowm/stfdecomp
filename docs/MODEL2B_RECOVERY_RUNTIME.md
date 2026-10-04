@@ -150,3 +150,50 @@ LibSaturn answers **how to express those semantics on Saturn**.
 Model 2-specific addresses, FIFO protocols and device abstractions should not
 leak into portable gameplay code. Recovered behavior should cross that boundary
 as state machines, fighter/collision/animation semantics and normalized assets.
+
+
+## Recovered portable gameplay semantics
+
+The recovery tree now contains a growing ROM-independent C layer under:
+
+    src/recovered/
+
+The following collision/attack semantics are recovered and covered by host
+tests:
+
+- coli_init workspace initialization;
+- finish_val_cont progression;
+- rob_ball_data_make record construction;
+- support_rob_position CPU-side prelude;
+- no_coli_unit_set suppression mask;
+- coli_attack_chk core and Model 2 state adapter;
+- attack_hit input/state prefix;
+- attack strength byte -> IEEE-754 conversion;
+- scalar coprocessor command 0x0D001A1A as square root;
+- post-sqrt attack strength scaling;
+- guard/counter branch classification;
+- guard block A/B CPU-side state;
+- common guard path through 0x2AE28;
+- combo bookkeeping through 0x2B018;
+- contextual damage transform through 0x2B318.
+
+These helpers intentionally report external actions such as sound, skill
+accounting, stance/motion lookup, or set_kamae_ram as events or explicit input
+dependencies rather than silently emulating unrecovered subsystems.
+
+The reference Japanese sfight ROM is validated locally through:
+
+    tools/recovery/validate_sfight_rom.py
+
+No ROM bytes are committed. The validator pins CRCs and selected collision /
+attack_hit corridor signatures so the portable recovery remains anchored to the
+actual target program.
+
+### Current attack_hit frontier
+
+The semantically recovered path currently reaches the persistent-state update at
+0x2B318. The next unrecovered region starts with hit-sound selection and then
+continues into life/damage application and follow-up reaction branches.
+
+That boundary is deliberate: audio tables and later reaction logic should be
+recovered as separate contracts rather than folded into the damage transform.
