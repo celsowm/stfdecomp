@@ -62,7 +62,9 @@ bool stf_calc_up_down_damage_apply_model2(
 )
 {
     stf_up_down_damage_result local;
-    stf_up_down_damage_result totals;
+    uint32_t sum_low = 0u;
+    uint32_t sum_high = 0u;
+    uint32_t flags_7f0 = 0u;
     unsigned index = 0u;
 
     if (fighter == NULL || result == NULL ||
@@ -124,9 +126,7 @@ bool stf_damage_unit_apply_model2(
     uint8_t attacker_kind = 0u;
     uint8_t raw_strength = 0u;
     uint32_t defender_flags = 0u;
-    uint32_t sum_low = 0u;
-    uint32_t sum_high = 0u;
-    uint32_t flags_7f0 = 0u;
+    stf_up_down_damage_result totals;
     int slot = -1;
     unsigned index = 0u;
 
