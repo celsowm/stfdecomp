@@ -45,7 +45,7 @@ int main(void)
     fx.selector = UINT8_C(2);
     fx.words[18] = UINT32_C(0x10);
 
-    write_le16(attacker + 0x80Cu, UINT16_C(100));
+    write_le16(attacker + 0x80Cu, UINT16_C(0));
     write_le16(attacker + 0x808u, UINT16_C(0));
     write_le16(attacker + 0x1AAu, UINT16_C(0));
     write_le16(attacker + 0x82Au, UINT16_C(0));
