@@ -85,6 +85,12 @@ ATTACK_HIT_STATE_PRELUDE_SHA256 = (
     "1417105969b0ef15d6da43da30cad4680a66ac0b521238cd59eab24f2cdd97e8"
 )
 
+ATTACK_HIT_SOUND_START = 0x0002B350
+ATTACK_HIT_SOUND_END = 0x0002B428
+ATTACK_HIT_SOUND_SHA256 = (
+    "7f93985734b2efd2019f4271a7a82754fa0343f94380b57309643d5dfc3366c9"
+)
+
 # Sonic Championship keeps the same ring-scatter data layout as sfight but the
 # secondary program shifts these tables by +0x138.
 RING_RENDER_TABLE_START = 0x000AE44C
@@ -243,6 +249,12 @@ def validate(path: Path) -> int:
             ATTACK_HIT_STATE_PRELUDE_START,
             ATTACK_HIT_STATE_PRELUDE_END,
             ATTACK_HIT_STATE_PRELUDE_SHA256,
+        ),
+        (
+            "attack_hit sound selection",
+            ATTACK_HIT_SOUND_START,
+            ATTACK_HIT_SOUND_END,
+            ATTACK_HIT_SOUND_SHA256,
         ),
     ):
         digest = hashlib.sha256(program[start:end]).hexdigest()
