@@ -42,6 +42,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/copro_scalar.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_state.c"
+    "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_state_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_common.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_common_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_combo.c"
@@ -192,6 +193,12 @@ add_executable(stf_recovered_attack_hit_guard_state_tests
 )
 
 target_link_libraries(stf_recovered_attack_hit_guard_state_tests PRIVATE stf_recovered_game)
+
+add_executable(stf_recovered_attack_hit_guard_state_runtime_tests
+    tests/test_recovered_attack_hit_guard_state_runtime.c
+)
+
+target_link_libraries(stf_recovered_attack_hit_guard_state_runtime_tests PRIVATE stf_recovered_game)
 
 add_executable(stf_recovered_attack_hit_guard_common_tests
     tests/test_recovered_attack_hit_guard_common.c
@@ -396,6 +403,7 @@ add_test(NAME stf_recovered_attack_hit_profile_tests COMMAND stf_recovered_attac
 add_test(NAME stf_recovered_copro_scalar_tests COMMAND stf_recovered_copro_scalar_tests)
 add_test(NAME stf_recovered_attack_hit_guard_tests COMMAND stf_recovered_attack_hit_guard_tests)
 add_test(NAME stf_recovered_attack_hit_guard_state_tests COMMAND stf_recovered_attack_hit_guard_state_tests)
+add_test(NAME stf_recovered_attack_hit_guard_state_runtime_tests COMMAND stf_recovered_attack_hit_guard_state_runtime_tests)
 add_test(NAME stf_recovered_attack_hit_guard_common_tests COMMAND stf_recovered_attack_hit_guard_common_tests)
 add_test(NAME stf_recovered_attack_hit_guard_common_runtime_tests COMMAND stf_recovered_attack_hit_guard_common_runtime_tests)
 add_test(NAME stf_recovered_attack_hit_combo_tests COMMAND stf_recovered_attack_hit_combo_tests)
