@@ -46,25 +46,34 @@ typedef struct stf_ring_scatter_plan {
 typedef struct stf_ring_pool {
     uint32_t occupied_mask;
     uint8_t head;
+    uint8_t tail;
+    uint8_t next[STF_RING_POOL_SLOT_COUNT];
 } stf_ring_pool;
 
 /*
- * CPU-only recovery of ring_tobitiri_set at 0x78788..0x78B34.
- *
- * This planner intentionally stops before the Model 2 coprocessor vector
- * transform and ROM-backed velocity/profile table dereference. It recovers the
- * branch policy that is portable gameplay behavior: character exclusions,
- * sound policy, ring count, lifetime profile, special drop kind, and the
- * 24-slot occupancy scan used by spanbit_ring/setbit_ring.
+ * CPU-only policy recovery of ring_tobitiri_set at 0x78788..0x78B34.
  */
 bool stf_ring_scatter_plan_compute(
     const stf_ring_scatter_inputs *inputs,
     stf_ring_scatter_plan *plan
 );
 
+/*
+ * Recover the 0x574000/0x574008/finish_wall_flag slot queue.
+ *
+ * Slots are acquired from bit 23 down to bit 0, matching spanbit_ring.
+ * Once all 24 are occupied, the original does not fail: it recycles the
+ * oldest linked-list entry and appends it at the tail.
+ */
 void stf_ring_pool_init(stf_ring_pool *pool);
 
 bool stf_ring_pool_allocate(stf_ring_pool *pool, uint8_t *slot);
+
+bool stf_ring_pool_allocate_ex(
+    stf_ring_pool *pool,
+    uint8_t *slot,
+    bool *recycled
+);
 
 void stf_ring_pool_release(stf_ring_pool *pool, uint8_t slot);
 
