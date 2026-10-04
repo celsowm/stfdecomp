@@ -39,6 +39,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/collision_particle_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/collision_particle_render.c"
     "${STF_REPO_ROOT}/src/recovered/spark_effect_runtime.c"
+    "${STF_REPO_ROOT}/src/recovered/crush_part_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_strength.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_profile.c"
@@ -161,6 +162,12 @@ add_executable(stf_recovered_collision_no_unit_tests
 )
 
 target_link_libraries(stf_recovered_collision_no_unit_tests PRIVATE stf_recovered_game)
+
+add_executable(stf_recovered_crush_part_runtime_tests
+    tests/test_recovered_crush_part_runtime.c
+)
+
+target_link_libraries(stf_recovered_crush_part_runtime_tests PRIVATE stf_recovered_game)
 
 add_executable(stf_recovered_spark_effect_runtime_tests
     tests/test_recovered_spark_effect_runtime.c
@@ -466,6 +473,7 @@ add_test(NAME stf_recovered_collision_tests COMMAND stf_recovered_collision_test
 add_test(NAME stf_recovered_collision_ball_tests COMMAND stf_recovered_collision_ball_tests)
 add_test(NAME stf_recovered_collision_support_tests COMMAND stf_recovered_collision_support_tests)
 add_test(NAME stf_recovered_collision_no_unit_tests COMMAND stf_recovered_collision_no_unit_tests)
+add_test(NAME stf_recovered_crush_part_runtime_tests COMMAND stf_recovered_crush_part_runtime_tests)
 add_test(NAME stf_recovered_spark_effect_runtime_tests COMMAND stf_recovered_spark_effect_runtime_tests)
 add_test(NAME stf_recovered_collision_particle_render_tests COMMAND stf_recovered_collision_particle_render_tests)
 add_test(NAME stf_recovered_collision_particle_runtime_tests COMMAND stf_recovered_collision_particle_runtime_tests)
