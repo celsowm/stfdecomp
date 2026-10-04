@@ -251,6 +251,18 @@ damage_calculation ring event is also composed through a Model 2 adapter into
 ring_tobitiri_set, reading the original fighter fields and creating real pool
 slots. The accepted attack_hit integration test now continues through damage
 application into ring scatter spawn instead of stopping at a boolean request.
+The crush/loose-part slot rooted at mod_fa_effect+0x88 is now partially
+recovered as a portable runtime. The structure is one 0x48-byte slot:
++0x00..+0x08 position, +0x0C..+0x14 velocity, +0x1C/+0x1E/+0x20 current
+angles, +0x22 object id, +0x24 flags, +0x28/+0x2A/+0x2C target angles,
++0x2E free-spin increment, +0x34 bounce parameter, +0x38 age, +0x3C
+ground-contact count, +0x40 floor reference, and +0x44 auxiliary state.
+epc_parts_ang_calc is recovered, including its unusual behavior where a large
+Y-angle correction divides the step by (ground_contacts+1) and the reduced
+step remains live for the following Z correction. efc_disp extraction is also
+recovered: flag bit 0 selects the owner fighter and bit 19 requests the
+graphics-state save/restore wrapper around set_obj.
+
 The six-slot spark/impact pool at mod_fa_effect+0x790 is also recovered.
 sub_327E8 initializes and advances the pool: +0x18 is a countdown and +0x1A
 is a frame-table index, both updated once per tick for every active slot.
