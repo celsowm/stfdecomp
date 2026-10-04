@@ -23,6 +23,55 @@ static bool uses_db964(uint8_t attack_kind)
            attack_kind == UINT8_C(0x1B);
 }
 
+
+bool stf_attack_hit_sound_source_info_get(
+    stf_attack_hit_sound_source source,
+    stf_attack_hit_sound_source_info *info
+)
+{
+    stf_attack_hit_sound_source_info local;
+
+    if (info == NULL) {
+        return false;
+    }
+
+    local.sfight_base_address = 0u;
+    local.schamp_base_address = 0u;
+    local.source_index_is_byte_offset = false;
+
+    switch (source) {
+    case STF_ATTACK_HIT_SOUND_SOURCE_OFF_DBE44:
+        local.sfight_base_address = UINT32_C(0x000DBE44);
+        local.schamp_base_address = UINT32_C(0x000DBF7C);
+        local.source_index_is_byte_offset = true;
+        break;
+    case STF_ATTACK_HIT_SOUND_SOURCE_AUDIO_LIST:
+        local.sfight_base_address = UINT32_C(0x000DBECC);
+        local.schamp_base_address = UINT32_C(0x000DC004);
+        local.source_index_is_byte_offset = true;
+        break;
+    case STF_ATTACK_HIT_SOUND_SOURCE_OFF_DBF4C:
+        local.sfight_base_address = UINT32_C(0x000DBF4C);
+        local.schamp_base_address = UINT32_C(0x000DC084);
+        local.source_index_is_byte_offset = true;
+        break;
+    case STF_ATTACK_HIT_SOUND_SOURCE_DWORD_DB6F4:
+        local.sfight_base_address = UINT32_C(0x000DB6F4);
+        local.schamp_base_address = UINT32_C(0x000DB82C);
+        break;
+    case STF_ATTACK_HIT_SOUND_SOURCE_DWORD_DB964:
+        local.sfight_base_address = UINT32_C(0x000DB964);
+        local.schamp_base_address = UINT32_C(0x000DBA9C);
+        break;
+    case STF_ATTACK_HIT_SOUND_SOURCE_NONE:
+    default:
+        return false;
+    }
+
+    *info = local;
+    return true;
+}
+
 bool stf_attack_hit_sound_plan_model2(
     const uint8_t *attacker,
     size_t attacker_size,
