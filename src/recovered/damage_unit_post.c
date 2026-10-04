@@ -96,7 +96,7 @@ bool stf_damage_unit_post_apply_model2(
             effect->flags_908 = effect_flags;
             local.early_mode_return = true;
             local.effect_flags_908 = effect_flags;
-            local.defender_flags_7f0 = (uint16_t)flags7f0;
+            local.defender_flags_7f0 = flags7f0;
             local.defender_flags_0 = flags0;
             *result = local;
             return true;
@@ -111,7 +111,7 @@ bool stf_damage_unit_post_apply_model2(
     write_le16(defender + 0x75Eu, effect_flags);
 
     local.effect_flags_908 = effect_flags;
-    local.defender_flags_7f0 = (uint16_t)flags7f0;
+    local.defender_flags_7f0 = flags7f0;
     local.defender_flags_0 = flags0;
 
     *result = local;
