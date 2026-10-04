@@ -47,6 +47,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/attack_hit_finish.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_reaction.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_normal_reaction.c"
+    "${STF_REPO_ROOT}/src/recovered/attack_hit_normal_reaction_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_down_reaction.c"
     "${STF_REPO_ROOT}/src/recovered/motion_hit_table.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_motion_prefix.c"
@@ -216,6 +217,12 @@ add_executable(stf_recovered_attack_hit_normal_reaction_tests
 
 target_link_libraries(stf_recovered_attack_hit_normal_reaction_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_attack_hit_normal_reaction_runtime_tests
+    tests/test_recovered_attack_hit_normal_reaction_runtime.c
+)
+
+target_link_libraries(stf_recovered_attack_hit_normal_reaction_runtime_tests PRIVATE stf_recovered_game)
+
 add_executable(stf_recovered_attack_hit_down_reaction_tests
     tests/test_recovered_attack_hit_down_reaction.c
 )
@@ -346,6 +353,7 @@ add_test(NAME stf_recovered_attack_hit_damage_tests COMMAND stf_recovered_attack
 add_test(NAME stf_recovered_attack_hit_finish_tests COMMAND stf_recovered_attack_hit_finish_tests)
 add_test(NAME stf_recovered_attack_hit_reaction_tests COMMAND stf_recovered_attack_hit_reaction_tests)
 add_test(NAME stf_recovered_attack_hit_normal_reaction_tests COMMAND stf_recovered_attack_hit_normal_reaction_tests)
+add_test(NAME stf_recovered_attack_hit_normal_reaction_runtime_tests COMMAND stf_recovered_attack_hit_normal_reaction_runtime_tests)
 add_test(NAME stf_recovered_attack_hit_down_reaction_tests COMMAND stf_recovered_attack_hit_down_reaction_tests)
 add_test(NAME stf_recovered_motion_hit_table_tests COMMAND stf_recovered_motion_hit_table_tests)
 add_test(NAME stf_recovered_attack_hit_motion_prefix_tests COMMAND stf_recovered_attack_hit_motion_prefix_tests)
