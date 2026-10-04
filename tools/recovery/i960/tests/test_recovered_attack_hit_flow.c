@@ -8,6 +8,7 @@
 #include "attack_hit_motion_prefix.h"
 #include "attack_hit_motion_vector.h"
 #include "attack_hit_normal_reaction.h"
+#include "attack_hit_normal_reaction_runtime.h"
 #include "attack_hit_reaction.h"
 #include "attack_hit_side_exit.h"
 #include "attack_hit_stance.h"
@@ -51,6 +52,32 @@ static void write_le32(uint8_t *data, uint32_t value)
     data[3] = (uint8_t)(value >> 24u);
 }
 
+
+
+typedef struct flow_hit_motion_fixture {
+    uint8_t selector;
+    uint32_t words[64];
+} flow_hit_motion_fixture;
+
+static bool resolve_flow_hit_motion(
+    uint8_t selector,
+    const uint32_t **table_words,
+    size_t *table_word_count,
+    void *user_data
+)
+{
+    flow_hit_motion_fixture *fixture =
+        (flow_hit_motion_fixture *)user_data;
+
+    if (fixture == NULL || table_words == NULL || table_word_count == NULL ||
+        selector != fixture->selector) {
+        return false;
+    }
+
+    *table_words = fixture->words;
+    *table_word_count = sizeof(fixture->words) / sizeof(fixture->words[0]);
+    return true;
+}
 
 typedef struct flow_kamae_fixture {
     uint16_t selectors[4];
@@ -128,6 +155,8 @@ static int run_accepted_hit(void)
     stf_attack_reaction_inputs reaction_in;
     stf_attack_reaction_path reaction_path;
     stf_normal_reaction_result normal;
+    stf_normal_reaction_runtime_result normal_runtime;
+    flow_hit_motion_fixture hit_motion_fixture;
     stf_motion_prefix_inputs motion_in;
     stf_motion_fallback_profile profile;
     stf_motion_prefix_result motion_prefix;
@@ -146,6 +175,7 @@ static int run_accepted_hit(void)
     memset(workspace, 0, sizeof(workspace));
     memset(enemy0, 0, sizeof(enemy0));
     memset(&reaction_in, 0, sizeof(reaction_in));
+    memset(&hit_motion_fixture, 0, sizeof(hit_motion_fixture));
     memset(&motion_in, 0, sizeof(motion_in));
     memset(&profile, 0, sizeof(profile));
     memset(sound_table, 0, sizeof(sound_table));
@@ -167,6 +197,8 @@ static int run_accepted_hit(void)
     write_le32(defender + 0x20Cu, UINT32_C(0x41200000));
     write_le32(defender + 0x210u, UINT32_C(0x40000000));
     write_le32(defender + 0x214u, UINT32_C(0x41A00000));
+    hit_motion_fixture.selector = UINT8_C(0);
+    hit_motion_fixture.words[18] = UINT32_C(0x10);
     write_le32(defender, UINT32_C(1) << 29u);
 
     kamae_fixture.selectors[0] = UINT16_C(0x1010);
@@ -362,21 +394,26 @@ static int run_accepted_hit(void)
         return 10;
     }
 
-    if (!stf_attack_hit_normal_reaction_apply_model2(
+    if (!stf_attack_hit_normal_reaction_apply_resolved_model2(
             attacker, sizeof(attacker),
             defender, sizeof(defender),
+            UINT16_C(0),
+            UINT8_C(0),
             damage_transform.damage,
             damage_transform.hit_mode,
-            UINT8_C(0),
-            UINT32_C(0x10),
-            &normal
+            resolve_flow_hit_motion,
+            &hit_motion_fixture,
+            &normal_runtime
         ) ||
-        normal.defender_198 != UINT32_C(0x0B000010) ||
-        normal.defender_5de != INT16_C(6) ||
-        normal.reaction_argument != 1 ||
-        !normal.requires_sub_2b94c) {
+        normal_runtime.motion.table_index != UINT32_C(18) ||
+        normal_runtime.motion.motion != UINT32_C(0x10) ||
+        normal_runtime.reaction.defender_198 != UINT32_C(0x0B000010) ||
+        normal_runtime.reaction.defender_5de != INT16_C(6) ||
+        normal_runtime.reaction.reaction_argument != 1 ||
+        normal_runtime.reaction.requires_sub_2b94c) {
         return 11;
     }
+    normal = normal_runtime.reaction;
 
     motion_in.initial_r9_bits = strength_bits;
     motion_in.limit_xang = INT16_C(100);
