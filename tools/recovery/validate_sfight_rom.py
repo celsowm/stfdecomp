@@ -82,6 +82,12 @@ ATTACK_HIT_ABORT_CLEANUP_SHA256 = (
     "49e3c6bda5ae14a5d2e52a58923244ee60a5ed7d737e0917b4e525fa80450dd9"
 )
 
+ATTACK_HIT_SOUND_START = 0x0002B33C
+ATTACK_HIT_SOUND_END = 0x0002B3FC
+ATTACK_HIT_SOUND_SHA256 = (
+    "c752171318f48276a316afe6fa45d0653ababe001bd08908c9b8f4825d542fe8"
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2:
@@ -244,6 +250,18 @@ def validate(path: Path) -> int:
     )
     if abort_cleanup_digest != ATTACK_HIT_ABORT_CLEANUP_SHA256:
         return 12
+
+    sound_digest = hashlib.sha256(
+        program[ATTACK_HIT_SOUND_START:ATTACK_HIT_SOUND_END]
+    ).hexdigest()
+    sound_status = "ok" if sound_digest == ATTACK_HIT_SOUND_SHA256 else "FAIL"
+    print(
+        "attack-hit sound-plan corridor "
+        f"[0x{ATTACK_HIT_SOUND_START:08X},0x{ATTACK_HIT_SOUND_END:08X}) "
+        f"sha256={sound_digest} {sound_status}"
+    )
+    if sound_digest != ATTACK_HIT_SOUND_SHA256:
+        return 13
 
     print("sfight reference collision/attack signatures: verified")
     return 0

@@ -187,7 +187,8 @@ tests:
 - damage_calculation/ketchup energy application and KO/ring-scatter events;
 - centralized attack_hit side-exit classification around 0x2AC74/0x2AE40;
 - loc_2B8C8 lifecycle rollback of +0x1234 and enemy +0x108 markers;
-- composed accepted-hit and rejected-hit flow tests across the portable layer.
+- composed accepted-hit and rejected-hit flow tests across the portable layer;
+- hit-sound selection plan at 0x2B33C..0x2B3FC without embedding the audio backend.
 
 These helpers intentionally report external actions such as sound, skill
 accounting, stance/motion lookup, or set_kamae_ram as events or explicit input
@@ -213,8 +214,8 @@ The `loc_2B8C8` rollback and its major incoming side-exit predicates are now
 recovered explicitly, and integration tests compose both an accepted hit and
 a rejected/rolled-back hit across the portable contracts. Guard-common and
 combo bookkeeping now share that classifier instead of duplicating its branch
-logic. The next frontier is
-therefore the remaining event/orchestration boundary: sound requests, skill
-accounting, set_kamae_ram and ring-scatter execution should be lifted as typed
-events/contracts so a complete attack_hit transaction can be replayed without
-embedding Model 2 devices in gameplay code.
+logic. The hit-sound branch now has a typed plan describing which original sound table
+would be used and which entry/tier is selected; actual table dereference and
+sound playback remain outside the portable layer. The next frontier is the
+remaining event/orchestration boundary: skill accounting, set_kamae_ram and
+ring-scatter execution, followed by a complete attack_hit transaction replay.
