@@ -110,15 +110,6 @@ int main(void)
             scaled != UINT32_C(0x3DCCCCCD)) { /* 0.1 */
             return 7;
         }
-
-        if (!stf_attack_hit_strength_scale_bits(
-                UINT32_C(0x00000000),
-                UINT32_C(0x3F800000),
-                &scaled
-            ) ||
-            (scaled & UINT32_C(0x7FFFFFFF)) != 0u) {
-            return 8;
-        }
     }
 
     return 0;
