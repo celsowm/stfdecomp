@@ -20,6 +20,7 @@
 #include "attack_hit_strength.h"
 #include "attack_hit_profile.h"
 #include "damage_calculation.h"
+#include "damage_unit.h"
 #include "skill_accounting.h"
 #include "ring_scatter_damage_flow.h"
 #include "kamae_motion_rom_view.h"
@@ -27,7 +28,7 @@
 
 enum {
     FLOW_ATTACKER_SIZE = STF_DAMAGE_DEALER_MIN_SIZE,
-    FLOW_DEFENDER_SIZE = STF_DAMAGE_RECEIVER_MIN_SIZE
+    FLOW_DEFENDER_SIZE = STF_DAMAGE_UNIT_DEFENDER_MIN_SIZE
 };
 
 static uint16_t read_le16(const uint8_t *data)
@@ -121,6 +122,8 @@ static int run_accepted_hit(void)
     stf_motion_vector_inputs vector_in;
     stf_motion_vector_result vector_out;
     stf_damage_calculation_result damage;
+    stf_damage_unit_effect_state damage_unit_effect;
+    stf_damage_unit_result damage_unit;
     stf_skill_accounting_result skill;
     stf_ring_damage_flow_inputs ring_inputs;
     stf_ring_damage_flow_result ring_flow;
@@ -145,6 +148,7 @@ static int run_accepted_hit(void)
     memset(&sound_rom, 0, sizeof(sound_rom));
     memset(&vector_in, 0, sizeof(vector_in));
     memset(&ring_inputs, 0, sizeof(ring_inputs));
+    memset(&damage_unit_effect, 0, sizeof(damage_unit_effect));
     memset(selector_block, 0, sizeof(selector_block));
     memset(stance_ram, 0, sizeof(stance_ram));
     memset(kamae_image, 0, sizeof(kamae_image));
@@ -542,6 +546,31 @@ static int run_accepted_hit(void)
         ring_slots[23].expire_at_frame != UINT16_C(90) ||
         ring_slots[23].drop_variant != UINT8_C(0)) {
         return 18;
+    }
+
+    /*
+     * collision calls damage_unit immediately after attack_hit.  Drive the
+     * recovered CPU prefix with a category-0 part bit and the same workspace.
+     */
+    write_le16(defender + 0x6F0u, UINT16_C(1) << 4u);
+    write_le32(defender + 0xAF0u, UINT32_C(20));
+    write_le32(defender + 0xAF4u, UINT32_C(0x1000));
+    if (!stf_damage_unit_apply_model2(
+            attacker, sizeof(attacker),
+            defender, sizeof(defender),
+            workspace, sizeof(workspace),
+            UINT8_C(2),
+            &damage_unit_effect,
+            &damage_unit
+        ) ||
+        damage_unit.skipped ||
+        !damage_unit.matched_slot ||
+        damage_unit.selected_slot != UINT8_C(4) ||
+        damage_unit.accumulator_after != UINT16_C(20) ||
+        damage_unit.up_total_1f74 != UINT32_C(20) ||
+        damage_unit.down_total_1f78 != UINT32_C(0) ||
+        (damage_unit.flags_7f0 & UINT32_C(1)) == 0u) {
+        return 23;
     }
 
     return 0;
