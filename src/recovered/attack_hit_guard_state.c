@@ -117,8 +117,8 @@ bool stf_attack_hit_guard_apply_model2(
         candidate = (int16_t)attacker[0x85Cu];
     } else {
         delta = (int16_t)(
-            (int16_t)read_le16(attacker + 0x1AAu) -
-            (int16_t)read_le16(attacker + 0x80Cu)
+            (int16_t)read_le16(attacker + 0x80Cu) -
+            (int16_t)read_le16(attacker + 0x1AAu)
         );
         candidate = delta;
 
@@ -130,8 +130,8 @@ bool stf_attack_hit_guard_apply_model2(
     }
 
     delta = (int16_t)(
-        (int16_t)read_le16(attacker + 0x1AAu) -
-        (int16_t)read_le16(attacker + 0x80Cu)
+        (int16_t)read_le16(attacker + 0x80Cu) -
+        (int16_t)read_le16(attacker + 0x1AAu)
     );
     local.defender_5de = min_i16(candidate, (int16_t)(delta + 6));
     write_le16(defender + 0x5DEu, (uint16_t)local.defender_5de);
