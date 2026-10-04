@@ -64,6 +64,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/damage_calculation.c"
     "${STF_REPO_ROOT}/src/recovered/damage_unit.c"
     "${STF_REPO_ROOT}/src/recovered/damage_unit_post.c"
+    "${STF_REPO_ROOT}/src/recovered/damage_unit_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/kabe_parts_damage.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_side_exit.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_stance.c"
@@ -331,6 +332,12 @@ add_executable(stf_recovered_damage_unit_post_tests
 
 target_link_libraries(stf_recovered_damage_unit_post_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_damage_unit_runtime_tests
+    tests/test_recovered_damage_unit_runtime.c
+)
+
+target_link_libraries(stf_recovered_damage_unit_runtime_tests PRIVATE stf_recovered_game)
+
 add_executable(stf_recovered_kabe_parts_damage_tests
     tests/test_recovered_kabe_parts_damage.c
 )
@@ -460,6 +467,7 @@ add_test(NAME stf_recovered_hit_motion_selector_tests COMMAND stf_recovered_hit_
 add_test(NAME stf_recovered_damage_calculation_tests COMMAND stf_recovered_damage_calculation_tests)
 add_test(NAME stf_recovered_damage_unit_tests COMMAND stf_recovered_damage_unit_tests)
 add_test(NAME stf_recovered_damage_unit_post_tests COMMAND stf_recovered_damage_unit_post_tests)
+add_test(NAME stf_recovered_damage_unit_runtime_tests COMMAND stf_recovered_damage_unit_runtime_tests)
 add_test(NAME stf_recovered_kabe_parts_damage_tests COMMAND stf_recovered_kabe_parts_damage_tests)
 add_test(NAME stf_recovered_attack_hit_side_exit_tests COMMAND stf_recovered_attack_hit_side_exit_tests)
 add_test(NAME stf_recovered_attack_hit_flow_tests COMMAND stf_recovered_attack_hit_flow_tests)
