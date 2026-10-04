@@ -11,6 +11,13 @@ static float bits_to_float(uint32_t bits)
     return value;
 }
 
+static uint32_t float_to_bits(float value)
+{
+    uint32_t bits = 0u;
+    memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
 static int nearf_value(float actual, float expected)
 {
     return fabsf(actual - expected) <= 0.00001f;
@@ -19,6 +26,8 @@ static int nearf_value(float actual, float expected)
 int main(void)
 {
     uint32_t out = 0u;
+    uint32_t out_z = 0u;
+    uint16_t angle = 0u;
 
     if (!stf_copro_scalar_sqrt_bits(UINT32_C(0x40800000), &out) ||
         out != UINT32_C(0x40000000)) {
@@ -72,6 +81,51 @@ int main(void)
         ) ||
         !nearf_value(bits_to_float(out), -2.0f)) {
         return 9;
+    }
+
+    if (!stf_copro_scalar_atan2_angle_bits(
+            float_to_bits(1.0f), float_to_bits(0.0f), &angle
+        ) ||
+        angle != UINT16_C(0x0000)) {
+        return 10;
+    }
+
+    if (!stf_copro_scalar_atan2_angle_bits(
+            float_to_bits(0.0f), float_to_bits(1.0f), &angle
+        ) ||
+        angle != UINT16_C(0x4000)) {
+        return 11;
+    }
+
+    if (!stf_copro_scalar_atan2_angle_bits(
+            float_to_bits(-1.0f), float_to_bits(0.0f), &angle
+        ) ||
+        angle != UINT16_C(0x8000)) {
+        return 12;
+    }
+
+    if (!stf_copro_scalar_rotate_y_xz_bits(
+            UINT16_C(0x0000),
+            float_to_bits(1.0f),
+            float_to_bits(0.0f),
+            &out,
+            &out_z
+        ) ||
+        !nearf_value(bits_to_float(out), 1.0f) ||
+        !nearf_value(bits_to_float(out_z), 0.0f)) {
+        return 13;
+    }
+
+    if (!stf_copro_scalar_rotate_y_xz_bits(
+            UINT16_C(0x4000),
+            float_to_bits(1.0f),
+            float_to_bits(0.0f),
+            &out,
+            &out_z
+        ) ||
+        !nearf_value(bits_to_float(out), 0.0f) ||
+        !nearf_value(bits_to_float(out_z), 1.0f)) {
+        return 14;
     }
 
     return 0;
