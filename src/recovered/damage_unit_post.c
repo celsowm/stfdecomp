@@ -82,6 +82,8 @@ bool stf_damage_unit_post_apply_model2(
     if ((workspace_flags & (UINT32_C(1) << 4u)) != 0u) {
         effect_flags |= UINT16_C(1) << 6u;
         local.request_particle_setup = true;
+        local.particle_draw_kind = UINT16_C(1);
+        local.particle_flag_set_mask = UINT8_C(1);
     } else if ((workspace_flags & (UINT32_C(1) << 3u)) != 0u) {
         effect_flags |= UINT16_C(1) << 4u;
     } else if ((workspace_flags & (UINT32_C(1) << 2u)) != 0u) {
@@ -104,6 +106,8 @@ bool stf_damage_unit_post_apply_model2(
 
         effect_flags |= UINT16_C(1) << 1u;
         local.request_particle_setup = true;
+        local.particle_draw_kind = UINT16_C(1);
+        local.particle_flag_set_mask = UINT8_C(1);
     }
 
     effect->flags_908 = effect_flags;
