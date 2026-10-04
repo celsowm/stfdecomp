@@ -54,6 +54,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/hit_motion_selector.c"
     "${STF_REPO_ROOT}/src/recovered/damage_calculation.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_side_exit.c"
+    "${STF_REPO_ROOT}/src/recovered/attack_hit_stance.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_sound.c"
     "${STF_REPO_ROOT}/src/recovered/skill_accounting.c"
     "${STF_REPO_ROOT}/src/recovered/set_kamae_plan.c"
