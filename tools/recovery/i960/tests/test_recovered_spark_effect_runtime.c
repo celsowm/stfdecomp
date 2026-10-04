@@ -18,7 +18,7 @@ static uint32_t read_le32(const uint8_t *p)
 
 int main(void)
 {
-    uint8_t slots[STF_SPARK_EFFECT_SLOT_COUNT * STF_SPARK_EFFECT_SLOT_SIZE];
+    uint8_t slots[STF_SPARK_EFFECT_POOL_SIZE];
     static const uint16_t frames0[] = { 10, 11, 12, 13 };
     stf_spark_effect_descriptor desc[STF_SPARK_EFFECT_SLOT_COUNT];
     uint32_t tokens[STF_SPARK_EFFECT_SLOT_COUNT];
@@ -45,7 +45,7 @@ int main(void)
     tokens[0] = UINT32_C(0x12345678);
 
     if (!stf_spark_effect_init_slot_model2(
-            slots, STF_SPARK_EFFECT_SLOT_SIZE,
+            slots, STF_SPARK_EFFECT_SLOT_ACCESS_SIZE,
             pos, &desc[0], tokens[0]
         ) ||
         read_le32(slots + 0x00u) != pos[0] ||
@@ -70,6 +70,10 @@ int main(void)
         draws[0].scale[1] != UINT32_C(0x40000000) ||
         draws[0].scale[2] != UINT32_C(0x40400000)) {
         return 2;
+    }
+
+    if (read_le32(slots + STF_SPARK_EFFECT_SLOT_SIZE) != UINT32_C(0x40400000)) {
+        return 7;
     }
 
     if (!stf_spark_effect_update_model2(
