@@ -248,10 +248,15 @@ ring_tobitiri_set, reading the original fighter fields and creating real pool
 slots. The accepted attack_hit integration test now continues through damage
 application into ring scatter spawn instead of stopping at a boolean request.
 The remaining attack-hit frontier is therefore no longer the ring handoff.
-The stance wrapper and decoder are now composed too: set_kamae_ram planning
-feeds get_kamae_value through an explicit offset_list_motions resolver, covering
-both the normal four-request path and the bit-29 short path while keeping ROM
-asset lookup outside the portable core. The next frontier is wiring that stance
-runtime into the larger fighter action-initialization transaction before the
-full attack_hit replay, then replacing remaining explicit external dependencies
-one by one.
+The stance wrapper and decoder are composed too: set_kamae_ram planning feeds
+get_kamae_value through an explicit offset_list_motions resolver, covering both
+the normal four-request path and the bit-29 short path while keeping ROM asset
+lookup outside the portable core. That composition is now consumed at the real
+attack_hit gate as well: the recovered side-exit classifier clears defender bit
+29, emits the stance event, and the integration flow executes the defender
+set_kamae refresh before continuing. The previously skipped
+0x2B0D0..0x2B124 state prelude is also recovered, including +0x194 and the
+conditional +0x122x/+0x124x state propagation before damage transformation.
+The next frontier is the remaining code between this prelude and the already
+recovered contextual-damage/reaction blocks, then further replacement of
+explicit external dependencies one by one.
