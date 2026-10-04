@@ -68,3 +68,57 @@ bool stf_copro_scalar_cos_scale_bits(
 {
     return trig_scale_bits(angle_word, scale_bits, true, output_bits);
 }
+
+bool stf_copro_scalar_atan2_angle_bits(
+    uint32_t x_bits,
+    uint32_t z_bits,
+    uint16_t *angle_word
+)
+{
+    const float x = bits_to_float(x_bits);
+    const float z = bits_to_float(z_bits);
+    const float tau = 6.28318530717958647692f;
+    float angle = 0.0f;
+    long scaled = 0;
+
+    if (angle_word == NULL || !isfinite(x) || !isfinite(z)) {
+        return false;
+    }
+
+    angle = atan2f(z, x);
+    if (angle < 0.0f) {
+        angle += tau;
+    }
+
+    scaled = lroundf(angle * (65536.0f / tau));
+    *angle_word = (uint16_t)scaled;
+    return true;
+}
+
+bool stf_copro_scalar_rotate_y_xz_bits(
+    uint16_t angle_word,
+    uint32_t x_bits,
+    uint32_t z_bits,
+    uint32_t *out_x_bits,
+    uint32_t *out_z_bits
+)
+{
+    const float x = bits_to_float(x_bits);
+    const float z = bits_to_float(z_bits);
+    const float tau = 6.28318530717958647692f;
+    const float radians = (float)angle_word * (tau / 65536.0f);
+    const float sine = sinf(radians);
+    const float cosine = cosf(radians);
+    const float out_x = cosine * x - sine * z;
+    const float out_z = sine * x + cosine * z;
+
+    if (out_x_bits == NULL || out_z_bits == NULL ||
+        !isfinite(x) || !isfinite(z) ||
+        !isfinite(out_x) || !isfinite(out_z)) {
+        return false;
+    }
+
+    *out_x_bits = float_to_bits(out_x);
+    *out_z_bits = float_to_bits(out_z);
+    return true;
+}
