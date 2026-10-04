@@ -13,6 +13,13 @@ typedef struct stf_ring_local_pattern {
     float velocity_z;
 } stf_ring_local_pattern;
 
+
+static const stf_ring_trajectory_info trajectory_info[] = {
+    {UINT32_C(0x000AE488), UINT32_C(0x000AE5C0), UINT16_C(99)},
+    {UINT32_C(0x000AE618), UINT32_C(0x000AE750), UINT16_C(119)},
+    {UINT32_C(0x000AE7F8), UINT32_C(0x000AE930), UINT16_C(139)},
+};
+
 static const stf_ring_local_pattern local_patterns[8] = {
     { 0.50f,  0.00f,  0.08f,  0.00f},
     {-0.50f,  0.00f, -0.08f,  0.00f},
@@ -82,6 +89,50 @@ static bool select_from_records(
     }
 
     return false;
+}
+
+
+bool stf_ring_trajectory_info_get(
+    stf_ring_trajectory trajectory,
+    stf_ring_trajectory_info *info
+)
+{
+    const unsigned index = (unsigned)trajectory;
+
+    if (info == NULL || index >= (sizeof(trajectory_info) / sizeof(trajectory_info[0]))) {
+        return false;
+    }
+
+    *info = trajectory_info[index];
+    return true;
+}
+
+bool stf_ring_trajectory_sample_bits(
+    stf_ring_trajectory trajectory,
+    const uint32_t *curve_words,
+    size_t curve_word_count,
+    uint16_t frame,
+    uint32_t *sample_bits
+)
+{
+    stf_ring_trajectory_info info;
+    float sample = 0.0f;
+
+    if (curve_words == NULL || sample_bits == NULL ||
+        !stf_ring_trajectory_info_get(trajectory, &info) ||
+        curve_word_count < (size_t)info.sample_count + 1u ||
+        curve_words[info.sample_count] != UINT32_C(0xBF800000) ||
+        frame >= info.sample_count) {
+        return false;
+    }
+
+    sample = bits_to_float(curve_words[frame]);
+    if (!isfinite(sample) || sample < 0.0f) {
+        return false;
+    }
+
+    *sample_bits = curve_words[frame];
+    return true;
 }
 
 bool stf_ring_profile_select(
