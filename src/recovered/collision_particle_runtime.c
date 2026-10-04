@@ -201,7 +201,7 @@ bool stf_collision_particle_update_model2(
         slot[0x1Au] = (uint8_t)descriptor->frames[frame_index];
         slot[0x1Bu] = (uint8_t)(descriptor->frames[frame_index] >> 8u);
 
-        if ((slot[0x19u] & UINT8_C(1u << 3u)) != 0u) {
+        if ((slot[0x19u] & (uint8_t)(UINT8_C(1) << 3u)) != 0u) {
             if (age >= 8u) {
                 return false;
             }
