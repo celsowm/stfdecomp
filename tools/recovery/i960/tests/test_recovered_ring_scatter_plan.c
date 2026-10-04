@@ -26,7 +26,7 @@ static int expect_plan(
     if (!stf_ring_scatter_plan_compute(&inputs, &plan) ||
         plan.suppressed ||
         plan.ring_count != rings ||
-        plan.visible_from_frame != visible ||
+        plan.blink_from_frame != visible ||
         plan.expire_at_frame != expire ||
         plan.profile != profile ||
         plan.drop_mode != drop ||
