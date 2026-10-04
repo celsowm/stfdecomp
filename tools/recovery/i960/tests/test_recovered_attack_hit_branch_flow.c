@@ -4,6 +4,7 @@
 #include "attack_hit_down_reaction_runtime.h"
 #include "attack_hit_guard.h"
 #include "attack_hit_guard_common_runtime.h"
+#include "attack_hit_guard_state_runtime.h"
 #include "attack_hit_reaction.h"
 
 typedef struct fixture {
@@ -172,16 +173,68 @@ static int run_guard_branch(void)
     return 0;
 }
 
+
+static int run_guard_block_b(void)
+{
+    uint8_t attacker[STF_GUARD_STATE_ATTACKER_MIN_SIZE];
+    uint8_t defender[STF_GUARD_STATE_DEFENDER_MIN_SIZE];
+    uint8_t workspace[STF_GUARD_STATE_WORKSPACE_MIN_SIZE];
+    fixture fx;
+    stf_attack_guard_inputs guard_in;
+    stf_attack_guard_path guard_path;
+    stf_guard_state_runtime_result guard;
+
+    memset(attacker, 0, sizeof(attacker));
+    memset(defender, 0, sizeof(defender));
+    memset(workspace, 0, sizeof(workspace));
+    memset(&fx, 0, sizeof(fx));
+    memset(&guard_in, 0, sizeof(guard_in));
+
+    fx.selector = UINT8_C(0);
+    fx.words[10] = UINT32_C(0x123);
+
+    guard_in.opponent_flags_1a4 = UINT32_C(1) << 13u;
+    guard_in.opponent_field_c70 = 2;
+    guard_in.hit_flags_50fe00 = UINT16_C(1) << 13u;
+
+    if (!stf_attack_hit_guard_classify(&guard_in, &guard_path) ||
+        guard_path != STF_ATTACK_GUARD_BLOCK_B_2AB54) {
+        return 1;
+    }
+
+    if (!stf_attack_hit_guard_apply_resolved_model2(
+            STF_GUARD_BLOCK_B,
+            attacker, sizeof(attacker),
+            defender, sizeof(defender),
+            workspace, sizeof(workspace),
+            guard_in.hit_flags_50fe00,
+            resolve_table, &fx,
+            &guard
+        ) ||
+        !guard.resolved_motion ||
+        guard.motion.motion != UINT32_C(0x123) ||
+        guard.guard.requires_sub_2b94c ||
+        guard.guard.defender_198 != UINT32_C(0x0B000123)) {
+        return 2;
+    }
+
+    return 0;
+}
+
 int main(void)
 {
     const int down = run_down_branch();
     const int guard = run_guard_branch();
+    const int guard_b = run_guard_block_b();
 
     if (down != 0) {
         return down;
     }
     if (guard != 0) {
         return 100 + guard;
+    }
+    if (guard_b != 0) {
+        return 200 + guard_b;
     }
     return 0;
 }
