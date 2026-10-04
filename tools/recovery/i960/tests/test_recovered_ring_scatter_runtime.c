@@ -174,7 +174,7 @@ int main(void)
         !nearf_value(bits_to_float(slots[23].vx_bits), 0.04f) ||
         !nearf_value(bits_to_float(slots[23].vz_bits), 0.0f) ||
         slots[23].trajectory != STF_RING_TRAJECTORY_A ||
-        slots[23].visible_from_frame != 60u ||
+        slots[23].blink_from_frame != 60u ||
         slots[23].expire_at_frame != 90u) {
         return 6;
     }
