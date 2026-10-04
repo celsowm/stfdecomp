@@ -286,7 +286,7 @@ bool stf_ring_scatter_spawn(
         slot->vz_bits =
             float_to_bits(bits_to_float(velocity_z_bits) * scale);
         slot->trajectory = profile_record.trajectory;
-        slot->visible_from_frame = plan->visible_from_frame;
+        slot->blink_from_frame = plan->blink_from_frame;
         slot->expire_at_frame = plan->expire_at_frame;
         slot->drop_mode = plan->drop_mode;
 
