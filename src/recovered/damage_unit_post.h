@@ -14,7 +14,7 @@ typedef struct stf_damage_unit_post_result {
     uint16_t effect_flags_908;
     uint16_t defender_75c;
     uint16_t defender_75e;
-    uint16_t defender_flags_7f0;
+    uint32_t defender_flags_7f0;
     uint32_t defender_flags_0;
 } stf_damage_unit_post_result;
 
