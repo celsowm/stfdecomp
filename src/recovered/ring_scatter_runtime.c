@@ -20,6 +20,25 @@ static const stf_ring_trajectory_info trajectory_info[] = {
     {UINT32_C(0x000AE7F8), UINT32_C(0x000AE930), UINT16_C(139)},
 };
 
+static const uint32_t ring_primary_assets[16] = {
+    UINT32_C(0x2C3), UINT32_C(0x2C4), UINT32_C(0x2C5), UINT32_C(0x2C6),
+    UINT32_C(0x2C7), UINT32_C(0x2C8), UINT32_C(0x2C9), UINT32_C(0x2CA),
+    UINT32_C(0x2CB), UINT32_C(0x2CC), UINT32_C(0x2CD), UINT32_C(0x2CE),
+    UINT32_C(0x2CF), UINT32_C(0x2D0), UINT32_C(0x2D1), UINT32_C(0xD9B),
+};
+
+static const uint32_t ring_stage2_assets[16] = {
+    UINT32_C(0x332), UINT32_C(0x333), UINT32_C(0x334), UINT32_C(0x335),
+    UINT32_C(0x336), UINT32_C(0x337), UINT32_C(0x338), UINT32_C(0x339),
+    UINT32_C(0x33A), UINT32_C(0x35B), UINT32_C(0x35C), UINT32_C(0x3AA),
+    UINT32_C(0x3AB), UINT32_C(0x3AC), UINT32_C(0x3AD), UINT32_C(0xD9C),
+};
+
+static const uint32_t drop_assets[5] = {
+    UINT32_C(0x7BE), UINT32_C(0x7BF), UINT32_C(0x7C0),
+    UINT32_C(0x7BE), UINT32_C(0x6AC),
+};
+
 static const stf_ring_local_pattern local_patterns[8] = {
     { 0.50f,  0.00f,  0.08f,  0.00f},
     {-0.50f,  0.00f, -0.08f,  0.00f},
@@ -308,6 +327,30 @@ bool stf_ring_slot_tick(
         slot->age < slot->blink_from_frame ||
         (slot->age & UINT16_C(2)) == 0u;
 
+    if (local.visible) {
+        const unsigned animation_index = slot->age & UINT16_C(15);
+
+        local.drop_variant = slot->drop_variant;
+        if (slot->drop_variant == 0u) {
+            local.primary_asset_id = ring_primary_assets[animation_index];
+            if (inputs->stage_num == STF_RING_SPECIAL_STAGE) {
+                local.secondary_asset_id =
+                    ring_stage2_assets[animation_index];
+                local.draw_secondary = true;
+            }
+        } else if (slot->drop_variant <= UINT8_C(5)) {
+            local.primary_asset_id = drop_assets[slot->drop_variant - 1u];
+            local.spin_phase =
+                (uint16_t)((slot->age & UINT16_C(15)) << 12u);
+            if (inputs->stage_num == STF_RING_SPECIAL_STAGE) {
+                local.secondary_asset_id = local.primary_asset_id;
+                local.draw_secondary = true;
+            }
+        } else {
+            return false;
+        }
+    }
+
     if (result != NULL) {
         *result = local;
     }
@@ -419,7 +462,21 @@ bool stf_ring_scatter_spawn(
         slot->trajectory = profile_record.trajectory;
         slot->blink_from_frame = plan->blink_from_frame;
         slot->expire_at_frame = plan->expire_at_frame;
-        slot->drop_mode = plan->drop_mode;
+        switch (plan->drop_mode) {
+        case STF_RING_DROP_RING:
+            slot->drop_variant = 0u;
+            break;
+        case STF_RING_DROP_RANDOM_1_TO_4:
+            slot->drop_variant =
+                (uint8_t)((inputs->drop_random_values[ring_index] &
+                           UINT32_C(3)) + UINT32_C(1));
+            break;
+        case STF_RING_DROP_FIXED_5:
+            slot->drop_variant = UINT8_C(5);
+            break;
+        default:
+            return false;
+        }
 
         local.slot_indices[ring_index] = slot_index;
         ++local.spawned_count;
