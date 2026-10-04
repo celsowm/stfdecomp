@@ -340,10 +340,12 @@ static bool condition_matches(
         return result == STF_I960_COMPARE_GREATER || result == STF_I960_COMPARE_EQUAL;
     }
     if (strcmp(mnemonic, "bno") == 0) {
-        return result != STF_I960_COMPARE_OVERFLOW;
+        /* i960 bno is the CC==000 case (unordered / false). */
+        return result == STF_I960_COMPARE_NONE;
     }
     if (strcmp(mnemonic, "bo") == 0) {
-        return result == STF_I960_COMPARE_OVERFLOW;
+        /* bo uses mask 111, so any non-zero condition code is ordered / true. */
+        return result != STF_I960_COMPARE_NONE;
     }
     return false;
 }
@@ -416,10 +418,11 @@ static bool direct_compare_condition(
         return is_signed ? signed_left <= signed_right : left <= right;
     }
     if (strcmp(suffix, "bno") == 0) {
-        return true;
+        /* Integer/ordinal compares always produce an ordered non-zero CC. */
+        return false;
     }
     if (strcmp(suffix, "bo") == 0) {
-        return false;
+        return true;
     }
     return false;
 }
