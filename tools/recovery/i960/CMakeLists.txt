@@ -59,6 +59,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/attack_hit_motion_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_motion_vector.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_motion_select.c"
+    "${STF_REPO_ROOT}/src/recovered/hit_motion_rom_view.c"
     "${STF_REPO_ROOT}/src/recovered/hit_motion_selector.c"
     "${STF_REPO_ROOT}/src/recovered/damage_calculation.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_side_exit.c"
@@ -297,6 +298,12 @@ add_executable(stf_recovered_attack_hit_motion_select_tests
 
 target_link_libraries(stf_recovered_attack_hit_motion_select_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_hit_motion_rom_view_tests
+    tests/test_recovered_hit_motion_rom_view.c
+)
+
+target_link_libraries(stf_recovered_hit_motion_rom_view_tests PRIVATE stf_recovered_game)
+
 add_executable(stf_recovered_hit_motion_selector_tests
     tests/test_recovered_hit_motion_selector.c
 )
@@ -427,6 +434,7 @@ add_test(NAME stf_recovered_attack_hit_motion_prefix_tests COMMAND stf_recovered
 add_test(NAME stf_recovered_attack_hit_motion_runtime_tests COMMAND stf_recovered_attack_hit_motion_runtime_tests)
 add_test(NAME stf_recovered_attack_hit_motion_vector_tests COMMAND stf_recovered_attack_hit_motion_vector_tests)
 add_test(NAME stf_recovered_attack_hit_motion_select_tests COMMAND stf_recovered_attack_hit_motion_select_tests)
+add_test(NAME stf_recovered_hit_motion_rom_view_tests COMMAND stf_recovered_hit_motion_rom_view_tests)
 add_test(NAME stf_recovered_hit_motion_selector_tests COMMAND stf_recovered_hit_motion_selector_tests)
 add_test(NAME stf_recovered_damage_calculation_tests COMMAND stf_recovered_damage_calculation_tests)
 add_test(NAME stf_recovered_attack_hit_side_exit_tests COMMAND stf_recovered_attack_hit_side_exit_tests)
