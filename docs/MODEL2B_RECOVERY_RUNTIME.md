@@ -189,10 +189,11 @@ tests:
 - loc_2B8C8 lifecycle rollback of +0x1234 and enemy +0x108 markers;
 - composed accepted-hit and rejected-hit transaction tests across strength, combo, damage, sound, reaction, motion and energy application;
 - hit-sound selection plan at 0x2B33C..0x2B3FC without embedding the audio backend;
-- total_skill_adder_g7/g8 rank/select gating and total-skill accumulation.
+- total_skill_adder_g7/g8 rank/select gating and total-skill accumulation;
+- set_kamae_ram wrapper planning: exact get_kamae_value selector/destination requests.
 
 These helpers intentionally report external actions such as sound,
-stance/motion lookup, or set_kamae_ram as events or explicit input
+stance/motion lookup, or get_kamae_value execution as events or explicit input
 dependencies rather than silently emulating unrecovered subsystems.
 
 The reference Japanese sfight ROM is validated locally through:
@@ -219,6 +220,7 @@ energy application; the rejected transaction verifies rollback. Guard-common and
 combo bookkeeping now share that classifier instead of duplicating its branch
 logic. The hit-sound branch now has a typed plan describing which original sound table
 would be used and which entry/tier is selected; actual table dereference and
-sound playback remain outside the portable layer. Skill accounting is now recovered too, so the next frontier is the remaining
-event/orchestration boundary: set_kamae_ram and ring-scatter execution,
-followed by a complete attack_hit transaction replay.
+sound playback remain outside the portable layer. Skill accounting and the set_kamae_ram wrapper are now recovered too. The
+stance wrapper emits exact get_kamae_value requests rather than hiding the
+decode. The next frontier is get_kamae_value itself and ring-scatter
+execution, followed by a complete attack_hit transaction replay.

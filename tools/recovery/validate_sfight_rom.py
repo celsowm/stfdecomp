@@ -100,6 +100,12 @@ TOTAL_SKILL_ADDER_SHA256 = (
     "b71c8ca96b1580fa1d081297639b2a6c7db63def3bc6e68669164258341514e7"
 )
 
+SET_KAMAE_RAM_START = 0x0002F258
+SET_KAMAE_RAM_END = 0x0002F2AC
+SET_KAMAE_RAM_SHA256 = (
+    "a2de57ff235f0765bb34520835b4543fb345034e2e823e7316e2eefba18427db"
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2:
@@ -301,6 +307,18 @@ def validate(path: Path) -> int:
     )
     if skill_digest != TOTAL_SKILL_ADDER_SHA256:
         return 15
+
+    kamae_digest = hashlib.sha256(
+        program[SET_KAMAE_RAM_START:SET_KAMAE_RAM_END]
+    ).hexdigest()
+    kamae_status = "ok" if kamae_digest == SET_KAMAE_RAM_SHA256 else "FAIL"
+    print(
+        "set-kamae wrapper corridor "
+        f"[0x{SET_KAMAE_RAM_START:08X},0x{SET_KAMAE_RAM_END:08X}) "
+        f"sha256={kamae_digest} {kamae_status}"
+    )
+    if kamae_digest != SET_KAMAE_RAM_SHA256:
+        return 16
 
     print("sfight reference collision/attack signatures: verified")
     return 0
