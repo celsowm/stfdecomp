@@ -251,6 +251,15 @@ damage_calculation ring event is also composed through a Model 2 adapter into
 ring_tobitiri_set, reading the original fighter fields and creating real pool
 slots. The accepted attack_hit integration test now continues through damage
 application into ring scatter spawn instead of stopping at a boolean request.
+The matching efc_disp consumer is recovered as a portable draw-extraction
+stage. It scans the same first 16 particle slots used by sub_32B10. An active
+slot emits one draw using +0x00/+0x04/+0x08 as the position triplet, +0x20 as
+uniform XYZ scale, and +0x1A as the object/frame id passed to set_obj. Flag bit
+2 suppresses the orientation words otherwise sourced from g13, while flag bit
+0 wraps the draw in the original graphics-state save/restore sequence. The
+portable recovery exposes those two behaviors as draw metadata rather than
+writing Model 2 command RAM directly.
+
 The collision-particle backend reached by damage_unit is now recovered through
 the CPU-visible allocator/update cycle too. sub_32A5C allocates the first free
 0x24-byte slot from mod_fa_effect+0x310, scanning 16 slots normally and 32 only
