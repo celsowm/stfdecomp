@@ -2,6 +2,24 @@
 
 #include <stddef.h>
 
+static const uint8_t default_record_sizes[STF_MOTION_HIT_RECORD_SIZE_COUNT] = {
+    UINT8_C(0x0D), UINT8_C(0x03), UINT8_C(0x07), UINT8_C(0x0E),
+    UINT8_C(0x12), UINT8_C(0x0E), UINT8_C(0x06), UINT8_C(0x03),
+    UINT8_C(0x00), UINT8_C(0x0F), UINT8_C(0x06), UINT8_C(0x0B),
+    UINT8_C(0x04), UINT8_C(0x03), UINT8_C(0x0F), UINT8_C(0x03),
+    UINT8_C(0x02), UINT8_C(0x07), UINT8_C(0x07), UINT8_C(0x07),
+    UINT8_C(0x03), UINT8_C(0x06), UINT8_C(0x05), UINT8_C(0x03),
+    UINT8_C(0x0D),
+};
+
+const uint8_t *stf_motion_hit_default_record_sizes(size_t *count)
+{
+    if (count != NULL) {
+        *count = STF_MOTION_HIT_RECORD_SIZE_COUNT;
+    }
+    return default_record_sizes;
+}
+
 stf_motion_hit_lookup_status stf_motion_hit_table_find_offset(
     uint32_t selector,
     uint8_t target_tag,
