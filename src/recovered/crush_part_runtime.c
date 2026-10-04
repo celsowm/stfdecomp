@@ -20,6 +20,14 @@ static uint32_t read_le32(const uint8_t *p)
            ((uint32_t)p[3] << 24u);
 }
 
+static void write_le32(uint8_t *p, uint32_t value)
+{
+    p[0] = (uint8_t)value;
+    p[1] = (uint8_t)(value >> 8u);
+    p[2] = (uint8_t)(value >> 16u);
+    p[3] = (uint8_t)(value >> 24u);
+}
+
 static void write_le16(uint8_t *p, int16_t value)
 {
     const uint16_t u = (uint16_t)value;
