@@ -16,6 +16,7 @@
 #include "attack_hit_sound.h"
 #include "attack_hit_sound_runtime.h"
 #include "attack_hit_strength.h"
+#include "attack_hit_profile.h"
 #include "damage_calculation.h"
 #include "skill_accounting.h"
 #include "ring_scatter_damage_flow.h"
@@ -159,6 +160,8 @@ static int run_accepted_hit(void)
     flow_hit_motion_fixture hit_motion_fixture;
     stf_motion_prefix_inputs motion_in;
     stf_motion_fallback_profile profile;
+    stf_attack_hit_profile hit_profile;
+    uint8_t hit_profile_table[STF_ATTACK_HIT_PROFILE_RECORD_SIZE];
     stf_motion_prefix_result motion_prefix;
     stf_motion_vector_inputs vector_in;
     stf_motion_vector_result vector_out;
@@ -178,6 +181,8 @@ static int run_accepted_hit(void)
     memset(&hit_motion_fixture, 0, sizeof(hit_motion_fixture));
     memset(&motion_in, 0, sizeof(motion_in));
     memset(&profile, 0, sizeof(profile));
+    memset(&hit_profile, 0, sizeof(hit_profile));
+    memset(hit_profile_table, 0, sizeof(hit_profile_table));
     memset(sound_table, 0, sizeof(sound_table));
     memset(&vector_in, 0, sizeof(vector_in));
     memset(&ring_inputs, 0, sizeof(ring_inputs));
@@ -188,6 +193,20 @@ static int run_accepted_hit(void)
     stf_ring_pool_init(&ring_pool);
 
     attacker[0x822u] = UINT8_C(20);
+    attacker[0x843u] = UINT8_C(0);
+
+    write_le32(hit_profile_table + 0x00u, UINT32_C(0x3F800000));
+    write_le32(hit_profile_table + 0x04u, UINT32_C(0x3F800000));
+    write_le32(hit_profile_table + 0x08u, UINT32_C(0x3F800000));
+    write_le32(hit_profile_table + 0x10u, UINT32_C(0x3F800000));
+    if (!stf_attack_hit_profile_decode(
+            hit_profile_table,
+            sizeof(hit_profile_table),
+            attacker[0x843u],
+            &hit_profile
+        )) {
+        return 22;
+    }
     write_le16(attacker + 0x1ACu, UINT16_C(100));
     write_le16(defender + 0x1ACu, UINT16_C(100));
     write_le32(defender + 0x1F4u, UINT32_C(0x3F800000));
@@ -242,7 +261,7 @@ static int run_accepted_hit(void)
 
     if (!stf_attack_hit_strength_scale_bits(
             strength_input.raw_822_float_bits,
-            UINT32_C(0x3F800000),
+            hit_profile.strength_scale_bits,
             &strength_bits
         ) ||
         strength_bits == 0u) {
@@ -418,8 +437,7 @@ static int run_accepted_hit(void)
     motion_in.initial_r9_bits = strength_bits;
     motion_in.limit_xang = INT16_C(100);
     motion_in.defender_5d8_bits = UINT32_C(0x42700000);
-    profile.scale_normal_bits = UINT32_C(0x3F800000);
-    profile.angle_normal = 0;
+    profile = hit_profile.fallback;
 
     if (!stf_attack_hit_motion_prefix_compute(
             &motion_in, NULL, 0u, &profile, &motion_prefix
@@ -428,6 +446,12 @@ static int run_accepted_hit(void)
         motion_prefix.sqrt_r4_bits == 0u) {
         return 12;
     }
+
+    vector_in.hit_mode = damage_transform.hit_mode;
+    vector_in.profile_horizontal_scale_bits =
+        hit_profile.horizontal_scale_bits;
+    vector_in.profile_vertical_scale_bits =
+        hit_profile.vertical_scale_bits;
 
     if (!stf_attack_hit_motion_vector_compute(
             &motion_prefix, &vector_in, &vector_out
