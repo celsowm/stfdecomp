@@ -43,15 +43,48 @@ static int run_down_branch(void)
     fixture fx;
     stf_attack_reaction_inputs reaction;
     stf_attack_reaction_path path;
-    stf_down_reaction_runtime_result down;
+    stf_down_motion_runtime_result down;
+    stf_motion_prefix_inputs prefix_inputs;
+    stf_motion_vector_inputs vector_inputs;
+    stf_motion_fallback_profile fallback;
+    stf_motion_hit_rom_view rom;
+    uint8_t image[1024];
 
     memset(attacker, 0, sizeof(attacker));
     memset(defender, 0, sizeof(defender));
     memset(&fx, 0, sizeof(fx));
     memset(&reaction, 0, sizeof(reaction));
+    memset(&prefix_inputs, 0, sizeof(prefix_inputs));
+    memset(&vector_inputs, 0, sizeof(vector_inputs));
+    memset(&fallback, 0, sizeof(fallback));
+    memset(&rom, 0, sizeof(rom));
+    memset(image, 0, sizeof(image));
 
     fx.selector = UINT8_C(0);
     fx.words[34] = UINT32_C(0x44);
+
+    rom.image = image;
+    rom.image_size = sizeof(image);
+    rom.base_address = UINT32_C(0x00100000);
+    rom.animation_related_address = UINT32_C(0x00100020);
+    rom.animation_count = 0x100u;
+    write_le32(
+        image + 0x20u + 0x44u * 4u,
+        UINT32_C(0x00100300)
+    );
+    image[0x300u + 0x0Du] = UINT8_C(0x11);
+    image[0x300u + 0x0Eu] = 0u;
+    image[0x300u + 0x0Fu] = 0u;
+    write_le32(image + 0x300u + 0x10u, UINT32_C(0x3F800000));
+
+    prefix_inputs.initial_r9_bits = UINT32_C(0x3F800000);
+    prefix_inputs.limit_xang = INT16_C(100);
+    prefix_inputs.defender_5d8_bits = UINT32_C(0x42700000);
+    fallback.scale_normal_bits = UINT32_C(0x3F800000);
+
+    vector_inputs.hit_mode = UINT32_C(2);
+    vector_inputs.profile_horizontal_scale_bits = UINT32_C(0x3F800000);
+    vector_inputs.profile_vertical_scale_bits = UINT32_C(0x3F800000);
 
     reaction.defender_flags_1a4 = UINT32_C(1) << 14u;
     reaction.damage = UINT32_C(41);
@@ -63,18 +96,23 @@ static int run_down_branch(void)
         return 1;
     }
 
-    if (!stf_attack_hit_generic_down_reaction_apply_resolved_model2(
+    if (!stf_attack_hit_generic_down_motion_apply_resolved_model2(
             attacker, sizeof(attacker),
             defender, sizeof(defender),
             UINT16_C(0), UINT8_C(0),
             reaction.damage, true,
-            resolve_table, &fx, &down
+            resolve_table, &fx,
+            &prefix_inputs, &rom, &fallback, &vector_inputs,
+            &down
         ) ||
-        down.motion.motion != UINT32_C(0x44) ||
-        down.reaction.selected_motion != UINT32_C(0x44) ||
-        down.reaction.defender_198 != UINT32_C(0x08000044) ||
-        down.reaction.requires_sub_2b94c ||
-        !down.reaction.requires_calc_mht) {
+        down.down.motion.motion != UINT32_C(0x44) ||
+        down.down.reaction.selected_motion != UINT32_C(0x44) ||
+        down.down.reaction.defender_198 != UINT32_C(0x08000044) ||
+        down.down.reaction.requires_sub_2b94c ||
+        down.down.reaction.requires_calc_mht ||
+        down.prefix.lookup_status != STF_MOTION_HIT_FOUND ||
+        !down.prefix.used_mht_record ||
+        down.vector.z_5e8_bits == 0u) {
         return 2;
     }
 
