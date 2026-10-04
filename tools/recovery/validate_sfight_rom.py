@@ -94,6 +94,12 @@ ATTACK_HIT_GUARD_COMMON_SHA256 = (
     "2e41fd87b6f6abb5d05ab02e6e020eff84a4cf35ac9af5a8135fcbefd0d26202"
 )
 
+TOTAL_SKILL_ADDER_START = 0x0002E1B8
+TOTAL_SKILL_ADDER_END = 0x0002E210
+TOTAL_SKILL_ADDER_SHA256 = (
+    "b71c8ca96b1580fa1d081297639b2a6c7db63def3bc6e68669164258341514e7"
+)
+
 
 def interleave_words(left: bytes, right: bytes) -> bytes:
     if len(left) != len(right) or len(left) % 2:
@@ -283,6 +289,18 @@ def validate(path: Path) -> int:
     )
     if guard_common_digest != ATTACK_HIT_GUARD_COMMON_SHA256:
         return 14
+
+    skill_digest = hashlib.sha256(
+        program[TOTAL_SKILL_ADDER_START:TOTAL_SKILL_ADDER_END]
+    ).hexdigest()
+    skill_status = "ok" if skill_digest == TOTAL_SKILL_ADDER_SHA256 else "FAIL"
+    print(
+        "total-skill adder corridor "
+        f"[0x{TOTAL_SKILL_ADDER_START:08X},0x{TOTAL_SKILL_ADDER_END:08X}) "
+        f"sha256={skill_digest} {skill_status}"
+    )
+    if skill_digest != TOTAL_SKILL_ADDER_SHA256:
+        return 15
 
     print("sfight reference collision/attack signatures: verified")
     return 0

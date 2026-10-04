@@ -55,6 +55,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/damage_calculation.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_side_exit.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_sound.c"
+    "${STF_REPO_ROOT}/src/recovered/skill_accounting.c"
 )
 
 target_include_directories(stf_recovered_game
@@ -259,6 +260,12 @@ add_executable(stf_recovered_attack_hit_sound_tests
 
 target_link_libraries(stf_recovered_attack_hit_sound_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_skill_accounting_tests
+    tests/test_recovered_skill_accounting.c
+)
+
+target_link_libraries(stf_recovered_skill_accounting_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
@@ -290,3 +297,4 @@ add_test(NAME stf_recovered_damage_calculation_tests COMMAND stf_recovered_damag
 add_test(NAME stf_recovered_attack_hit_side_exit_tests COMMAND stf_recovered_attack_hit_side_exit_tests)
 add_test(NAME stf_recovered_attack_hit_flow_tests COMMAND stf_recovered_attack_hit_flow_tests)
 add_test(NAME stf_recovered_attack_hit_sound_tests COMMAND stf_recovered_attack_hit_sound_tests)
+add_test(NAME stf_recovered_skill_accounting_tests COMMAND stf_recovered_skill_accounting_tests)

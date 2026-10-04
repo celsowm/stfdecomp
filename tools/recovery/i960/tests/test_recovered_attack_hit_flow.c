@@ -13,6 +13,7 @@
 #include "attack_hit_sound.h"
 #include "attack_hit_strength.h"
 #include "damage_calculation.h"
+#include "skill_accounting.h"
 
 enum {
     FLOW_ATTACKER_SIZE = STF_DAMAGE_DEALER_MIN_SIZE,
@@ -69,6 +70,8 @@ static int run_accepted_hit(void)
     stf_motion_vector_inputs vector_in;
     stf_motion_vector_result vector_out;
     stf_damage_calculation_result damage;
+    stf_skill_accounting_result skill;
+    uint32_t total_skill = UINT32_C(100);
 
     memset(attacker, 0, sizeof(attacker));
     memset(defender, 0, sizeof(defender));
@@ -141,6 +144,22 @@ static int run_accepted_hit(void)
         combo.workspace_26c != UINT32_C(3)) {
         return 6;
     }
+
+    if (!stf_total_skill_add(
+            UINT16_C(1),
+            UINT32_C(1) << 2u,
+            UINT32_C(0),
+            attacker[4u],
+            combo.hit_skill,
+            total_skill,
+            &skill
+        ) ||
+        !skill.applied ||
+        skill.selected_flag != (UINT32_C(1) << 2u) ||
+        skill.total_skill_after != UINT32_C(120)) {
+        return 16;
+    }
+    total_skill = skill.total_skill_after;
 
     if (!stf_attack_hit_damage_apply_model2(
             attacker, sizeof(attacker),
@@ -258,7 +277,8 @@ static int run_accepted_hit(void)
         read_le16(attacker + 0x1F70u) != UINT16_C(20) ||
         read_le32(defender + 0x5E8u) != vector_out.z_5e8_bits ||
         read_le32(attacker + 0x1234u) != UINT32_C(1) ||
-        enemy0[0x108u] != UINT8_C(1)) {
+        enemy0[0x108u] != UINT8_C(1) ||
+        total_skill != UINT32_C(120)) {
         return 15;
     }
 
