@@ -251,6 +251,17 @@ damage_calculation ring event is also composed through a Model 2 adapter into
 ring_tobitiri_set, reading the original fighter fields and creating real pool
 slots. The accepted attack_hit integration test now continues through damage
 application into ring scatter spawn instead of stopping at a boolean request.
+The collision-particle backend reached by damage_unit is now recovered through
+the CPU-visible allocator/update cycle too. sub_32A5C allocates the first free
+0x24-byte slot from mod_fa_effect+0x310, scanning 16 slots normally and 32 only
+for also_sub_mode 0x1A/0x1B, while sub_32B10 advances exactly the first 16 slots
+each frame. Active slots use +0x18 as age, +0x19 as flags, +0x1A as the current
+frame ID, +0x1C as the effect descriptor address, and +0x20 as the current
+scale/value. Descriptor layout is float initial value, u16 duration, u16 frame
+divisor, then u16 frame IDs. Bit 3 selects the original eight-entry per-age
+scale sequence. Expired slots clear both position triplets and all state from
++0x18 through +0x20.
+
 The remaining attack-hit frontier is therefore no longer the ring handoff.
 The stance wrapper and decoder are composed too: set_kamae_ram planning feeds
 get_kamae_value through an explicit offset_list_motions resolver, covering both
