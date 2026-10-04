@@ -129,7 +129,7 @@ static int run_guard_branch(void)
     fixture fx;
     stf_attack_guard_inputs guard_in;
     stf_attack_guard_path guard_path;
-    stf_guard_common_runtime_result guard;
+    stf_guard_common_transaction_result guard;
 
     memset(attacker, 0, sizeof(attacker));
     memset(defender, 0, sizeof(defender));
@@ -153,20 +153,27 @@ static int run_guard_branch(void)
     write_le32(attacker + 0x1234u, UINT32_C(5));
     write_le32(attacker + 0x1238u, UINT32_C(9));
 
-    if (!stf_attack_hit_guard_common_apply_resolved_model2(
+    if (!stf_attack_hit_guard_common_apply_transaction_model2(
             attacker, sizeof(attacker),
             defender, sizeof(defender),
             workspace, sizeof(workspace),
             enemy, sizeof(enemy),
             guard_in.hit_flags_50fe00,
             UINT8_C(0), UINT8_C(20),
-            resolve_table, &fx, &guard
+            resolve_table, &fx,
+            UINT16_C(1),
+            UINT32_C(1) << 2u,
+            UINT32_C(0),
+            UINT32_C(100),
+            &guard
         ) ||
-        guard.motion.motion != UINT32_C(0x222) ||
-        guard.guard.requires_sub_2b94c ||
-        guard.guard.defender_198 != UINT32_C(0x0A000222) ||
-        !guard.guard.request_sound_cane_2d ||
-        guard.guard.skill_amount != UINT32_C(7)) {
+        guard.runtime.motion.motion != UINT32_C(0x222) ||
+        guard.runtime.guard.requires_sub_2b94c ||
+        guard.runtime.guard.defender_198 != UINT32_C(0x0A000222) ||
+        !guard.runtime.guard.request_sound_cane_2d ||
+        guard.runtime.guard.skill_amount != UINT32_C(7) ||
+        !guard.skill.applied ||
+        guard.skill.total_skill_after != UINT32_C(107)) {
         return 2;
     }
 
