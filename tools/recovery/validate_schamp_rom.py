@@ -35,6 +35,13 @@ REQUIRED_CRCS = {
 }
 
 PROGRAM_PAIR = ("epr-19141.15", "epr-19142.16")
+PROGRAM_CRCS = {
+    "epr-19141.15": 0xB942EF21,
+    "epr-19142.16": 0x2D54BD76,
+}
+PROGRAM_SHA256 = (
+    "cc7294a03a486b11ee035791a889584223c33e478cf31ed14a60e33019dd7fcd"
+)
 
 COLI_INIT = 0x000293B8
 COLLISION = 0x00029418
@@ -90,20 +97,32 @@ def validate(path: Path) -> int:
             if actual != expected:
                 return 3
 
+        print("program CRCs:")
+        for name, expected in PROGRAM_CRCS.items():
+            actual = archive.getinfo(name).CRC
+            status = "ok" if actual == expected else "FAIL"
+            print(f"  {name}: {actual:08x} {status}")
+            if actual != expected:
+                return 4
+
         program = interleave_words(
             archive.read(PROGRAM_PAIR[0]),
             archive.read(PROGRAM_PAIR[1]),
         )
 
     print(f"program size: 0x{len(program):X}")
-    print(f"program sha256: {hashlib.sha256(program).hexdigest()}")
+    program_digest = hashlib.sha256(program).hexdigest()
+    program_status = "ok" if program_digest == PROGRAM_SHA256 else "FAIL"
+    print(f"program sha256: {program_digest} {program_status}")
+    if program_digest != PROGRAM_SHA256:
+        return 5
     print(f"coli_init: 0x{COLI_INIT:08X}")
     print(f"collision: 0x{COLLISION:08X}")
 
     for offset, expected in COLI_CONSTANTS.items():
         if offset + 4 > len(program):
             print(f"signature offset outside program: 0x{offset:08X}")
-            return 4
+            return 6
         actual = struct.unpack_from("<I", program, offset)[0]
         status = "ok" if actual == expected else "FAIL"
         print(
@@ -111,7 +130,7 @@ def validate(path: Path) -> int:
             f"expected=0x{expected:08X} {status}"
         )
         if actual != expected:
-            return 5
+            return 7
 
     attack_hit_prefix = program[ATTACK_HIT_PREFIX_START:ATTACK_HIT_PREFIX_END]
     attack_hit_digest = hashlib.sha256(attack_hit_prefix).hexdigest()
@@ -124,7 +143,7 @@ def validate(path: Path) -> int:
         f"sha256={attack_hit_digest} {attack_status}"
     )
     if attack_hit_digest != ATTACK_HIT_PREFIX_SHA256:
-        return 6
+        return 8
 
     print("schamp collision signature: verified (secondary evidence)")
     return 0
