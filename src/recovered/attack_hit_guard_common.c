@@ -128,8 +128,8 @@ bool stf_attack_hit_guard_common_apply_model2(
     if (attacker[0x85Cu] != 0u) {
         candidate = (int16_t)attacker[0x85Cu];
         delta = (int16_t)(
-            (int16_t)read_le16(attacker + 0x1AAu) -
-            (int16_t)read_le16(attacker + 0x80Cu)
+            (int16_t)read_le16(attacker + 0x80Cu) -
+            (int16_t)read_le16(attacker + 0x1AAu)
         );
         candidate = min_i16(candidate, (int16_t)(delta + 6));
     } else if ((hit_flags_50fe03 & UINT8_C(1)) == 0u) {
@@ -140,14 +140,14 @@ bool stf_attack_hit_guard_common_apply_model2(
         candidate = min_i16(candidate, (int16_t)guard_limit);
 
         delta = (int16_t)(
-            (int16_t)read_le16(attacker + 0x1AAu) -
-            (int16_t)read_le16(attacker + 0x80Cu)
+            (int16_t)read_le16(attacker + 0x80Cu) -
+            (int16_t)read_le16(attacker + 0x1AAu)
         );
         candidate = min_i16(candidate, (int16_t)(delta + 6));
     } else {
         candidate = (int16_t)(
-            (int16_t)read_le16(attacker + 0x808u) -
             (int16_t)read_le16(attacker + 0x80Cu) -
+            (int16_t)read_le16(attacker + 0x808u) -
             INT16_C(7)
         );
         candidate = min_i16(candidate, (int16_t)guard_limit);
