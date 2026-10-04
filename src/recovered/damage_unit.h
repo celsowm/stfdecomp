@@ -13,6 +13,7 @@ enum {
 };
 
 typedef struct stf_damage_unit_effect_state {
+    uint16_t flags_908;
     uint32_t active_914;
 } stf_damage_unit_effect_state;
 
