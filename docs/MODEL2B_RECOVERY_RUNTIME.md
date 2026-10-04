@@ -268,7 +268,11 @@ table bytes can now be resolved into concrete sound IDs (single entry or
 zero-terminated list) without embedding ROM data. The normal reaction path no
 longer needs an externally invented sub_2B94C result either: the selector and
 its sub_2BA44 down-height override are recovered against caller-supplied
-uk_hit_motions tables and composed directly into loc_2B488. Remaining work in
-the accepted-hit corridor is increasingly integration-oriented: resolving the
-fallback r7 motion profile/MHT data from original tables and the few target
+uk_hit_motions tables and composed directly into loc_2B488. The per-hit-kind r7 record is now decoded directly from the original
+0x50A800 + hit_kind*40 layout as well. One decoded 40-byte profile supplies the
+strength scale (+0x08), motion-prefix fallback scales/angles (+0x10..+0x26),
+and final horizontal/vertical knockback scales (+0x00/+0x04), so the accepted
+integration flow no longer injects manual 1.0 profile constants. Remaining work
+in the accepted-hit corridor is increasingly integration-oriented: wiring the
+calc_mht_adr record lookup itself into the portable flow and the few target
 backend effects surrounding otherwise recovered gameplay state transitions.
