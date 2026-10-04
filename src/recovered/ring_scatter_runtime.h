@@ -31,7 +31,7 @@ typedef struct stf_ring_slot {
     stf_ring_trajectory trajectory;
     uint16_t blink_from_frame;
     uint16_t expire_at_frame;
-    stf_ring_drop_mode drop_mode;
+    uint8_t drop_variant;
 } stf_ring_slot;
 
 typedef struct stf_ring_scatter_spawn_inputs {
@@ -42,6 +42,7 @@ typedef struct stf_ring_scatter_spawn_inputs {
     uint32_t spawn_x_bits;
     uint32_t spawn_y_bits;
     uint32_t spawn_z_bits;
+    uint32_t drop_random_values[16];
 } stf_ring_scatter_spawn_inputs;
 
 typedef struct stf_ring_scatter_spawn_result {
@@ -58,6 +59,7 @@ typedef struct stf_ring_trajectory_info {
 
 typedef struct stf_ring_tick_inputs {
     bool paused;
+    uint8_t stage_num;
     const uint32_t *curve_words;
     size_t curve_word_count;
 } stf_ring_tick_inputs;
@@ -69,6 +71,11 @@ typedef struct stf_ring_tick_result {
     uint32_t render_x_bits;
     uint32_t render_y_bits;
     uint32_t render_z_bits;
+    uint32_t primary_asset_id;
+    uint32_t secondary_asset_id;
+    uint16_t spin_phase;
+    uint8_t drop_variant;
+    bool draw_secondary;
 } stf_ring_tick_result;
 
 /*
@@ -141,7 +148,10 @@ bool stf_ring_scatter_spawn(
  * - after blink_from_frame, bit 1 of age controls two-on/two-off visibility.
  *
  * curve_words points at the A/B/C table selected by slot->trajectory and must
- * include its trailing -1.0f sentinel.
+ * include its trailing -1.0f sentinel.  When visible, the result also exposes
+ * the original render asset selection: animated ring IDs for variant 0, the
+ * concrete Egg/special drop asset for variants 1..5, spin phase, and the stage
+ * 2 secondary draw.
  */
 bool stf_ring_slot_tick(
     const stf_ring_tick_inputs *inputs,
