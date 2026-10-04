@@ -63,6 +63,21 @@ ATTACK_HIT_PREFIX_SHA256 = (
 
 # Sonic Championship keeps the same ring-scatter data layout as sfight but the
 # secondary program shifts these tables by +0x138.
+RING_RENDER_TABLE_START = 0x000AE44C
+RING_RENDER_TABLE_END = 0x000AE4E0
+RING_RENDER_TABLE_SHA256 = (
+    "60b9ccf507505c334b13b93e8d27f724974271b7e73d30b36ec42c57c02859c2"
+)
+RING_PRIMARY_ASSETS = (
+    0x2C3, 0x2C4, 0x2C5, 0x2C6, 0x2C7, 0x2C8, 0x2C9, 0x2CA,
+    0x2CB, 0x2CC, 0x2CD, 0x2CE, 0x2CF, 0x2D0, 0x2D1, 0xD9B,
+)
+RING_DROP_ASSETS = (0x7BE, 0x7BF, 0x7C0, 0x7BE, 0x6AC)
+RING_STAGE2_ASSETS = (
+    0x332, 0x333, 0x334, 0x335, 0x336, 0x337, 0x338, 0x339,
+    0x33A, 0x35B, 0x35C, 0x3AA, 0x3AB, 0x3AC, 0x3AD, 0xD9C,
+)
+
 RING_VECTOR_START = 0x000AE4E0
 RING_VECTOR_END = 0x000AE560
 RING_VECTOR_SHA256 = (
@@ -188,6 +203,37 @@ def validate(path: Path) -> int:
     )
     if attack_hit_digest != ATTACK_HIT_PREFIX_SHA256:
         return 8
+
+    ring_render_tables = program[
+        RING_RENDER_TABLE_START:RING_RENDER_TABLE_END
+    ]
+    ring_render_digest = hashlib.sha256(ring_render_tables).hexdigest()
+    ring_render_status = (
+        "ok" if ring_render_digest == RING_RENDER_TABLE_SHA256 else "FAIL"
+    )
+    print(
+        "ring render/drop tables "
+        f"[0x{RING_RENDER_TABLE_START:08X},0x{RING_RENDER_TABLE_END:08X}) "
+        f"sha256={ring_render_digest} {ring_render_status}"
+    )
+    if ring_render_digest != RING_RENDER_TABLE_SHA256:
+        return 9
+
+    render_words = struct.unpack(
+        "<" + "I" * (
+            len(RING_PRIMARY_ASSETS)
+            + len(RING_DROP_ASSETS)
+            + len(RING_STAGE2_ASSETS)
+        ),
+        ring_render_tables,
+    )
+    expected_render_words = (
+        RING_PRIMARY_ASSETS + RING_DROP_ASSETS + RING_STAGE2_ASSETS
+    )
+    if render_words != expected_render_words:
+        print("ring render/drop asset IDs: FAIL")
+        return 10
+    print("ring render/drop asset IDs: ok")
 
     ring_vectors = program[RING_VECTOR_START:RING_VECTOR_END]
     ring_vector_digest = hashlib.sha256(ring_vectors).hexdigest()
