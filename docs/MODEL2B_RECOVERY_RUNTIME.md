@@ -251,6 +251,16 @@ damage_calculation ring event is also composed through a Model 2 adapter into
 ring_tobitiri_set, reading the original fighter fields and creating real pool
 slots. The accepted attack_hit integration test now continues through damage
 application into ring scatter spawn instead of stopping at a boolean request.
+The six-slot spark/impact pool at mod_fa_effect+0x790 is also recovered.
+sub_327E8 initializes and advances the pool: +0x18 is a countdown and +0x1A
+is a frame-table index, both updated once per tick for every active slot.
+efc_disp renders active entries from +0x00/+0x04/+0x08 position, resolves the
+u16 frame ID through the table token stored at +0x1C, and uses independent
+scale words at +0x0C/+0x10/+0x20. A notable original-layout quirk is preserved:
+the stride is 0x20 even though +0x20 is accessed, so each slot's Z-scale aliases
+the next slot's X-position and the last slot reaches four bytes beyond the
+nominal six-slot stride region.
+
 The matching efc_disp consumer is recovered as a portable draw-extraction
 stage. It scans the same first 16 particle slots used by sub_32B10. An active
 slot emits one draw using +0x00/+0x04/+0x08 as the position triplet, +0x20 as
