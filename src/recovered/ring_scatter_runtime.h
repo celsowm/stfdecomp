@@ -56,6 +56,21 @@ typedef struct stf_ring_trajectory_info {
     uint16_t sample_count;
 } stf_ring_trajectory_info;
 
+typedef struct stf_ring_tick_inputs {
+    bool paused;
+    const uint32_t *curve_words;
+    size_t curve_word_count;
+} stf_ring_tick_inputs;
+
+typedef struct stf_ring_tick_result {
+    bool released;
+    bool landed;
+    bool visible;
+    uint32_t render_x_bits;
+    uint32_t render_y_bits;
+    uint32_t render_z_bits;
+} stf_ring_tick_result;
+
 /*
  * The profile records below are the small CPU-visible descriptor tables used by
  * ring_tobitiri_set.  Large per-frame trajectory curves remain external ROM
@@ -112,6 +127,28 @@ bool stf_ring_scatter_spawn(
     stf_ring_pool *pool,
     stf_ring_slot slots[STF_RING_POOL_SLOT_COUNT],
     stf_ring_scatter_spawn_result *result
+);
+
+/*
+ * Recover the CPU-visible per-frame ring_tobitiri lifecycle observed in the
+ * Sonic Championship 0x78E84..0x791F4 corridor:
+ * - pause freezes age and physics;
+ * - expiry unlinks/releases the slot before physics;
+ * - landed rings keep their stored -1.0f Y sentinel and render at Y=0;
+ * - horizontal motion bounces at +/-7.5 by flipping velocity sign;
+ * - a zero trajectory sample damps X/Z velocity by 0.7;
+ * - the trajectory -1.0f sentinel transitions the slot to landed state;
+ * - after blink_from_frame, bit 1 of age controls two-on/two-off visibility.
+ *
+ * curve_words points at the A/B/C table selected by slot->trajectory and must
+ * include its trailing -1.0f sentinel.
+ */
+bool stf_ring_slot_tick(
+    const stf_ring_tick_inputs *inputs,
+    stf_ring_pool *pool,
+    uint8_t slot_index,
+    stf_ring_slot slots[STF_RING_POOL_SLOT_COUNT],
+    stf_ring_tick_result *result
 );
 
 #endif
