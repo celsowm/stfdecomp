@@ -32,9 +32,9 @@ typedef struct stf_guard_common_result {
 /*
  * Recover attack_hit common guard path 0x2AC74..0x2AE28.
  *
- * sub_2B94C remains an external table/motion lookup; its resulting g0 is
- * supplied by the caller. The total-skill amount and unconditional
- * play_sd_cane_2d request are represented as result fields.
+ * This base helper accepts the sub_2B94C motion as input. The resolved runtime
+ * wrapper composes the recovered hit-motion selector and total-skill accounting
+ * on top. The unconditional play_sd_cane_2d request remains a backend event.
  */
 bool stf_attack_hit_guard_common_apply_model2(
     uint8_t *attacker,
