@@ -38,8 +38,9 @@ typedef struct stf_guard_state_result {
 /*
  * Recover the CPU-side state mutations shared by attack_hit guard blocks
  * 0x2AA70 and 0x2AB54. Sound is reported as an event instead of played.
- * Block B receives the g0 value produced by external sub_2B94C so its
- * defender+0x198 write can remain exact without embedding that table lookup.
+ * Block B accepts a preselected motion in this base helper. The resolved
+ * runtime wrapper composes the recovered sub_2B94C selector (motion group 1)
+ * before applying the state mutation.
  */
 bool stf_attack_hit_guard_apply_model2(
     stf_guard_block_kind kind,
