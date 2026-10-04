@@ -54,6 +54,59 @@ const uint8_t *stf_damage_unit_kind_categories(size_t *count)
     return kind_categories;
 }
 
+
+bool stf_calc_up_down_damage_apply_model2(
+    uint8_t *fighter,
+    size_t fighter_size,
+    stf_up_down_damage_result *result
+)
+{
+    stf_up_down_damage_result local;
+    stf_up_down_damage_result totals;
+    unsigned index = 0u;
+
+    if (fighter == NULL || result == NULL ||
+        fighter_size < STF_DAMAGE_UNIT_DEFENDER_MIN_SIZE) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    local.previous_up_1f7c = read_le32(fighter + 0x1F74u);
+    local.previous_down_1f80 = read_le32(fighter + 0x1F78u);
+    write_le32(fighter + 0x1F7Cu, local.previous_up_1f7c);
+    write_le32(fighter + 0x1F80u, local.previous_down_1f80);
+
+    for (index = 0u; index < 16u; ++index) {
+        const uint32_t value =
+            (uint32_t)read_le16(fighter + 0x1F00u + index * 2u);
+        if (index < 9u) {
+            sum_low += value;
+        } else {
+            sum_high += value;
+        }
+    }
+
+    write_le32(fighter + 0x1F74u, sum_low);
+    write_le32(fighter + 0x1F78u, sum_high);
+
+    flags_7f0 = read_le32(fighter + 0x7F0u);
+    if ((flags_7f0 & (UINT32_C(1) << 2u)) == 0u &&
+        sum_low >= read_le32(fighter + 0xAF0u)) {
+        flags_7f0 |= UINT32_C(1);
+    }
+    if ((flags_7f0 & (UINT32_C(1) << 3u)) == 0u &&
+        sum_high >= read_le32(fighter + 0xAF4u)) {
+        flags_7f0 |= UINT32_C(1) << 1u;
+    }
+    write_le32(fighter + 0x7F0u, flags_7f0);
+
+    local.up_total_1f74 = sum_low;
+    local.down_total_1f78 = sum_high;
+    local.flags_7f0 = flags_7f0;
+    *result = local;
+    return true;
+}
+
 bool stf_damage_unit_apply_model2(
     const uint8_t *attacker,
     size_t attacker_size,
@@ -163,36 +216,15 @@ bool stf_damage_unit_apply_model2(
         }
     }
 
-    write_le32(defender + 0x1F7Cu, read_le32(defender + 0x1F74u));
-    write_le32(defender + 0x1F80u, read_le32(defender + 0x1F78u));
-
-    for (index = 0u; index < 16u; ++index) {
-        const uint32_t value =
-            (uint32_t)read_le16(defender + 0x1F00u + index * 2u);
-        if (index < 9u) {
-            sum_low += value;
-        } else {
-            sum_high += value;
-        }
+    if (!stf_calc_up_down_damage_apply_model2(
+            defender, defender_size, &totals
+        )) {
+        return false;
     }
 
-    write_le32(defender + 0x1F74u, sum_low);
-    write_le32(defender + 0x1F78u, sum_high);
-
-    flags_7f0 = read_le32(defender + 0x7F0u);
-    if ((flags_7f0 & (UINT32_C(1) << 2u)) == 0u &&
-        sum_low >= read_le32(defender + 0xAF0u)) {
-        flags_7f0 |= UINT32_C(1);
-    }
-    if ((flags_7f0 & (UINT32_C(1) << 3u)) == 0u &&
-        sum_high >= read_le32(defender + 0xAF4u)) {
-        flags_7f0 |= UINT32_C(1) << 1u;
-    }
-    write_le32(defender + 0x7F0u, flags_7f0);
-
-    local.up_total_1f74 = sum_low;
-    local.down_total_1f78 = sum_high;
-    local.flags_7f0 = flags_7f0;
+    local.up_total_1f74 = totals.up_total_1f74;
+    local.down_total_1f78 = totals.down_total_1f78;
+    local.flags_7f0 = totals.flags_7f0;
 
     *result = local;
     return true;
