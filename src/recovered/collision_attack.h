@@ -6,7 +6,10 @@
 #include <stdint.h>
 
 enum {
-    STF_COLLISION_ATTACK_MAPPING_COUNT = 16u
+    STF_COLLISION_ATTACK_MAPPING_COUNT = 16u,
+    STF_COLLISION_ATTACK_FIGHTER_MODEL2_MIN_SIZE = 0x861u,
+    STF_COLLISION_ATTACK_OPPONENT_MODEL2_MIN_SIZE = 0x7E4u,
+    STF_COLLISION_ATTACK_WORKSPACE_MODEL2_MIN_SIZE = 0x2B0u
 };
 
 typedef struct stf_collision_attack_inputs {
@@ -32,6 +35,7 @@ typedef struct stf_collision_attack_result {
     uint16_t hit_latch;
     uint32_t next_lockout_2ac;
     bool previous_motion_written;
+    bool overlap_evaluated;
     bool hit;
 } stf_collision_attack_result;
 
@@ -48,6 +52,24 @@ typedef struct stf_collision_attack_result {
  */
 bool stf_collision_attack_resolve(
     const stf_collision_attack_inputs *inputs,
+    const uint16_t mapping[STF_COLLISION_ATTACK_MAPPING_COUNT],
+    stf_collision_attack_result *result
+);
+
+/*
+ * Model 2 workspace adapter for the recovered core. attack_profile_bits is
+ * supplied by the caller because the original dword_CE020 lookup is data
+ * selection, not collision logic. Effect payload writes after a successful hit
+ * remain outside this adapter.
+ */
+bool stf_collision_attack_apply_model2(
+    uint8_t *fighter,
+    size_t fighter_size,
+    uint8_t *opponent,
+    size_t opponent_size,
+    uint8_t *workspace,
+    size_t workspace_size,
+    uint32_t attack_profile_bits,
     const uint16_t mapping[STF_COLLISION_ATTACK_MAPPING_COUNT],
     stf_collision_attack_result *result
 );
