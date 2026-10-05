@@ -107,6 +107,7 @@ static int test_draw_extraction(void)
 }
 
 static int test_oidasi_correction(void);
+static int test_composed_frame_transaction(void);
 static int test_position_air_integration(void);
 static int test_floor_bounce_and_stop(void);
 static int test_wall_reflection(void);
@@ -133,6 +134,7 @@ int main(void)
     if (test_target_approach_branch() != 0) return 1;
     if (test_draw_extraction() != 0) return 1;
     if (test_oidasi_correction() != 0) return 1;
+    if (test_composed_frame_transaction() != 0) return 1;
     if (test_position_air_integration() != 0) return 1;
     if (test_floor_bounce_and_stop() != 0) return 1;
     if (test_wall_reflection() != 0) return 1;
@@ -221,6 +223,65 @@ static int test_oidasi_correction(void)
         read_f32(slot + 0x08u) < 2.199f ||
         read_f32(slot + 0x08u) > 2.201f) {
         return 2;
+    }
+
+    return 0;
+}
+
+
+static int test_composed_frame_transaction(void)
+{
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    stf_crush_part_frame_input input;
+    stf_crush_part_frame_result result;
+    uint32_t camera_matrix[12];
+    size_t i;
+
+    memset(slot, 0, sizeof(slot));
+    memset(&input, 0, sizeof(input));
+    memset(camera_matrix, 0, sizeof(camera_matrix));
+
+    for (i = 0u; i < 12u; ++i) {
+        camera_matrix[i] = fbits(0.0f);
+    }
+    camera_matrix[0] = fbits(1.0f);
+    camera_matrix[4] = fbits(1.0f);
+    camera_matrix[8] = fbits(1.0f);
+    camera_matrix[11] = fbits(10.0f);
+
+    write_f32(slot + 0x00u, 1.0f);
+    write_f32(slot + 0x04u, 5.0f);
+    write_f32(slot + 0x08u, 2.0f);
+    write_f32(slot + 0x0Cu, 0.0f);
+    write_f32(slot + 0x10u, 0.0f);
+    write_f32(slot + 0x14u, 0.0f);
+    write_f32(slot + 0x18u, 1.0f);
+    write_f32(slot + 0x40u, -100.0f);
+    write_le16(slot + 0x22u, INT16_C(77));
+    write_le16(slot + 0x2Eu, INT16_C(32));
+    write_le32(slot + 0x24u, UINT32_C(1) << 12u);
+
+    input.oidasi.command77_output0_bits = fbits(10.0f);
+    input.oidasi.command77_output1_bits = fbits(-5.0f);
+    input.physics.gravity_bits = fbits(0.0f);
+    input.physics.stage_x_bits = fbits(100.0f);
+    input.physics.cage_height_bits = fbits(100.0f);
+    input.camera_matrix_bits = camera_matrix;
+    input.focus_distance_bits = fbits(100.0f);
+
+    if (!stf_crush_part_frame_model2(
+            slot, sizeof(slot), &input, &result
+        ) ||
+        !result.oidasi.applied ||
+        result.physics.deactivated ||
+        !result.angle_updated ||
+        read_f32(slot + 0x00u) < 2.599f ||
+        read_f32(slot + 0x00u) > 2.601f ||
+        read_f32(slot + 0x08u) < 1.199f ||
+        read_f32(slot + 0x08u) > 1.201f ||
+        result.angles.angle_x != INT16_C(32) ||
+        result.angles.angle_y != INT16_C(32)) {
+        return 1;
     }
 
     return 0;
