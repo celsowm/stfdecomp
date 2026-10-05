@@ -348,3 +348,78 @@ bool stf_crush_part_update_position_model2(
     *result = local;
     return true;
 }
+
+
+bool stf_crush_part_visibility_mask_model2(
+    const stf_crush_part_visibility_input *input,
+    stf_crush_part_visibility_result *result
+)
+{
+    stf_crush_part_visibility_result local;
+    float camera_x;
+    float camera_y;
+    float camera_z;
+    float radius;
+    float focus;
+    float screen_x;
+    float screen_y;
+    float screen_radius;
+    const float limit_x = 248.0f;
+    const float limit_y = 192.0f;
+
+    if (input == NULL || result == NULL) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    camera_x = bits_to_float(input->camera_x_bits);
+    camera_y = bits_to_float(input->camera_y_bits);
+    camera_z = bits_to_float(input->camera_z_bits);
+    radius = bits_to_float(input->radius_bits);
+    focus = bits_to_float(input->focus_distance_bits);
+
+    if ((input->camera_z_bits & UINT32_C(0x80000000)) != 0u) {
+        local.behind_camera = true;
+        *result = local;
+        return true;
+    }
+
+    if (camera_z == 0.0f) {
+        return false;
+    }
+
+    screen_x = (camera_x * focus) / camera_z;
+    screen_y = (camera_y * focus) / camera_z;
+    screen_radius = (radius * focus) / camera_z;
+
+    local.screen_x_bits = float_to_bits(screen_x);
+    local.screen_y_bits = float_to_bits(screen_y);
+    local.screen_radius_bits = float_to_bits(screen_radius);
+
+    if (screen_x < limit_x && screen_x > -limit_x) {
+        const float top = screen_y - screen_radius;
+        const float bottom = screen_y + screen_radius;
+
+        if (top < limit_y && top > -limit_y) {
+            local.mask |= UINT32_C(1) << 0u;
+        }
+        if (bottom < limit_y && bottom > -limit_y) {
+            local.mask |= UINT32_C(1) << 1u;
+        }
+    }
+
+    if (screen_y < limit_y && screen_y > -limit_y) {
+        const float left = screen_x - screen_radius;
+        const float right = screen_x + screen_radius;
+
+        if (left < limit_x && left > -limit_x) {
+            local.mask |= UINT32_C(1) << 2u;
+        }
+        if (right < limit_x && right > -limit_x) {
+            local.mask |= UINT32_C(1) << 3u;
+        }
+    }
+
+    *result = local;
+    return true;
+}
