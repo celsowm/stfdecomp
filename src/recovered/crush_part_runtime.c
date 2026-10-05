@@ -912,3 +912,37 @@ bool stf_crush_part_set_model2(
     *result = local;
     return true;
 }
+
+
+bool stf_crush_part_floor_sound_select_model2(
+    uint32_t slot_flags,
+    stf_crush_part_floor_sound_result *result
+)
+{
+    stf_crush_part_floor_sound_result local;
+    uint32_t nibble;
+    int bit;
+
+    if (result == NULL) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    nibble = (slot_flags >> 28u) & UINT32_C(0x0F);
+    if (nibble == UINT32_C(0)) {
+        *result = local;
+        return true;
+    }
+
+    for (bit = 3; bit >= 0; --bit) {
+        if ((nibble & (UINT32_C(1) << (unsigned)bit)) != 0u) {
+            local.request_sound = true;
+            local.table_index = (uint8_t)bit;
+            *result = local;
+            return true;
+        }
+    }
+
+    *result = local;
+    return true;
+}
