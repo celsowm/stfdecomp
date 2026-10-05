@@ -32,6 +32,8 @@ REQUIRED_CRCS = {
     "mpr-19017.25": 0x7B298379,
     "mpr-19020.28": 0x9540DBA0,
     "mpr-19018.26": 0x3B7E7A12,
+    "mpr-19015.29": 0xC74D99E3,
+    "mpr-19016.30": 0x746AE931,
 }
 
 PROGRAM_PAIR = ("epr-19141.15", "epr-19142.16")
@@ -41,6 +43,11 @@ PROGRAM_CRCS = {
 }
 PROGRAM_SHA256 = (
     "cc7294a03a486b11ee035791a889584223c33e478cf31ed14a60e33019dd7fcd"
+)
+
+COPRO_DATA_PAIR = ("mpr-19015.29", "mpr-19016.30")
+COPRO_DATA_SHA256 = (
+    "40edf1f387beb531b04b26245cc069718be5bea65cd6941f1e5132034748617f"
 )
 
 COLI_INIT = 0x000293B8
@@ -246,6 +253,21 @@ def validate(path: Path) -> int:
             archive.read(PROGRAM_PAIR[0]),
             archive.read(PROGRAM_PAIR[1]),
         )
+        copro_data = interleave_words(
+            archive.read(COPRO_DATA_PAIR[0]),
+            archive.read(COPRO_DATA_PAIR[1]),
+        )
+
+    copro_data_digest = hashlib.sha256(copro_data).hexdigest()
+    copro_data_status = (
+        "ok" if copro_data_digest == COPRO_DATA_SHA256 else "FAIL"
+    )
+    print(
+        f"copro_data size: 0x{len(copro_data):X} "
+        f"sha256={copro_data_digest} {copro_data_status}"
+    )
+    if copro_data_digest != COPRO_DATA_SHA256:
+        return 23
 
     print(f"program size: 0x{len(program):X}")
     program_digest = hashlib.sha256(program).hexdigest()
