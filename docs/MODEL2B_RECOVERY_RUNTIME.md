@@ -251,6 +251,34 @@ damage_calculation ring event is also composed through a Model 2 adapter into
 ring_tobitiri_set, reading the original fighter fields and creating real pool
 slots. The accepted attack_hit integration test now continues through damage
 application into ring scatter spawn instead of stopping at a boolean request.
+The crush-part spawn side is now recovered far enough to complete the portable
+lifecycle around the remaining Model 2 math-command boundary. efc_crushpts_speed_cont
+is split into an exact CPU request builder and a two-output resolver: the CPU
+path clamps body height to 70, applies the six radial/vertical profiles, uses
+the original 16-entry angle-offset and jitter tables, preserves the cumulative
+radial jitter across records, doubles the jitter contribution to Y, and rejects
+counts above four. The two Model 2 command outputs are deliberately left as
+backend inputs until their command-header semantics are proven; the recovered
+post-command behavior toggles the sign bit of command-0x24 output for X, keeps
+the CPU-computed Y, and uses command-0x25 output for Z.
+
+efc_crush_parts_set is recovered as a composed transaction over the single
+0x48-byte +0x88 slot. It reproduces the pre-spawn +0x1F40 part mark, the
+per-record delete_parts_weight call before slot/gate rejection, the bit-3/bit-1
+spawn gate, position lookup from defender +0x1F4 + part_index*0x0C, ROM-record
+radius/object/angle/bounce/floor fields, low-nibble spin selection, and the
+post-loop persistence bookkeeping through +0x40[part_index] and the
++0x1F60/+0x1F62/+0x1F64/+0x1F66 history lanes. The word_CE340 spin table is
+also exposed through a ROM view at absolute address 0x000CE340.
+
+The first-two-floor-hit side effect is narrowed as well: sub_3FA78 extracts the
+high nibble of slot flags, uses scanbit/highest-set-bit selection, and indexes
+no_sfx_or_sd_punch_k. The portable runtime exposes that table index as an audio
+request instead of invoking the sound backend directly. Recovery tests now
+compose speed request/resolution, spawn, position physics, angle update,
+visibility projection, draw extraction, and floor-sound selection in one
+lifecycle path.
+
 sub_3464C's post-transform visibility arithmetic is now recovered too. The
 portable helper deliberately starts from the camera-space XYZ produced by the
 original Model 2 transform command rather than pretending that command RAM or
@@ -274,8 +302,8 @@ original finish_wall_flag bits, and sets bit 19 when the fragment escapes the
 outer stage_x + 0.5 bound. The dormant bit-7/bit-3 path can also deactivate the
 part when the recovered sub_3464C visibility mask is zero.
 
-The crush/loose-part slot rooted at mod_fa_effect+0x88 is now partially
-recovered as a portable runtime. The structure is one 0x48-byte slot:
+The crush/loose-part slot rooted at mod_fa_effect+0x88 is now recovered
+across spawn, CPU physics, visibility, angle state, and draw extraction. The structure is one 0x48-byte slot:
 +0x00..+0x08 position, +0x0C..+0x14 velocity, +0x1C/+0x1E/+0x20 current
 angles, +0x22 object id, +0x24 flags, +0x28/+0x2A/+0x2C target angles,
 +0x2E free-spin increment, +0x34 bounce parameter, +0x38 age, +0x3C
