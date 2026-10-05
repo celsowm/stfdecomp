@@ -102,6 +102,9 @@ static int test_position_air_integration(void);
 static int test_floor_bounce_and_stop(void);
 static int test_wall_reflection(void);
 static int test_dormant_visibility_deactivation(void);
+static int test_visibility_mask_centered(void);
+static int test_visibility_mask_partial_edges(void);
+static int test_visibility_behind_camera(void);
 
 int main(void)
 {
@@ -112,6 +115,9 @@ int main(void)
     if (test_floor_bounce_and_stop() != 0) return 1;
     if (test_wall_reflection() != 0) return 1;
     if (test_dormant_visibility_deactivation() != 0) return 1;
+    if (test_visibility_mask_centered() != 0) return 1;
+    if (test_visibility_mask_partial_edges() != 0) return 1;
+    if (test_visibility_behind_camera() != 0) return 1;
     return 0;
 }
 
@@ -266,6 +272,70 @@ static int test_dormant_visibility_deactivation(void)
         slot[0x22u] != UINT8_C(0) ||
         slot[0x23u] != UINT8_C(0) ||
         result.flags != UINT32_C(0)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+static int test_visibility_mask_centered(void)
+{
+    stf_crush_part_visibility_input input;
+    stf_crush_part_visibility_result result;
+
+    memset(&input, 0, sizeof(input));
+    input.camera_x_bits = fbits(0.0f);
+    input.camera_y_bits = fbits(0.0f);
+    input.camera_z_bits = fbits(10.0f);
+    input.radius_bits = fbits(1.0f);
+    input.focus_distance_bits = fbits(100.0f);
+
+    if (!stf_crush_part_visibility_mask_model2(&input, &result) ||
+        result.behind_camera ||
+        result.mask != UINT32_C(0x0F) ||
+        read_f32((const uint8_t *)&result.screen_x_bits) != 0.0f ||
+        read_f32((const uint8_t *)&result.screen_y_bits) != 0.0f) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_visibility_mask_partial_edges(void)
+{
+    stf_crush_part_visibility_input input;
+    stf_crush_part_visibility_result result;
+
+    memset(&input, 0, sizeof(input));
+    input.camera_x_bits = fbits(20.0f);
+    input.camera_y_bits = fbits(0.0f);
+    input.camera_z_bits = fbits(10.0f);
+    input.radius_bits = fbits(10.0f);
+    input.focus_distance_bits = fbits(100.0f);
+
+    if (!stf_crush_part_visibility_mask_model2(&input, &result) ||
+        result.mask != ((UINT32_C(1) << 0u) |
+                        (UINT32_C(1) << 1u) |
+                        (UINT32_C(1) << 2u))) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_visibility_behind_camera(void)
+{
+    stf_crush_part_visibility_input input;
+    stf_crush_part_visibility_result result;
+
+    memset(&input, 0, sizeof(input));
+    input.camera_z_bits = fbits(-1.0f);
+    input.focus_distance_bits = fbits(100.0f);
+
+    if (!stf_crush_part_visibility_mask_model2(&input, &result) ||
+        !result.behind_camera ||
+        result.mask != UINT32_C(0)) {
         return 1;
     }
 
