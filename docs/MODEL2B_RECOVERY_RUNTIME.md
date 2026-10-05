@@ -251,6 +251,15 @@ damage_calculation ring event is also composed through a Model 2 adapter into
 ring_tobitiri_set, reading the original fighter fields and creating real pool
 slots. The accepted attack_hit integration test now continues through damage
 application into ring scatter spawn instead of stopping at a boolean request.
+sub_3464C's post-transform visibility arithmetic is now recovered too. The
+portable helper deliberately starts from the camera-space XYZ produced by the
+original Model 2 transform command rather than pretending that command RAM or
+the camera matrix is already recovered. It projects X/Y and the part radius by
+focus_distance / camera_z, rejects negative-Z points, and recreates the four
+0x50A368 edge-visibility bits against the original +/-248 horizontal and
++/-192 vertical limits. The dormant epc_parts_pos_calc path is tested end to
+end by feeding this recovered mask into the part-cull decision.
+
 epc_parts_pos_calc is now recovered for its CPU-visible physics path as well.
 The normal branch subtracts the global gravity term from Y velocity, damps X/Z
 velocity by 0.98, then integrates position. Floor contact uses the slot's +0x40
