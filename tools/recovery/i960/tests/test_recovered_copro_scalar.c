@@ -231,5 +231,49 @@ int main(void)
         }
     }
 
+
+    {
+        stf_copro_command77_collision_state state;
+        const uint32_t query[3] = {
+            float_to_bits(0.0f),
+            float_to_bits(0.0f),
+            float_to_bits(0.0f)
+        };
+        uint32_t words[STF_COPRO_COMMAND77_WORDS];
+
+        memset(&state, 0, sizeof(state));
+
+        /* P0 ball 13 is the broad-phase root and remains close. */
+        state.balls[0][13].position_bits[0] = float_to_bits(0.0f);
+        state.balls[0][13].position_bits[1] = float_to_bits(0.0f);
+        state.balls[0][13].position_bits[2] = float_to_bits(0.0f);
+
+        state.balls[0][0].position_bits[0] = float_to_bits(0.25f);
+        state.balls[0][0].radius_bits = float_to_bits(0.5f);
+        state.balls[0][0].unit_index = UINT8_C(3);
+
+        state.balls[0][1].position_bits[2] = float_to_bits(0.2f);
+        state.balls[0][1].radius_bits = float_to_bits(0.5f);
+        state.balls[0][1].unit_index = UINT8_C(5);
+
+        /* P1 is broad-phase rejected. */
+        state.balls[1][13].position_bits[0] = float_to_bits(10.0f);
+
+        if (!stf_copro_command77_semantic_bits(
+                query, float_to_bits(0.5f), &state, words
+            ) ||
+            !nearf_value(bits_to_float(words[0]), 0.125f) ||
+            !nearf_value(bits_to_float(words[1]), 0.12f) ||
+            words[2] != UINT32_C(0) ||
+            words[3] != UINT32_C(1) ||
+            words[4] != UINT32_C(5) ||
+            words[5] != UINT32_C(0x00000003) ||
+            words[6] != ((UINT32_C(1) << 3u) | (UINT32_C(1) << 5u)) ||
+            words[7] != UINT32_C(0) ||
+            words[8] != UINT32_C(0)) {
+            return 20;
+        }
+    }
+
     return 0;
 }
