@@ -139,6 +139,11 @@ CRUSH_SPEED_TABLE_END = 0x00034B08
 CRUSH_SPEED_TABLE_SHA256 = (
     "bfc20e1fef9c80ac96c2ab898d55eed5be5dd16988788c8ae2c6675b41273503"
 )
+CRUSH_RUNTIME_START = 0x00032174
+CRUSH_RUNTIME_END = 0x00032564
+CRUSH_RUNTIME_SHA256 = (
+    "603c199e0b2ae4eb342284603bf055940005f887fa2188e3d40b289f15725bb5"
+)
 CRUSH_RADIAL_BITS = (
     0x3D75C28F, 0x3E19999A, 0x3DB851EC,
     0x3DB851EC, 0x3E851EB8, 0x3DCCCCCD,
@@ -293,6 +298,19 @@ def validate(path: Path) -> int:
         )
         if digest != expected_digest:
             return 16
+
+    crush_runtime = program[CRUSH_RUNTIME_START:CRUSH_RUNTIME_END]
+    crush_runtime_digest = hashlib.sha256(crush_runtime).hexdigest()
+    crush_runtime_status = (
+        "ok" if crush_runtime_digest == CRUSH_RUNTIME_SHA256 else "FAIL"
+    )
+    print(
+        "crush put/set/speed runtime "
+        f"[0x{CRUSH_RUNTIME_START:08X},0x{CRUSH_RUNTIME_END:08X}) "
+        f"sha256={crush_runtime_digest} {crush_runtime_status}"
+    )
+    if crush_runtime_digest != CRUSH_RUNTIME_SHA256:
+        return 19
 
     crush_speed_tables = program[
         CRUSH_SPEED_TABLE_START:CRUSH_SPEED_TABLE_END
