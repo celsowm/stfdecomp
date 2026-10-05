@@ -334,6 +334,60 @@ bool stf_crush_part_update_position_model2(
 }
 
 
+bool stf_crush_part_update_position_with_visibility_model2(
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_physics_env *env,
+    const uint32_t camera_matrix_bits[12],
+    uint32_t focus_distance_bits,
+    stf_crush_part_physics_result *result,
+    stf_crush_part_visibility_result *visibility
+)
+{
+    stf_crush_part_physics_env local_env;
+    stf_crush_part_visibility_result local_visibility;
+    uint32_t flags;
+
+    if (slot == NULL || env == NULL || camera_matrix_bits == NULL ||
+        result == NULL || slot_size < STF_CRUSH_PART_SLOT_SIZE) {
+        return false;
+    }
+
+    local_env = *env;
+    memset(&local_visibility, 0, sizeof(local_visibility));
+    flags = read_le32(slot + 0x24u);
+
+    if ((flags & (UINT32_C(1) << 7u)) != 0u &&
+        (flags & (UINT32_C(1) << 3u)) != 0u &&
+        env->effect_active_914 == UINT32_C(0)) {
+        stf_crush_part_visibility_world_input input;
+        memset(&input, 0, sizeof(input));
+        input.world_position_bits[0] = read_le32(slot + 0x00u);
+        input.world_position_bits[1] = read_le32(slot + 0x04u);
+        input.world_position_bits[2] = read_le32(slot + 0x08u);
+        input.radius_bits = read_le32(slot + 0x18u);
+        input.focus_distance_bits = focus_distance_bits;
+        memcpy(input.camera_matrix_bits, camera_matrix_bits,
+               sizeof(input.camera_matrix_bits));
+
+        if (!stf_crush_part_visibility_from_matrix_model2(
+                &input, &local_visibility
+            )) {
+            return false;
+        }
+        local_env.visibility_mask = local_visibility.mask;
+    }
+
+    if (visibility != NULL) {
+        *visibility = local_visibility;
+    }
+
+    return stf_crush_part_update_position_model2(
+        slot, slot_size, &local_env, result
+    );
+}
+
+
 bool stf_crush_part_visibility_mask_model2(
     const stf_crush_part_visibility_input *input,
     stf_crush_part_visibility_result *result
