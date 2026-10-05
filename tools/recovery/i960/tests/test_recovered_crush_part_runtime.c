@@ -111,6 +111,8 @@ static int test_delete_weight_mode_gate(void);
 static int test_spawn_bookkeeping_lane_selection(void);
 static int test_speed_request_generation(void);
 static int test_speed_request_count_limit(void);
+static int test_composed_crush_part_set(void);
+static int test_composed_crush_part_gate_reject(void);
 
 int main(void)
 {
@@ -130,6 +132,8 @@ int main(void)
     if (test_spawn_bookkeeping_lane_selection() != 0) return 1;
     if (test_speed_request_generation() != 0) return 1;
     if (test_speed_request_count_limit() != 0) return 1;
+    if (test_composed_crush_part_set() != 0) return 1;
+    if (test_composed_crush_part_gate_reject() != 0) return 1;
     return 0;
 }
 
@@ -397,6 +401,7 @@ static int test_spawn_from_rom_record(void)
     write_le16(record + 0x10u, INT16_C(200));
     write_le16(record + 0x12u, INT16_C(300));
     write_f32(record + 0x14u, 0.5f);
+    write_f32(record + 0x18u, 1.0f);
     write_le32(record + 0x1Cu, UINT32_C(1) << 3u);
     write_f32(record + 0x20u, -1.0f);
     write_le32(record + 0x24u, UINT32_C(0x12345678));
@@ -409,7 +414,6 @@ static int test_spawn_from_rom_record(void)
     input.velocity[0] = UINT32_C(0x3F800000);
     input.velocity[1] = UINT32_C(0x40000000);
     input.velocity[2] = UINT32_C(0x40400000);
-    input.radius_bits = UINT32_C(0x3F000000);
     input.part_index = UINT8_C(4);
     input.record_index = UINT8_C(2);
     input.fighter_flags_byte = UINT8_C(1);
@@ -434,6 +438,7 @@ static int test_spawn_from_rom_record(void)
         read_f32(slot + 0x0Cu) != 1.0f ||
         read_f32(slot + 0x10u) != 2.0f ||
         read_f32(slot + 0x14u) != 3.0f ||
+        read_f32(slot + 0x18u) != 1.0f ||
         ((uint16_t)slot[0x1Eu] | ((uint16_t)slot[0x1Fu] << 8u)) != UINT16_C(120) ||
         ((uint16_t)slot[0x2Eu] | ((uint16_t)slot[0x2Fu] << 8u)) != UINT16_C(60) ||
         ((uint16_t)slot[0x30u] | ((uint16_t)slot[0x31u] << 8u)) != UINT16_C(2) ||
@@ -636,6 +641,146 @@ static int test_speed_request_count_limit(void)
         ) ||
         !result.count_rejected ||
         result.generated != UINT8_C(0)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+static int test_composed_crush_part_set(void)
+{
+    uint8_t defender[0x2000];
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    uint8_t records[2u * STF_CRUSH_PART_RECORD_SIZE];
+    uint32_t velocities[2][3];
+    int16_t spin_table[STF_CRUSH_PART_SPIN_TABLE_COUNT];
+    stf_crush_part_set_input input;
+    stf_crush_part_set_result result;
+    const size_t position_offset = 0x1F4u + 0x0Cu;
+
+    memset(defender, 0, sizeof(defender));
+    memset(slot, 0, sizeof(slot));
+    memset(records, 0, sizeof(records));
+    memset(velocities, 0, sizeof(velocities));
+    memset(spin_table, 0, sizeof(spin_table));
+    memset(&input, 0, sizeof(input));
+
+    defender[0x04u] = UINT8_C(1);
+    write_le16(defender + 0x26u, INT16_C(100));
+    write_f32(defender + position_offset + 0u, 1.0f);
+    write_f32(defender + position_offset + 4u, 2.0f);
+    write_f32(defender + position_offset + 8u, 3.0f);
+    write_f32(defender + 0x7D8u, 10.0f);
+    write_f32(defender + 0x7DCu, 100.0f);
+
+    write_le16(records + 0x04u, INT16_C(42));
+    write_le16(records + 0x06u, INT16_C(777));
+    write_f32(records + 0x14u, 1.0f);
+    write_f32(records + 0x18u, 0.5f);
+    write_le32(records + 0x1Cu, UINT32_C(1) << 2u);
+
+    write_f32(records + STF_CRUSH_PART_RECORD_SIZE + 0x14u, 2.0f);
+    write_f32(records + STF_CRUSH_PART_RECORD_SIZE + 0x18u, 0.25f);
+
+    velocities[0][0] = fbits(0.1f);
+    velocities[0][1] = fbits(0.2f);
+    velocities[0][2] = fbits(0.3f);
+    velocities[1][0] = fbits(0.4f);
+    velocities[1][1] = fbits(0.5f);
+    velocities[1][2] = fbits(0.6f);
+
+    input.records = records;
+    input.records_size = sizeof(records);
+    input.velocities = velocities;
+    input.velocity_count = 2u;
+    input.count = UINT8_C(2);
+    input.part_index = UINT8_C(1);
+    input.record_index = UINT8_C(3);
+    input.effect_active_914 = UINT32_C(0);
+    input.also_mode = UINT8_C(17);
+    input.also_sub_mode = UINT8_C(0);
+    input.spin_table = spin_table;
+    input.spin_table_count = STF_CRUSH_PART_SPIN_TABLE_COUNT;
+
+    if (!stf_crush_part_set_model2(
+            defender, sizeof(defender),
+            slot, sizeof(slot),
+            &input, &result
+        ) ||
+        !result.marked_part_1f40 ||
+        result.spawn_gate_rejected ||
+        !result.slot_occupied_break ||
+        result.iterations_entered != UINT8_C(2) ||
+        result.weights_applied != UINT8_C(2) ||
+        result.spawned_count != UINT8_C(1) ||
+        !result.spawn.spawned ||
+        result.spawn.object_id != UINT16_C(777) ||
+        !result.bookkeeping.applied ||
+        result.bookkeeping.history_lane != UINT8_C(0) ||
+        read_f32(defender + 0x7D8u) != 7.0f ||
+        read_f32(defender + 0x5D8u) != 107.0f ||
+        (((uint32_t)defender[0x1F40u] |
+          ((uint32_t)defender[0x1F41u] << 8u) |
+          ((uint32_t)defender[0x1F42u] << 16u) |
+          ((uint32_t)defender[0x1F43u] << 24u)) &
+         (UINT32_C(1) << 1u)) == 0u ||
+        read_f32(slot + 0x00u) != 1.0f ||
+        read_f32(slot + 0x04u) != 2.0f ||
+        read_f32(slot + 0x08u) != 3.0f ||
+        read_f32(slot + 0x0Cu) != 0.1f ||
+        read_f32(slot + 0x10u) != 0.2f ||
+        read_f32(slot + 0x14u) != 0.3f ||
+        read_f32(slot + 0x18u) != 0.5f) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_composed_crush_part_gate_reject(void)
+{
+    uint8_t defender[0x2000];
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    uint8_t record[STF_CRUSH_PART_RECORD_SIZE];
+    uint32_t velocity[1][3];
+    int16_t spin_table[STF_CRUSH_PART_SPIN_TABLE_COUNT];
+    stf_crush_part_set_input input;
+    stf_crush_part_set_result result;
+
+    memset(defender, 0, sizeof(defender));
+    memset(slot, 0, sizeof(slot));
+    memset(record, 0, sizeof(record));
+    memset(velocity, 0, sizeof(velocity));
+    memset(spin_table, 0, sizeof(spin_table));
+    memset(&input, 0, sizeof(input));
+
+    write_le16(record + 0x06u, INT16_C(99));
+    write_f32(record + 0x14u, 1.0f);
+    write_f32(record + 0x18u, 0.5f);
+    write_le32(record + 0x1Cu, UINT32_C(1) << 3u);
+
+    input.records = record;
+    input.records_size = sizeof(record);
+    input.velocities = velocity;
+    input.velocity_count = 1u;
+    input.count = UINT8_C(1);
+    input.part_index = UINT8_C(0);
+    input.also_mode = UINT8_C(17);
+    input.spin_table = spin_table;
+    input.spin_table_count = STF_CRUSH_PART_SPIN_TABLE_COUNT;
+
+    if (!stf_crush_part_set_model2(
+            defender, sizeof(defender),
+            slot, sizeof(slot),
+            &input, &result
+        ) ||
+        !result.spawn_gate_rejected ||
+        result.spawned_count != UINT8_C(0) ||
+        result.iterations_entered != UINT8_C(1) ||
+        result.weights_applied != UINT8_C(1) ||
+        ((uint16_t)slot[0x22u] |
+         ((uint16_t)slot[0x23u] << 8u)) != UINT16_C(0)) {
         return 1;
     }
 
