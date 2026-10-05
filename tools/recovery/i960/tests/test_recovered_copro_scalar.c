@@ -172,5 +172,64 @@ int main(void)
         }
     }
 
+    {
+        const uint32_t query[3] = {
+            float_to_bits(0.0f),
+            float_to_bits(0.0f),
+            float_to_bits(0.0f)
+        };
+        const uint32_t ball[3] = {
+            float_to_bits(3.0f),
+            float_to_bits(4.0f),
+            float_to_bits(0.0f)
+        };
+        bool overlap = false;
+        uint32_t distance_bits = 0u;
+        uint32_t penetration_bits = 0u;
+
+        if (!stf_copro_collision_sphere_overlap_bits(
+                query,
+                float_to_bits(2.0f),
+                ball,
+                float_to_bits(4.0f),
+                &overlap,
+                &distance_bits,
+                &penetration_bits
+            ) ||
+            !overlap ||
+            !nearf_value(bits_to_float(distance_bits), 5.0f) ||
+            !nearf_value(bits_to_float(penetration_bits), 1.0f)) {
+            return 17;
+        }
+
+        if (!stf_copro_collision_sphere_overlap_bits(
+                query,
+                float_to_bits(0.5f),
+                ball,
+                float_to_bits(1.0f),
+                &overlap,
+                &distance_bits,
+                &penetration_bits
+            ) ||
+            overlap ||
+            !nearf_value(bits_to_float(distance_bits), 5.0f) ||
+            !nearf_value(bits_to_float(penetration_bits), 0.0f)) {
+            return 18;
+        }
+
+        if (!stf_copro_collision_sphere_overlap_bits(
+                query,
+                float_to_bits(100.0f),
+                ball,
+                float_to_bits(0.0f),
+                &overlap,
+                &distance_bits,
+                &penetration_bits
+            ) ||
+            overlap) {
+            return 19;
+        }
+    }
+
     return 0;
 }
