@@ -174,9 +174,12 @@ CRUSH_JITTER_BITS = (
 
 # The Model 2B i960 uploads this embedded halfword stream into the SHARC at
 # boot (0x3A0E halfwords / 0x741C bytes). Sonic Championship relocates the
-# sfight upload start by +0x138: header 0xB6444, first upload word 0xB6450.  Keeping the exact secondary-set
-# digest lets command handlers such as cpres 0x77 be studied from the real DSP
+# sfight upload start by +0x138: header 0xB6444, first upload word 0xB6450.
+# Keeping the exact secondary-set digest lets command handlers such as cpres
+# 0x77 be studied from the real DSP
 # program rather than guessed from host call sites.
+CPRES_HEADER_START = 0x000B6444
+CPRES_HEADER_WORDS = (0x000000A1, 0x00020000, 0x00000001)
 CPRES_PROGRAM_START = 0x000B6450
 CPRES_PROGRAM_SIZE = 0x0000741C
 CPRES_PROGRAM_SHA256 = (
@@ -189,7 +192,7 @@ CPRES_77_CALL_SITES = (0x00031E28, 0x0008AFA8)
 CPRES_77_COMMAND_WORD = 0x3B807777
 
 # SHARC dispatch table: 136 consecutive 48-bit instructions beginning at
-# upload packet 0xDB write handler PM addresses to DM 0x30000..0x30087.
+# upload packet 0xA7 write handler PM addresses to DM 0x30000..0x30087.
 CPRES_DISPATCH_PACKET_START = 0xA7
 CPRES_DISPATCH_COUNT = 136
 CPRES_DISPATCH_HANDLERS = {
@@ -347,6 +350,18 @@ def validate(path: Path) -> int:
         )
         if digest != expected_digest:
             return 16
+
+    cpres_header = struct.unpack_from("<III", program, CPRES_HEADER_START)
+    if cpres_header != CPRES_HEADER_WORDS:
+        print(
+            "embedded cpres header: FAIL "
+            f"actual={tuple(hex(value) for value in cpres_header)}"
+        )
+        return 27
+    print(
+        "embedded cpres header: ok "
+        f"@0x{CPRES_HEADER_START:08X}"
+    )
 
     cpres_program = program[
         CPRES_PROGRAM_START:CPRES_PROGRAM_START + CPRES_PROGRAM_SIZE
