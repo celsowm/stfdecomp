@@ -281,6 +281,14 @@ them directly into efc_crush_parts_set. The Sonic Championship validator also
 pins the corresponding relocated program corridor at 0x32174..0x32564,
 covering the put wrapper, set transaction, and speed generator together.
 
+The active-slot body of efc_parts_cont is now composed in its original order:
+epc_oidasi, epc_parts_pos_calc/sub_3464C, then epc_parts_ang_calc. epc_oidasi's
+CPU-visible behavior is recovered exactly: either fighter's +0x7D2 bit 0 skips
+the adjustment; otherwise the first two outputs from cpres command 0x77 are
+scaled by 0.16 and added to X and Z respectively, leaving Y untouched. Command
+0x77 itself remains an explicit coprocessor boundary because the routine emits
+nine result words and its internal geometric meaning is not yet proven.
+
 efc_crush_parts_set is recovered as a composed transaction over the single
 0x48-byte +0x88 slot. It reproduces the pre-spawn +0x1F40 part mark, the
 per-record delete_parts_weight call before slot/gate rejection, the bit-3/bit-1
