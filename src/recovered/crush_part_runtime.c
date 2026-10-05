@@ -909,6 +909,82 @@ bool stf_crush_part_set_model2(
 }
 
 
+bool stf_crush_part_put_model2(
+    uint8_t *defender,
+    size_t defender_size,
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_put_input *input,
+    stf_crush_part_put_result *result
+)
+{
+    stf_crush_part_put_result local;
+    stf_crush_part_speed_request requests[STF_CRUSH_PART_MAX_SPEEDS];
+    stf_crush_part_set_input set_input;
+    size_t i;
+
+    if (defender == NULL || slot == NULL || input == NULL || result == NULL ||
+        input->spin_table == NULL ||
+        input->spin_table_count < STF_CRUSH_PART_SPIN_TABLE_COUNT) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    memset(requests, 0, sizeof(requests));
+    memset(&set_input, 0, sizeof(set_input));
+
+    if (!stf_crush_part_build_speed_requests_model2(
+            &input->speed,
+            requests,
+            STF_CRUSH_PART_MAX_SPEEDS,
+            &local.speed
+        )) {
+        return false;
+    }
+
+    if (local.speed.count_rejected) {
+        *result = local;
+        return true;
+    }
+
+    for (i = 0u; i < local.speed.generated; ++i) {
+        if (!stf_crush_part_resolve_speed_semantic_model2(
+                &requests[i],
+                local.velocities[i]
+            )) {
+            return false;
+        }
+    }
+
+    set_input.records = input->speed.records;
+    set_input.records_size = input->speed.records_size;
+    set_input.velocities = local.velocities;
+    set_input.velocity_count = local.speed.generated;
+    set_input.count = input->speed.count;
+    set_input.part_index = input->speed.part_index;
+    set_input.record_index = input->record_index;
+    set_input.effect_active_914 = input->speed.effect_active_914;
+    set_input.also_mode = input->also_mode;
+    set_input.also_sub_mode = input->also_sub_mode;
+    set_input.spin_table = input->spin_table;
+    set_input.spin_table_count = input->spin_table_count;
+
+    if (!stf_crush_part_set_model2(
+            defender,
+            defender_size,
+            slot,
+            slot_size,
+            &set_input,
+            &local.set
+        )) {
+        return false;
+    }
+
+    *result = local;
+    return true;
+}
+
+
 bool stf_crush_part_floor_sound_select_model2(
     uint32_t slot_flags,
     stf_crush_part_floor_sound_result *result
