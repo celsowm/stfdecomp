@@ -7,7 +7,8 @@ program-memory handler address for the corresponding cpres command number.
 For a correctly extracted upload the table begins at SHARC packet 0xA7.
 
 This deliberately decodes only the evidence-backed dispatch construction, not
-arbitrary SHARC instructions.
+arbitrary SHARC instructions. Labels are conservative host-side names; they do
+not assert the internal SHARC formula of a command.
 """
 
 from __future__ import annotations
@@ -21,11 +22,11 @@ DISPATCH_COUNT = 136
 DISPATCH_DM_BASE = 0x30000
 
 KNOWN = {
-    0x24: "scaled_sin",
-    0x25: "scaled_cos",
-    0x27: "ring_angle",
-    0x29: "point_transform",
-    0x77: "collision_pushout_query",
+    0x24: "host_cmd_24",
+    0x25: "host_cmd_25",
+    0x27: "host_cmd_27",
+    0x29: "host_cmd_29",
+    0x77: "collision_query_family",
 }
 
 
