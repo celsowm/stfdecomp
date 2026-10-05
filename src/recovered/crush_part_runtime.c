@@ -772,3 +772,143 @@ bool stf_crush_part_resolve_speed_model2(
     velocity_bits[2] = command25_output_bits;
     return true;
 }
+
+
+static uint8_t crush_remaining_parts_count(const uint8_t *slot)
+{
+    const uint32_t flags = read_le32(slot + 0x24u);
+    return ((flags & (UINT32_C(1) << 11u)) != 0u &&
+            (flags & (UINT32_C(1) << 3u)) != 0u)
+        ? UINT8_C(1)
+        : UINT8_C(0);
+}
+
+bool stf_crush_part_set_model2(
+    uint8_t *defender,
+    size_t defender_size,
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_set_input *input,
+    stf_crush_part_set_result *result
+)
+{
+    stf_crush_part_set_result local;
+    unsigned iterations;
+    unsigned i;
+    const uint8_t *first_record;
+
+    if (defender == NULL || slot == NULL || input == NULL || result == NULL ||
+        input->records == NULL || input->velocities == NULL ||
+        input->spin_table == NULL ||
+        slot_size < STF_CRUSH_PART_SLOT_SIZE ||
+        defender_size < 0x1F68u ||
+        input->part_index >= 16u ||
+        input->spin_table_count < STF_CRUSH_PART_SPIN_TABLE_COUNT ||
+        input->count > STF_CRUSH_PART_MAX_SPEEDS) {
+        return false;
+    }
+
+    iterations = input->count == UINT8_C(0) ? 1u : input->count;
+    if (input->records_size <
+            (size_t)iterations * STF_CRUSH_PART_RECORD_SIZE ||
+        input->velocity_count < iterations) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    first_record = input->records;
+
+    if ((read_le32(first_record + 0x1Cu) &
+         (UINT32_C(1) << 2u)) != 0u) {
+        uint32_t bits = read_le32(defender + 0x1F40u);
+        bits |= UINT32_C(1) << input->part_index;
+        write_le32(defender + 0x1F40u, bits);
+        local.marked_part_1f40 = true;
+    }
+
+    for (i = 0u; i < iterations; ++i) {
+        const uint8_t *record =
+            input->records + (size_t)i * STF_CRUSH_PART_RECORD_SIZE;
+        const uint32_t combined_flags =
+            read_le32(record + 0x1Cu) | (uint32_t)defender[0x04u];
+        bool weight_applied = false;
+
+        ++local.iterations_entered;
+        if (!stf_crush_part_delete_weight_model2(
+                defender, defender_size,
+                record, STF_CRUSH_PART_RECORD_SIZE,
+                input->also_mode, input->also_sub_mode,
+                &weight_applied)) {
+            return false;
+        }
+        if (weight_applied) {
+            ++local.weights_applied;
+        }
+
+        if ((combined_flags & (UINT32_C(1) << 3u)) != 0u) {
+            if ((combined_flags & (UINT32_C(1) << 1u)) == 0u) {
+                local.spawn_gate_rejected = true;
+                break;
+            }
+
+            if (input->effect_active_914 != UINT32_C(1) &&
+                crush_remaining_parts_count(slot) >= UINT8_C(2)) {
+                local.spawn_gate_rejected = true;
+                break;
+            }
+        }
+
+        if (read_le32(slot + 0x24u) != UINT32_C(0)) {
+            local.slot_occupied_break = true;
+            break;
+        }
+
+        {
+            stf_crush_part_spawn_input spawn_input;
+            stf_crush_part_spawn_result spawn_result;
+            const size_t position_offset =
+                0x1F4u + (size_t)input->part_index * 0x0Cu;
+
+            memset(&spawn_input, 0, sizeof(spawn_input));
+            spawn_input.record = record;
+            spawn_input.record_size = STF_CRUSH_PART_RECORD_SIZE;
+            spawn_input.base_position[0] =
+                read_le32(defender + position_offset + 0u);
+            spawn_input.base_position[1] =
+                read_le32(defender + position_offset + 4u);
+            spawn_input.base_position[2] =
+                read_le32(defender + position_offset + 8u);
+            spawn_input.velocity[0] = input->velocities[i][0];
+            spawn_input.velocity[1] = input->velocities[i][1];
+            spawn_input.velocity[2] = input->velocities[i][2];
+            spawn_input.part_index = input->part_index;
+            spawn_input.record_index = input->record_index;
+            spawn_input.fighter_flags_byte = defender[0x04u];
+            spawn_input.fighter_angle_y = read_le16s(defender + 0x26u);
+            spawn_input.spin_table = input->spin_table;
+            spawn_input.spin_table_count = input->spin_table_count;
+
+            if (!stf_crush_part_spawn_model2(
+                    slot, slot_size, &spawn_input, &spawn_result)) {
+                return false;
+            }
+
+            local.spawn = spawn_result;
+            if (spawn_result.spawned) {
+                ++local.spawned_count;
+            }
+        }
+    }
+
+    if (!stf_crush_part_bookkeeping_model2(
+            defender, defender_size,
+            first_record, STF_CRUSH_PART_RECORD_SIZE,
+            input->part_index,
+            input->also_mode, input->also_sub_mode,
+            &local.bookkeeping)) {
+        return false;
+    }
+
+    *result = local;
+    return true;
+}
