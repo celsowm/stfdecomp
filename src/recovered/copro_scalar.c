@@ -232,3 +232,152 @@ bool stf_copro_collision_sphere_overlap_bits(
     );
     return true;
 }
+
+
+static uint32_t command77_unit_mask(
+    const stf_copro_command77_collision_state *state,
+    size_t fighter,
+    uint32_t ball_mask
+)
+{
+    uint32_t unit_mask = 0u;
+    size_t ball;
+
+    for (ball = 0u; ball < STF_COPRO_COMMAND77_BALLS; ++ball) {
+        if ((ball_mask & (UINT32_C(1) << ball)) != 0u) {
+            const uint8_t unit = state->balls[fighter][ball].unit_index;
+            unit_mask |= UINT32_C(1) << (unit & UINT8_C(31));
+        }
+    }
+    return unit_mask;
+}
+
+bool stf_copro_command77_semantic_bits(
+    const uint32_t query_xyz_bits[3],
+    uint32_t query_radius_bits,
+    const stf_copro_command77_collision_state *state,
+    uint32_t output_words[STF_COPRO_COMMAND77_WORDS]
+)
+{
+    float query[3];
+    float query_radius;
+    float push_x = 0.0f;
+    float push_z = 0.0f;
+    uint32_t last_fighter = UINT32_MAX;
+    uint32_t last_ball = 0u;
+    uint32_t last_unit = 0u;
+    uint32_t ball_masks[STF_COPRO_COMMAND77_FIGHTERS] = {0u, 0u};
+    uint32_t unit_masks[STF_COPRO_COMMAND77_FIGHTERS] = {0u, 0u};
+    size_t fighter;
+
+    if (query_xyz_bits == NULL || state == NULL || output_words == NULL) {
+        return false;
+    }
+
+    query[0] = bits_to_float(query_xyz_bits[0]);
+    query[1] = bits_to_float(query_xyz_bits[1]);
+    query[2] = bits_to_float(query_xyz_bits[2]);
+    query_radius = bits_to_float(query_radius_bits);
+    if (!isfinite(query[0]) || !isfinite(query[1]) ||
+        !isfinite(query[2]) || !isfinite(query_radius) ||
+        query_radius < 0.0f) {
+        return false;
+    }
+
+    for (fighter = 0u; fighter < STF_COPRO_COMMAND77_FIGHTERS; ++fighter) {
+        const stf_copro_command77_ball *root = &state->balls[fighter][13u];
+        const float root_x = bits_to_float(root->position_bits[0]);
+        const float root_y = bits_to_float(root->position_bits[1]);
+        const float root_z = bits_to_float(root->position_bits[2]);
+        const float root_dx = root_x - query[0];
+        const float root_dy = root_y - query[1];
+        const float root_dz = root_z - query[2];
+        const float root_distance = sqrtf(
+            root_dx * root_dx + root_dy * root_dy + root_dz * root_dz
+        );
+        float last_factor = 0.0f;
+        size_t ball;
+
+        if (!isfinite(root_x) || !isfinite(root_y) || !isfinite(root_z) ||
+            !isfinite(root_distance)) {
+            return false;
+        }
+
+        if (root_distance > 3.0f) {
+            continue;
+        }
+
+        for (ball = 0u; ball < STF_COPRO_COMMAND77_BALLS; ++ball) {
+            const stf_copro_command77_ball *entry = &state->balls[fighter][ball];
+            const uint32_t radius_bits = entry->radius_bits;
+            const float ball_radius = bits_to_float(radius_bits);
+            float bx;
+            float by;
+            float bz;
+            float dx;
+            float dy;
+            float dz;
+            float distance;
+            float radius_sum;
+            float factor;
+
+            if (radius_bits == UINT32_C(0)) {
+                continue;
+            }
+
+            bx = bits_to_float(entry->position_bits[0]);
+            by = bits_to_float(entry->position_bits[1]);
+            bz = bits_to_float(entry->position_bits[2]);
+            if (!isfinite(bx) || !isfinite(by) || !isfinite(bz) ||
+                !isfinite(ball_radius) || ball_radius < 0.0f) {
+                return false;
+            }
+
+            dx = bx - query[0];
+            dy = by - query[1];
+            dz = bz - query[2];
+            distance = sqrtf(dx * dx + dy * dy + dz * dz);
+            radius_sum = ball_radius + query_radius;
+            if (!isfinite(distance) || !isfinite(radius_sum) ||
+                radius_sum <= 0.0f || distance > radius_sum) {
+                continue;
+            }
+
+            factor = 1.0f - (2.0f * distance / radius_sum);
+            if (!isfinite(factor)) {
+                return false;
+            }
+
+            push_x += dx * factor;
+            push_z += dz * factor;
+            last_factor = factor;
+            last_ball = (uint32_t)ball;
+            ball_masks[fighter] |= UINT32_C(1) << ball;
+        }
+
+        unit_masks[fighter] = command77_unit_mask(
+            state, fighter, ball_masks[fighter]
+        );
+
+        /*
+         * Firmware tests the final per-fighter factor after the 32-ball scan.
+         * Thus the last overlapping ball controls whether last_fighter/unit are
+         * updated, even though all overlaps remain represented in the masks.
+         */
+        if (last_factor != 0.0f) {
+            last_fighter = (uint32_t)fighter;
+            last_unit = state->balls[fighter][last_ball].unit_index;
+        }
+    }
+
+    output_words[0] = float_to_bits(push_x);
+    output_words[1] = float_to_bits(push_z);
+    output_words[2] = last_fighter;
+    output_words[3] = last_ball;
+    output_words[4] = last_unit;
+    output_words[5] = ball_masks[0];
+    output_words[6] = unit_masks[0];
+    output_words[7] = ball_masks[1];
+    output_words[8] = unit_masks[1];
+    return true;
+}
