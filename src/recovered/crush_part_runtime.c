@@ -1,6 +1,7 @@
 #include "crush_part_runtime.h"
 #include "copro_scalar.h"
 
+#include <math.h>
 #include <string.h>
 
 static uint16_t read_le16u(const uint8_t *p)
