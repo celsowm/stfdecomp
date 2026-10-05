@@ -216,10 +216,15 @@ CPRES_COLLISION_FAMILY_END = 0x00020B25
 CPRES_COLLISION_FAMILY_SHA256 = (
     "37c51329d516fa9b17f45580c10f77c04c7119346a86ce3b2ca076fbb98d8629"
 )
-CPRES_77_TAIL_START = 0x00020B1F
-CPRES_77_TAIL_END = 0x00020B25
-CPRES_77_TAIL_SHA256 = (
-    "901c81dd6fd413ee951a415b3df52f727de52b911f6775e4562166e327a917c0"
+CPRES_77_HANDLER_START = 0x00020B1F
+CPRES_77_HANDLER_END = 0x00020B79
+CPRES_77_HANDLER_SHA256 = (
+    "8be0ff07e694bacfc9790462fa97de7994ce09f7ca27e78a3c4c7a5e8806c719"
+)
+CPRES_77_SCAN_HELPER_START = 0x00020B79
+CPRES_77_SCAN_HELPER_END = 0x00020BBE
+CPRES_77_SCAN_HELPER_SHA256 = (
+    "ed7b77c82b30d1d0de8f9610d5a293cf759359b9892badfb94cca0a4dbee13cb"
 )
 
 RING_TRAJECTORIES = {
@@ -448,10 +453,16 @@ def validate(path: Path) -> int:
             CPRES_COLLISION_FAMILY_SHA256,
         ),
         (
-            "cpres 0x77 dispatch tail",
-            CPRES_77_TAIL_START,
-            CPRES_77_TAIL_END,
-            CPRES_77_TAIL_SHA256,
+            "cpres 0x77 handler",
+            CPRES_77_HANDLER_START,
+            CPRES_77_HANDLER_END,
+            CPRES_77_HANDLER_SHA256,
+        ),
+        (
+            "cpres 0x77 scan helper",
+            CPRES_77_SCAN_HELPER_START,
+            CPRES_77_SCAN_HELPER_END,
+            CPRES_77_SCAN_HELPER_SHA256,
         ),
     ):
         digest = hashlib.sha256(cpres_pm_bytes(start, end)).hexdigest()
