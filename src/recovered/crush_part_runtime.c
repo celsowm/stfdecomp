@@ -409,6 +409,37 @@ bool stf_crush_part_visibility_mask_model2(
 }
 
 
+bool stf_crush_part_visibility_from_matrix_model2(
+    const stf_crush_part_visibility_world_input *input,
+    stf_crush_part_visibility_result *result
+)
+{
+    stf_crush_part_visibility_input camera_input;
+    uint32_t transformed[3];
+
+    if (input == NULL || result == NULL) {
+        return false;
+    }
+
+    if (!stf_copro_scalar_transform_point_bits(
+            input->camera_matrix_bits,
+            input->world_position_bits,
+            transformed
+        )) {
+        return false;
+    }
+
+    memset(&camera_input, 0, sizeof(camera_input));
+    camera_input.camera_x_bits = transformed[0];
+    camera_input.camera_y_bits = transformed[1];
+    camera_input.camera_z_bits = transformed[2];
+    camera_input.radius_bits = input->radius_bits;
+    camera_input.focus_distance_bits = input->focus_distance_bits;
+
+    return stf_crush_part_visibility_mask_model2(&camera_input, result);
+}
+
+
 static bool crush_bookkeeping_mode(uint8_t also_mode, uint8_t also_sub_mode)
 {
     if (also_mode == UINT8_C(17)) {
