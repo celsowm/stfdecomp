@@ -36,6 +36,18 @@ OUTPUT_SCRATCH = (
     (8, 0x16, "meta_16"),
 )
 
+
+BROAD_PHASE_PACKETS = {
+    0x20B83: 0xA80000000027,
+    0x20B84: 0xA80100000028,
+    0x20B85: 0xA80200000029,
+    0x20B87: 0x06BE0402034C,
+    0x20B8A: 0x0F0340400000,
+    0x20B8B: 0x013E0008A003,
+    0x20B8C: 0x062400020BBA,
+    0x20B91: 0x0C0020000029,
+}
+
 SCAN_BASES = (
     (0x20B38, 0x00030600),
     (0x20B4A, 0x00030700),
@@ -70,6 +82,22 @@ def main() -> int:
         if actual != expected:
             return 1
 
+    print("broad phase:")
+    for address, expected in BROAD_PHASE_PACKETS.items():
+        actual = packet(data, address)
+        status = "ok" if actual == expected else "FAIL"
+        print(
+            f"  PM 0x{address:05X} packet=0x{actual:012X} "
+            f"expected=0x{expected:012X} {status}"
+        )
+        if actual != expected:
+            return 2
+
+    print(
+        "  semantics: load fighter-root XYZ, compute 3D distance, "
+        "reject when distance > 3.0f, then scan 32 collision entries"
+    )
+
     print("collision scan bases:")
     for address, expected_base in SCAN_BASES:
         actual = packet(data, address) & 0xFFFFFFFF
@@ -79,7 +107,7 @@ def main() -> int:
             f"expected=0x{expected_base:08X} {status}"
         )
         if actual != expected_base:
-            return 2
+            return 3
 
     print("outputs:")
     for index, scratch, name in OUTPUT_SCRATCH:
