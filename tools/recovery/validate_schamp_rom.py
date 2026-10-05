@@ -202,6 +202,26 @@ CPRES_DISPATCH_HANDLERS = {
     0x77: 0x00020B1F,
 }
 
+# Program-memory corridors used while recovering the host 0x13 -> 0x77
+# collision-query sequence. Addresses are SHARC PM word addresses; each word
+# is one 48-bit packet in the extracted upload.
+CPRES_PM_BASE = 0x00020000
+CPRES_PREP13_START = 0x000205B0
+CPRES_PREP13_END = 0x000205E0
+CPRES_PREP13_SHA256 = (
+    "ce1476d42b8a664be1e178a81264ae33d450c630665950ce0060972e6a2c89da"
+)
+CPRES_COLLISION_FAMILY_START = 0x00020ABB
+CPRES_COLLISION_FAMILY_END = 0x00020B25
+CPRES_COLLISION_FAMILY_SHA256 = (
+    "37c51329d516fa9b17f45580c10f77c04c7119346a86ce3b2ca076fbb98d8629"
+)
+CPRES_77_TAIL_START = 0x00020B1F
+CPRES_77_TAIL_END = 0x00020B25
+CPRES_77_TAIL_SHA256 = (
+    "901c81dd6fd413ee951a415b3df52f727de52b911f6775e4562166e327a917c0"
+)
+
 RING_TRAJECTORIES = {
     "A": (0x000AE5C0, 99),
     "B": (0x000AE750, 119),
@@ -406,6 +426,42 @@ def validate(path: Path) -> int:
         )
         if actual_handler != expected_handler:
             return 26
+
+    def cpres_pm_bytes(start: int, end: int) -> bytes:
+        first = (start - CPRES_PM_BASE) * 6
+        last = (end - CPRES_PM_BASE) * 6
+        if first < 0 or last > len(cpres_program) or first > last:
+            raise ValueError("cpres PM corridor outside uploaded program")
+        return cpres_program[first:last]
+
+    for label, start, end, expected_digest in (
+        (
+            "cpres host-0x13 prep",
+            CPRES_PREP13_START,
+            CPRES_PREP13_END,
+            CPRES_PREP13_SHA256,
+        ),
+        (
+            "cpres 0x79/0x78/0x77 family",
+            CPRES_COLLISION_FAMILY_START,
+            CPRES_COLLISION_FAMILY_END,
+            CPRES_COLLISION_FAMILY_SHA256,
+        ),
+        (
+            "cpres 0x77 dispatch tail",
+            CPRES_77_TAIL_START,
+            CPRES_77_TAIL_END,
+            CPRES_77_TAIL_SHA256,
+        ),
+    ):
+        digest = hashlib.sha256(cpres_pm_bytes(start, end)).hexdigest()
+        status = "ok" if digest == expected_digest else "FAIL"
+        print(
+            f"{label} PM[0x{start:05X},0x{end:05X}) "
+            f"sha256={digest} {status}"
+        )
+        if digest != expected_digest:
+            return 28
 
     for address in CPRES_77_CALL_SITES:
         if address + 4 > len(program):
