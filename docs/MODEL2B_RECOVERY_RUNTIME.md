@@ -312,18 +312,28 @@ path preserves the remaining seven as collision metadata. The runtime boundary
 therefore models the complete nine-word packet rather than only two synthetic
 outputs.
 
-The collision-query formula is now partially recovered from the handler itself.
-Each fighter scan has a 3D broad phase: the query is compared with a fighter
-root center, and the 32-entry fine scan is skipped when the distance exceeds
-3.0f. The fine phase reads one collision-ball center XYZ and radius per entry,
-skips zero-radius entries, computes full 3D center distance, and tests
-distance <= query_radius + ball_radius. That exact overlap predicate is exposed
-portably by stf_copro_collision_sphere_overlap_bits(), including the penetration
-depth. The remaining 0x77 frontier is the exact accumulation/resolution that
-turns one or more overlaps into words 0/1 plus the semantic names and values of
-metadata words 2..8. tools/recovery/analyze_cpres_77.py now pins both broad- and
-fine-phase instruction packets, while disasm_cpres_sharc.py follows the handler
-itself.
+The collision-query formula is now recovered through the complete observable
+0x77 result. Each fighter scan has a 3D broad phase: ball 13 acts as the root
+center, and the 32-entry fine scan is skipped when its distance from the query
+exceeds 3.0f. The fine phase reads one collision-ball center XYZ and radius per
+entry, skips zero-radius entries, computes full 3D center distance, and tests
+distance <= query_radius + ball_radius. Every overlap contributes to the
+horizontal push accumulator. The firmware's register reuse produces the
+non-obvious factor 1 - 2*distance/(query_radius+ball_radius), rather than the
+geometrically intuitive 1 - distance/sum. The portable semantic command keeps
+that factor while using host IEEE arithmetic instead of claiming bit-identical
+SHARC RECIPS/Newton rounding.
+
+The nine return words are now named: push X, push Z, last fighter, last ball,
+last unit, P0 ball mask, P0 unit mask, P1 ball mask, and P1 unit mask.
+Ball masks are remapped to unit masks through each fighter's 32-entry
+ball-to-unit map. stf_copro_command77_semantic_bits() reproduces this complete
+packet from typed collision-ball state, while the raw nine-word packet remains
+available for differential replay. stf_crush_part_frame_model2() now resolves
+0x77 internally when collision state is supplied, so the normal composed crush
+frame no longer needs caller-injected push values. tools/recovery/analyze_cpres_77.py
+pins the broad/fine protocol and names the complete packet, while
+disasm_cpres_sharc.py follows the firmware handler itself.
 
 copro_down2 is a separate Geometry SHARC loader (GEO_CTL1/GEO_PROGRAM_START);
 it does not replace the cpres program loaded by copro_down.
