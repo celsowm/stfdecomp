@@ -289,6 +289,18 @@ scaled by 0.16 and added to X and Z respectively, leaving Y untouched. Command
 0x77 itself remains an explicit coprocessor boundary because the routine emits
 nine result words and its internal geometric meaning is not yet proven.
 
+The boundary is now anchored to the DSP image itself. Model 2B's boot loader
+uploads 0x3A0E 16-bit words (0x741C bytes, 4954 48-bit SHARC packets) starting
+at _cpres_data. In the supplied Sonic Championship program this image starts at
+0xB6318 and hashes to
+489f2c9d461d31cf800c30ae9a99203269bf5ae867304cd98255e431fdcbefb0.
+The two host-side 0x3B807777 call words are pinned at 0x31E28 (epc_oidasi) and
+0x8AFA8 (the projectile collision query). The associated mpr-19015.29/.30
+copro_data image is also reconstructed and hash-pinned, so future 0x77 work can
+follow the actual SHARC program and collision/height-map data rather than infer
+a formula from the i960 consumer. tools/recovery/extract_cpres_program.py emits
+either the raw upload or one 48-bit SHARC packet per line for that analysis.
+
 efc_crush_parts_set is recovered as a composed transaction over the single
 0x48-byte +0x88 slot. It reproduces the pre-spawn +0x1F40 part mark, the
 per-record delete_parts_weight call before slot/gate rejection, the bit-3/bit-1
