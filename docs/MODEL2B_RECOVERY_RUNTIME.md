@@ -257,10 +257,13 @@ is split into an exact CPU request builder and a two-output resolver: the CPU
 path clamps body height to 70, applies the six radial/vertical profiles, uses
 the original 16-entry angle-offset and jitter tables, preserves the cumulative
 radial jitter across records, doubles the jitter contribution to Y, and rejects
-counts above four. The two Model 2 command outputs are deliberately left as
-backend inputs until their command-header semantics are proven; the recovered
-post-command behavior toggles the sign bit of command-0x24 output for X, keeps
-the CPU-computed Y, and uses command-0x25 output for Z.
+counts above four. The former Model 2 math boundary is now closed through the already recovered
+cpres1 scalar semantics: command 0x24 is sin(angle)*radial and command 0x25 is
+cos(angle)*radial. The composed crush-speed resolver reproduces the original
+post-command behavior by toggling the sign bit of the 0x24 output for X,
+preserving the CPU-computed Y velocity, and using the 0x25 output for Z. The
+lower-level resolver that accepts raw command outputs remains available for
+differential experiments.
 
 efc_crush_parts_set is recovered as a composed transaction over the single
 0x48-byte +0x88 slot. It reproduces the pre-spawn +0x1F40 part mark, the
