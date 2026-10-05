@@ -278,8 +278,8 @@ bool stf_crush_part_oidasi_model2(
         return true;
     }
 
-    dx = bits_to_float(input->command77_output0_bits);
-    dz = bits_to_float(input->command77_output1_bits);
+    dx = bits_to_float(input->command77.words[0]);
+    dz = bits_to_float(input->command77.words[1]);
     if (!isfinite(dx) || !isfinite(dz)) {
         return false;
     }
