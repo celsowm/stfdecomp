@@ -62,4 +62,21 @@ bool stf_copro_scalar_rotate_y_xz_bits(
     uint32_t *out_z_bits
 );
 
+/*
+ * Recovered cpres1 command 0x29 point transform.
+ *
+ * Matrix layout matches Model 2's 3x4 affine transform:
+ *   out_x = x*m[0] + y*m[3] + z*m[6] + m[9]
+ *   out_y = x*m[1] + y*m[4] + z*m[7] + m[10]
+ *   out_z = x*m[2] + y*m[5] + z*m[8] + m[11]
+ *
+ * Values are IEEE-754 bit patterns. This models the semantic transform while
+ * keeping matrix-stack transport/state outside the portable helper.
+ */
+bool stf_copro_scalar_transform_point_bits(
+    const uint32_t matrix_bits[12],
+    const uint32_t input_bits[3],
+    uint32_t output_bits[3]
+);
+
 #endif
