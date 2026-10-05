@@ -196,8 +196,8 @@ static int test_oidasi_correction(void)
     write_f32(slot + 0x08u, 3.0f);
     write_f32(slot + 0x18u, 4.0f);
 
-    input.command77_output0_bits = fbits(10.0f);
-    input.command77_output1_bits = fbits(-5.0f);
+    input.command77.words[0] = fbits(10.0f);
+    input.command77.words[1] = fbits(-5.0f);
 
     if (!stf_crush_part_oidasi_model2(
             slot, sizeof(slot), &input, &result
@@ -261,8 +261,8 @@ static int test_composed_frame_transaction(void)
     write_le16(slot + 0x2Eu, INT16_C(32));
     write_le32(slot + 0x24u, UINT32_C(1) << 12u);
 
-    input.oidasi.command77_output0_bits = fbits(10.0f);
-    input.oidasi.command77_output1_bits = fbits(-5.0f);
+    input.oidasi.command77.words[0] = fbits(10.0f);
+    input.oidasi.command77.words[1] = fbits(-5.0f);
     input.physics.gravity_bits = fbits(0.0f);
     input.physics.stage_x_bits = fbits(100.0f);
     input.physics.cage_height_bits = fbits(100.0f);
