@@ -2,7 +2,8 @@
 """Extract the embedded Model 2B cpres SHARC program from an STF ROM set.
 
 The i960 boot loader copies 0x3A0E 16-bit words starting at _cpres_data into
-SHARC program memory.  This tool reconstructs the interleaved i960 program from
+SHARC program memory. sfight uses 0xB6318; Sonic Championship relocates the
+same upload start by +0x138 to 0xB6450.  This tool reconstructs the interleaved i960 program from
 an sfight/schamp EPROM pair, slices that exact upload image, and can emit either
 raw upload bytes or 48-bit SHARC instruction packets (three 16-bit words).
 
@@ -17,7 +18,10 @@ import struct
 import zipfile
 from pathlib import Path
 
-CPRES_PROGRAM_START = 0x000B6318
+CPRES_PROGRAM_STARTS = {
+    "schamp": 0x000B6450,
+    "sfight": 0x000B6318,
+}
 CPRES_PROGRAM_SIZE = 0x0000741C
 SHARC_INSTRUCTION_BYTES = 6
 
@@ -34,16 +38,21 @@ def interleave_words(left: bytes, right: bytes) -> bytes:
     return bytes(out)
 
 
-def extract(romset: Path, left_name: str, right_name: str) -> bytes:
+def extract(
+    romset: Path,
+    left_name: str,
+    right_name: str,
+    program_start: int,
+) -> bytes:
     with zipfile.ZipFile(romset) as archive:
         program = interleave_words(
             archive.read(left_name),
             archive.read(right_name),
         )
-    end = CPRES_PROGRAM_START + CPRES_PROGRAM_SIZE
+    end = program_start + CPRES_PROGRAM_SIZE
     if end > len(program):
         raise ValueError("embedded cpres program falls outside reconstructed image")
-    return program[CPRES_PROGRAM_START:end]
+    return program[program_start:end]
 
 
 def write_packets(data: bytes, output: Path) -> None:
@@ -63,16 +72,33 @@ def main() -> int:
     parser.add_argument("--left", default="epr-19141.15")
     parser.add_argument("--right", default="epr-19142.16")
     parser.add_argument(
+        "--variant",
+        choices=tuple(CPRES_PROGRAM_STARTS),
+        default="schamp",
+        help="program layout used to locate the embedded upload",
+    )
+    parser.add_argument(
+        "--start",
+        type=lambda value: int(value, 0),
+        help="override the embedded upload start address",
+    )
+    parser.add_argument(
         "--packets",
         action="store_true",
         help="write one reconstructed 48-bit SHARC packet per text line",
     )
     args = parser.parse_args()
 
-    data = extract(args.romset, args.left, args.right)
+    program_start = (
+        args.start
+        if args.start is not None
+        else CPRES_PROGRAM_STARTS[args.variant]
+    )
+    data = extract(args.romset, args.left, args.right, program_start)
     digest = hashlib.sha256(data).hexdigest()
     print(
-        f"cpres bytes={len(data)} instructions={len(data) // 6} "
+        f"cpres start=0x{program_start:X} bytes={len(data)} "
+        f"instructions={len(data) // 6} "
         f"sha256={digest}"
     )
 
