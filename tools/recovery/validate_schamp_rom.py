@@ -187,6 +187,17 @@ CPRES_PROGRAM_SHA256 = (
 CPRES_77_CALL_SITES = (0x00031E28, 0x0008AFA8)
 CPRES_77_COMMAND_WORD = 0x3B807777
 
+# SHARC dispatch table: 136 consecutive 48-bit instructions beginning at
+# upload packet 0xDB write handler PM addresses to DM 0x30000..0x30087.
+CPRES_DISPATCH_PACKET_START = 0xDB
+CPRES_DISPATCH_COUNT = 136
+CPRES_DISPATCH_HANDLERS = {
+    0x24: 0x00020624,
+    0x25: 0x0002062D,
+    0x29: 0x0002066A,
+    0x77: 0x00020B1F,
+}
+
 RING_TRAJECTORIES = {
     "A": (0x000AE5C0, 99),
     "B": (0x000AE750, 119),
@@ -349,6 +360,36 @@ def validate(path: Path) -> int:
     )
     if cpres_digest != CPRES_PROGRAM_SHA256:
         return 20
+
+    if len(cpres_program) % 6 != 0:
+        print("embedded cpres program is not aligned to 48-bit SHARC packets")
+        return 24
+
+    packet_count = len(cpres_program) // 6
+    if CPRES_DISPATCH_PACKET_START + CPRES_DISPATCH_COUNT > packet_count:
+        print("cpres dispatch table falls outside uploaded program")
+        return 25
+
+    dispatch_handlers = []
+    for index in range(CPRES_DISPATCH_COUNT):
+        packet_offset = (CPRES_DISPATCH_PACKET_START + index) * 6
+        packet = int.from_bytes(
+            cpres_program[packet_offset:packet_offset + 6], "little"
+        )
+        # These are SHARC immediate-data-to-DM writes.  The low 32 bits are
+        # the PM handler address; the destination pointer walks DM 0x30000.
+        dispatch_handlers.append(packet & 0xFFFFFFFF)
+
+    for command, expected_handler in CPRES_DISPATCH_HANDLERS.items():
+        actual_handler = dispatch_handlers[command]
+        status = "ok" if actual_handler == expected_handler else "FAIL"
+        print(
+            f"cpres dispatch 0x{command:02X} -> "
+            f"0x{actual_handler:08X} expected=0x{expected_handler:08X} "
+            f"{status}"
+        )
+        if actual_handler != expected_handler:
+            return 26
 
     for address in CPRES_77_CALL_SITES:
         if address + 4 > len(program):
