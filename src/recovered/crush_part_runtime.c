@@ -423,3 +423,224 @@ bool stf_crush_part_visibility_mask_model2(
     *result = local;
     return true;
 }
+
+
+static bool crush_bookkeeping_mode(uint8_t also_mode, uint8_t also_sub_mode)
+{
+    if (also_mode == UINT8_C(17)) {
+        return true;
+    }
+    if (also_mode == UINT8_C(9)) {
+        return also_sub_mode != UINT8_C(17) &&
+               also_sub_mode != UINT8_C(23);
+    }
+    if (also_mode == UINT8_C(3)) {
+        return also_sub_mode == UINT8_C(5) ||
+               also_sub_mode == UINT8_C(9) ||
+               also_sub_mode == UINT8_C(10) ||
+               also_sub_mode == UINT8_C(14) ||
+               also_sub_mode == UINT8_C(15) ||
+               also_sub_mode == UINT8_C(16);
+    }
+    return false;
+}
+
+bool stf_crush_part_spawn_model2(
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_spawn_input *input,
+    stf_crush_part_spawn_result *result
+)
+{
+    stf_crush_part_spawn_result local;
+    const uint8_t *record;
+    uint32_t flags;
+    uint32_t spin_seed;
+    uint8_t spin_index;
+    int16_t angle_y;
+
+    if (slot == NULL || input == NULL || result == NULL ||
+        slot_size < STF_CRUSH_PART_SLOT_SIZE ||
+        input->record == NULL ||
+        input->record_size < STF_CRUSH_PART_RECORD_SIZE ||
+        input->spin_table == NULL ||
+        input->spin_table_count < STF_CRUSH_PART_SPIN_TABLE_COUNT) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    record = input->record;
+    local.slot_was_free = read_le32(slot + 0x24u) == UINT32_C(0);
+    if (!local.slot_was_free) {
+        *result = local;
+        return true;
+    }
+
+    flags = read_le32(record + 0x1Cu) |
+            (uint32_t)input->fighter_flags_byte;
+    flags |= UINT32_C(1) << 11u;
+
+    write_le32(slot + 0x24u, flags);
+    write_le32(slot + 0x00u, input->base_position[0]);
+    write_le32(slot + 0x04u, input->base_position[1]);
+    write_le32(slot + 0x08u, input->base_position[2]);
+
+    write_le16(slot + 0x22u, (int16_t)read_le16u(record + 0x06u));
+    write_le32(slot + 0x0Cu, input->velocity[0]);
+    write_le32(slot + 0x10u, input->velocity[1]);
+    write_le32(slot + 0x14u, input->velocity[2]);
+    write_le32(slot + 0x18u, input->radius_bits);
+
+    write_le16(slot + 0x32u, (int16_t)input->part_index);
+    write_le16(slot + 0x30u, (int16_t)input->record_index);
+    write_le16(slot + 0x28u, read_le16s(record + 0x0Eu));
+    write_le16(slot + 0x2Au, read_le16s(record + 0x10u));
+    write_le16(slot + 0x2Cu, read_le16s(record + 0x12u));
+
+    write_le16(slot + 0x1Cu, read_le16s(record + 0x08u));
+    angle_y = add_wrap16(input->fighter_angle_y, read_le16s(record + 0x0Au));
+    write_le16(slot + 0x1Eu, angle_y);
+    write_le16(slot + 0x20u, (int16_t)read_le16u(record + 0x0Cu));
+
+    write_le32(slot + 0x34u, read_le32(record + 0x14u));
+    write_le32(slot + 0x40u, read_le32(record + 0x20u));
+    write_le32(slot + 0x44u, read_le32(record + 0x24u));
+    write_le32(slot + 0x38u, UINT32_C(0));
+    write_le32(slot + 0x3Cu, UINT32_C(0));
+
+    spin_seed = input->base_position[0] + read_le32(record + 0x14u);
+    spin_seed += input->base_position[1];
+    spin_seed += input->base_position[2];
+    spin_index = (uint8_t)(spin_seed & UINT32_C(0x0F));
+    write_le16(slot + 0x2Eu, input->spin_table[spin_index]);
+
+    local.spawned = true;
+    local.spin_index = spin_index;
+    local.spin_value = input->spin_table[spin_index];
+    local.flags = flags;
+    local.object_id = read_le16u(record + 0x06u);
+    *result = local;
+    return true;
+}
+
+bool stf_crush_part_should_delete_weight_model2(
+    uint8_t also_mode,
+    uint8_t also_sub_mode
+)
+{
+    if (also_mode == UINT8_C(17)) {
+        return true;
+    }
+
+    if (also_mode == UINT8_C(9)) {
+        return also_sub_mode != UINT8_C(16) &&
+               also_sub_mode != UINT8_C(17) &&
+               also_sub_mode != UINT8_C(22) &&
+               also_sub_mode != UINT8_C(23);
+    }
+
+    if (also_mode == UINT8_C(3)) {
+        return also_sub_mode == UINT8_C(5) ||
+               also_sub_mode == UINT8_C(9) ||
+               also_sub_mode == UINT8_C(10) ||
+               also_sub_mode == UINT8_C(14) ||
+               also_sub_mode == UINT8_C(15) ||
+               also_sub_mode == UINT8_C(16);
+    }
+
+    return false;
+}
+
+bool stf_crush_part_delete_weight_model2(
+    uint8_t *defender,
+    size_t defender_size,
+    const uint8_t *record,
+    size_t record_size,
+    uint8_t also_mode,
+    uint8_t also_sub_mode,
+    bool *applied
+)
+{
+    float remaining;
+    float base;
+    float weight;
+
+    if (defender == NULL || record == NULL || applied == NULL ||
+        defender_size < 0x7E0u ||
+        record_size < STF_CRUSH_PART_RECORD_SIZE) {
+        return false;
+    }
+
+    *applied = false;
+    if (!stf_crush_part_should_delete_weight_model2(
+            also_mode, also_sub_mode)) {
+        return true;
+    }
+
+    weight = bits_to_float(read_le32(record + 0x14u));
+    remaining = read_f32(defender + 0x7D8u) - weight;
+    base = read_f32(defender + 0x7DCu);
+    write_f32(defender + 0x7D8u, remaining);
+    write_f32(defender + 0x5D8u, base + remaining);
+    *applied = true;
+    return true;
+}
+
+bool stf_crush_part_bookkeeping_model2(
+    uint8_t *defender,
+    size_t defender_size,
+    const uint8_t *record,
+    size_t record_size,
+    uint8_t part_index,
+    uint8_t also_mode,
+    uint8_t also_sub_mode,
+    stf_crush_part_bookkeeping_result *result
+)
+{
+    stf_crush_part_bookkeeping_result local;
+    uint32_t stored_word;
+    unsigned lane;
+
+    if (defender == NULL || record == NULL || result == NULL ||
+        defender_size < 0x1F68u ||
+        record_size < STF_CRUSH_PART_RECORD_SIZE ||
+        part_index >= 16u) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    if (!crush_bookkeeping_mode(also_mode, also_sub_mode)) {
+        *result = local;
+        return true;
+    }
+
+    stored_word = (uint32_t)(int32_t)read_le16s(record + 0x04u);
+    write_le32(defender + 0x40u + (size_t)part_index * 4u, stored_word);
+
+    for (lane = 0u; lane < 3u; ++lane) {
+        uint8_t *word = defender + 0x1F60u + lane * 2u;
+        uint16_t bits = read_le16u(word);
+        if ((bits & (uint16_t)(UINT16_C(1) << part_index)) == 0u) {
+            bits = (uint16_t)(bits | (uint16_t)(UINT16_C(1) << part_index));
+            write_le16(word, (int16_t)bits);
+            local.history_lane = (uint8_t)lane;
+            local.applied = true;
+            local.stored_record_word = stored_word;
+            *result = local;
+            return true;
+        }
+    }
+
+    {
+        uint8_t *word = defender + 0x1F66u;
+        uint16_t bits = read_le16u(word);
+        bits = (uint16_t)(bits | (uint16_t)(UINT16_C(1) << part_index));
+        write_le16(word, (int16_t)bits);
+    }
+
+    local.history_lane = UINT8_C(3);
+    local.applied = true;
+    local.stored_record_word = stored_word;
+    *result = local;
+    return true;
+}
