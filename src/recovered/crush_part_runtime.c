@@ -644,3 +644,131 @@ bool stf_crush_part_bookkeeping_model2(
     *result = local;
     return true;
 }
+
+
+bool stf_crush_part_build_speed_requests_model2(
+    const stf_crush_part_speed_input *input,
+    stf_crush_part_speed_request *requests,
+    size_t request_capacity,
+    stf_crush_part_speed_result *result
+)
+{
+    static const float radial_profile[6] = {
+        0.06f, 0.15f, 0.09f, 0.09f, 0.26f, 0.10f
+    };
+    static const float vertical_profile[6] = {
+        0.04f, 0.03f, 0.08f, 0.06f, 0.03f, 0.0f
+    };
+    static const int16_t angle_offsets[16] = {
+        (int16_t)UINT16_C(0xE940), (int16_t)UINT16_C(0xF1C8),
+        (int16_t)UINT16_C(0xFA50), (int16_t)UINT16_C(0xEC18),
+        (int16_t)UINT16_C(0xF778), (int16_t)UINT16_C(0xEEF0),
+        (int16_t)UINT16_C(0xF4A0), (int16_t)UINT16_C(0xFD28),
+        (int16_t)UINT16_C(0x05B0), (int16_t)UINT16_C(0x0888),
+        (int16_t)UINT16_C(0x02D8), (int16_t)UINT16_C(0x13E8),
+        (int16_t)UINT16_C(0x0E38), (int16_t)UINT16_C(0x16C0),
+        (int16_t)UINT16_C(0x0B60), (int16_t)UINT16_C(0x1110)
+    };
+    static const uint32_t jitter_bits[16] = {
+        UINT32_C(0x3D0B4396), UINT32_C(0x3CFDF3B6),
+        UINT32_C(0xBB449BA6), UINT32_C(0x3C1374BC),
+        UINT32_C(0x3D0F5C29), UINT32_C(0xBB03126F),
+        UINT32_C(0x3CED9168), UINT32_C(0x3B449BA6),
+        UINT32_C(0x3C8B4396), UINT32_C(0x3D5D2F1B),
+        UINT32_C(0xBC83126F), UINT32_C(0x3CAC0831),
+        UINT32_C(0x3D3020C5), UINT32_C(0x3C75C28F),
+        UINT32_C(0xBBC49BA6), UINT32_C(0x3D8B4396)
+    };
+    stf_crush_part_speed_result local;
+    unsigned iterations;
+    unsigned i;
+    const unsigned height =
+        input != NULL && input->body_height_83d < UINT8_C(70)
+            ? input->body_height_83d
+            : 70u;
+    float radial;
+
+    if (input == NULL || result == NULL ||
+        input->records == NULL ||
+        input->profile_843 >= UINT8_C(6)) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    if (input->count > STF_CRUSH_PART_MAX_SPEEDS) {
+        local.count_rejected = true;
+        *result = local;
+        return true;
+    }
+
+    iterations = input->count == UINT8_C(0) ? 1u : input->count;
+    if (requests == NULL || request_capacity < iterations ||
+        input->records_size < (size_t)iterations * STF_CRUSH_PART_RECORD_SIZE) {
+        return false;
+    }
+
+    radial =
+        ((float)height / 60.0f) * radial_profile[input->profile_843];
+
+    for (i = 0u; i < iterations; ++i) {
+        const uint8_t *record =
+            input->records + (size_t)i * STF_CRUSH_PART_RECORD_SIZE;
+        const uint16_t object_id = read_le16u(record + 0x06u);
+        uint32_t seed =
+            (uint32_t)(int32_t)input->fighter_angle_26 +
+            (uint32_t)(int32_t)input->fighter_angle_82a;
+        uint8_t index;
+        float vertical;
+        const float multiplier =
+            input->effect_active_914 == UINT32_C(1) ? 1.5f : 1.0f;
+        const float jitter = bits_to_float(jitter_bits[
+            (seed + input->part_index + object_id +
+             read_le32(record + 0x14u)) & UINT32_C(0x0F)
+        ]);
+
+        seed += input->part_index;
+        seed += object_id;
+        seed += read_le32(record + 0x14u);
+        index = (uint8_t)(seed & UINT32_C(0x0F));
+
+        vertical =
+            (((float)height / 60.0f) *
+                vertical_profile[input->profile_843] +
+             bits_to_float(UINT32_C(0x3D75C28F))) *
+            multiplier;
+
+        radial += jitter;
+        vertical += jitter;
+        vertical += jitter;
+
+        requests[i].jitter_index = index;
+        requests[i].angle = (uint16_t)(
+            (uint16_t)input->fighter_angle_26 +
+            (uint16_t)input->fighter_angle_82a -
+            (uint16_t)angle_offsets[index]
+        );
+        requests[i].radial_speed_bits = float_to_bits(radial);
+        requests[i].vertical_speed_bits = float_to_bits(vertical);
+    }
+
+    local.generated = (uint8_t)iterations;
+    *result = local;
+    return true;
+}
+
+bool stf_crush_part_resolve_speed_model2(
+    const stf_crush_part_speed_request *request,
+    uint32_t command24_output_bits,
+    uint32_t command25_output_bits,
+    uint32_t velocity_bits[3]
+)
+{
+    if (request == NULL || velocity_bits == NULL) {
+        return false;
+    }
+
+    velocity_bits[0] = command24_output_bits ^ UINT32_C(0x80000000);
+    velocity_bits[1] = request->vertical_speed_bits;
+    velocity_bits[2] = command25_output_bits;
+    return true;
+}
