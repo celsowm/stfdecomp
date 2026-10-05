@@ -517,7 +517,7 @@ static int test_spawn_bookkeeping_lane_selection(void)
     memset(record, 0, sizeof(record));
 
     write_le16(record + 0x04u, INT16_C(-2));
-    write_le16(defender + 0x1F60u, INT16_C(1u << 3u));
+    write_le16(defender + 0x1F60u, (int16_t)(UINT16_C(1) << 3u));
 
     if (!stf_crush_part_bookkeeping_model2(
             defender, sizeof(defender),
@@ -529,7 +529,7 @@ static int test_spawn_bookkeeping_lane_selection(void)
         result.history_lane != UINT8_C(1) ||
         result.stored_record_word != UINT32_C(0xFFFFFFFE) ||
         ((uint16_t)defender[0x1F62u] |
-            ((uint16_t)defender[0x1F63u] << 8u)) != UINT16_C(1u << 3u) ||
+            ((uint16_t)defender[0x1F63u] << 8u)) != (uint16_t)(UINT16_C(1) << 3u) ||
         ((uint32_t)defender[0x4Cu] |
             ((uint32_t)defender[0x4Du] << 8u) |
             ((uint32_t)defender[0x4Eu] << 16u) |
