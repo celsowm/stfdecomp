@@ -133,6 +133,55 @@ bool stf_crush_part_update_angles_model2(
     return true;
 }
 
+bool stf_crush_part_frame_model2(
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_frame_input *input,
+    stf_crush_part_frame_result *result
+)
+{
+    stf_crush_part_frame_result local;
+
+    if (slot == NULL || input == NULL || result == NULL ||
+        input->camera_matrix_bits == NULL ||
+        slot_size < STF_CRUSH_PART_SLOT_SIZE) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+
+    if (!stf_crush_part_oidasi_model2(
+            slot, slot_size, &input->oidasi, &local.oidasi
+        )) {
+        return false;
+    }
+
+    if (!stf_crush_part_update_position_with_visibility_model2(
+            slot,
+            slot_size,
+            &input->physics,
+            input->camera_matrix_bits,
+            input->focus_distance_bits,
+            &local.physics,
+            &local.visibility
+        )) {
+        return false;
+    }
+
+    if (!local.physics.deactivated) {
+        if (!stf_crush_part_update_angles_model2(
+                slot, slot_size, &local.angles
+            )) {
+            return false;
+        }
+        local.angle_updated = true;
+    }
+
+    *result = local;
+    return true;
+}
+
+
 bool stf_crush_part_build_draw_model2(
     const uint8_t *slot,
     size_t slot_size,
