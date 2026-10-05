@@ -141,6 +141,7 @@ bool stf_crush_part_frame_model2(
 )
 {
     stf_crush_part_frame_result local;
+    stf_crush_part_oidasi_input oidasi_input;
 
     if (slot == NULL || input == NULL || result == NULL ||
         input->camera_matrix_bits == NULL ||
@@ -149,9 +150,29 @@ bool stf_crush_part_frame_model2(
     }
 
     memset(&local, 0, sizeof(local));
+    oidasi_input = input->oidasi;
+
+    if (input->command77_collision != NULL &&
+        !oidasi_input.fighter0_parts_locked &&
+        !oidasi_input.fighter1_parts_locked) {
+        const uint32_t query_xyz[3] = {
+            read_le32(slot + 0x00u),
+            read_le32(slot + 0x04u),
+            read_le32(slot + 0x08u)
+        };
+
+        if (!stf_copro_command77_semantic_bits(
+                query_xyz,
+                read_le32(slot + 0x18u),
+                input->command77_collision,
+                oidasi_input.command77.words
+            )) {
+            return false;
+        }
+    }
 
     if (!stf_crush_part_oidasi_model2(
-            slot, slot_size, &input->oidasi, &local.oidasi
+            slot, slot_size, &oidasi_input, &local.oidasi
         )) {
         return false;
     }
