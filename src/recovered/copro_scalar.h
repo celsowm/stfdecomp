@@ -79,4 +79,23 @@ bool stf_copro_scalar_transform_point_bits(
     uint32_t output_bits[3]
 );
 
+/*
+ * Recovered cpres1 command-0x77 fine-phase sphere overlap predicate.
+ *
+ * The SHARC handler scans 32 collision balls per fighter. For each non-zero
+ * ball radius it computes 3D center distance and compares it against
+ * query_radius + ball_radius. This helper exposes that proven predicate and
+ * penetration depth without claiming the still-unresolved packet metadata or
+ * aggregate push-out accumulation.
+ */
+bool stf_copro_collision_sphere_overlap_bits(
+    const uint32_t query_xyz_bits[3],
+    uint32_t query_radius_bits,
+    const uint32_t ball_xyz_bits[3],
+    uint32_t ball_radius_bits,
+    bool *overlap,
+    uint32_t *distance_bits,
+    uint32_t *penetration_bits
+);
+
 #endif
