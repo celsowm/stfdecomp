@@ -170,3 +170,65 @@ bool stf_copro_scalar_transform_point_bits(
     output_bits[2] = float_to_bits(out_z);
     return true;
 }
+
+
+bool stf_copro_collision_sphere_overlap_bits(
+    const uint32_t query_xyz_bits[3],
+    uint32_t query_radius_bits,
+    const uint32_t ball_xyz_bits[3],
+    uint32_t ball_radius_bits,
+    bool *overlap,
+    uint32_t *distance_bits,
+    uint32_t *penetration_bits
+)
+{
+    float qx;
+    float qy;
+    float qz;
+    float qr;
+    float bx;
+    float by;
+    float bz;
+    float br;
+    float dx;
+    float dy;
+    float dz;
+    float distance;
+    float radius_sum;
+    float penetration;
+
+    if (query_xyz_bits == NULL || ball_xyz_bits == NULL ||
+        overlap == NULL || distance_bits == NULL ||
+        penetration_bits == NULL) {
+        return false;
+    }
+
+    qx = bits_to_float(query_xyz_bits[0]);
+    qy = bits_to_float(query_xyz_bits[1]);
+    qz = bits_to_float(query_xyz_bits[2]);
+    qr = bits_to_float(query_radius_bits);
+    bx = bits_to_float(ball_xyz_bits[0]);
+    by = bits_to_float(ball_xyz_bits[1]);
+    bz = bits_to_float(ball_xyz_bits[2]);
+    br = bits_to_float(ball_radius_bits);
+
+    if (!isfinite(qx) || !isfinite(qy) || !isfinite(qz) ||
+        !isfinite(qr) || !isfinite(bx) || !isfinite(by) ||
+        !isfinite(bz) || !isfinite(br) || qr < 0.0f || br < 0.0f) {
+        return false;
+    }
+
+    dx = bx - qx;
+    dy = by - qy;
+    dz = bz - qz;
+    distance = sqrtf(dx * dx + dy * dy + dz * dz);
+    radius_sum = qr + br;
+    penetration = radius_sum - distance;
+
+    *overlap = br != 0.0f && distance <= radius_sum;
+    *distance_bits = float_to_bits(distance);
+    *penetration_bits = float_to_bits(
+        penetration > 0.0f ? penetration : 0.0f
+    );
+    return true;
+}
