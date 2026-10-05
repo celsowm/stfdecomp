@@ -48,6 +48,22 @@ typedef struct stf_crush_part_physics_result {
     uint32_t flags;
 } stf_crush_part_physics_result;
 
+typedef struct stf_crush_part_visibility_input {
+    uint32_t camera_x_bits;
+    uint32_t camera_y_bits;
+    uint32_t camera_z_bits;
+    uint32_t radius_bits;
+    uint32_t focus_distance_bits;
+} stf_crush_part_visibility_input;
+
+typedef struct stf_crush_part_visibility_result {
+    uint32_t mask;
+    uint32_t screen_x_bits;
+    uint32_t screen_y_bits;
+    uint32_t screen_radius_bits;
+    bool behind_camera;
+} stf_crush_part_visibility_result;
+
 /*
  * Recover epc_parts_ang_calc for the 0x48-byte part slot at
  * mod_fa_effect+0x88.
@@ -88,6 +104,19 @@ bool stf_crush_part_update_position_model2(
     size_t slot_size,
     const stf_crush_part_physics_env *env,
     stf_crush_part_physics_result *result
+);
+
+/*
+ * Recover the arithmetic after sub_3464C's Model 2 transform command.
+ *
+ * The original first transforms 0x50A314 through the graphics command path;
+ * this helper intentionally starts from the resulting camera-space XYZ. It
+ * then applies focus-distance perspective projection and recreates the four
+ * visibility bits written to 0x50A368.
+ */
+bool stf_crush_part_visibility_mask_model2(
+    const stf_crush_part_visibility_input *input,
+    stf_crush_part_visibility_result *result
 );
 
 #endif
