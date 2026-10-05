@@ -287,7 +287,7 @@ static int test_dormant_visibility_deactivation(void)
     uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
     stf_crush_part_physics_env env;
     stf_crush_part_physics_result result;
-    stf_crush_part_visibility_world_input visibility_input;
+    stf_crush_part_visibility_input visibility_input;
     stf_crush_part_visibility_result visibility;
 
     memset(slot, 0, sizeof(slot));
@@ -947,7 +947,7 @@ static int test_crush_part_lifecycle_flow(void)
     stf_crush_part_physics_env physics_env;
     stf_crush_part_physics_result physics_result;
     stf_crush_part_angle_result angle_result;
-    stf_crush_part_visibility_input visibility_input;
+    stf_crush_part_visibility_world_input visibility_input;
     stf_crush_part_visibility_result visibility_result;
     stf_crush_part_draw draw;
     stf_crush_part_floor_sound_result sound_result;
