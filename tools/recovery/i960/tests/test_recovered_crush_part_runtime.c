@@ -118,6 +118,7 @@ static int test_spawn_respects_occupied_slot(void);
 static int test_delete_weight_mode_gate(void);
 static int test_spawn_bookkeeping_lane_selection(void);
 static int test_speed_request_generation(void);
+static int test_speed_semantic_resolution(void);
 static int test_speed_request_count_limit(void);
 static int test_composed_crush_part_set(void);
 static int test_composed_crush_part_gate_reject(void);
@@ -141,6 +142,7 @@ int main(void)
     if (test_delete_weight_mode_gate() != 0) return 1;
     if (test_spawn_bookkeeping_lane_selection() != 0) return 1;
     if (test_speed_request_generation() != 0) return 1;
+    if (test_speed_semantic_resolution() != 0) return 1;
     if (test_speed_request_count_limit() != 0) return 1;
     if (test_composed_crush_part_set() != 0) return 1;
     if (test_composed_crush_part_gate_reject() != 0) return 1;
@@ -632,6 +634,28 @@ static int test_speed_request_generation(void)
     return 0;
 }
 
+static int test_speed_semantic_resolution(void)
+{
+    stf_crush_part_speed_request request;
+    uint32_t velocity[3];
+
+    memset(&request, 0, sizeof(request));
+    request.angle = UINT16_C(0x0000);
+    request.radial_speed_bits = fbits(2.0f);
+    request.vertical_speed_bits = fbits(3.0f);
+
+    if (!stf_crush_part_resolve_speed_semantic_model2(
+            &request, velocity
+        ) ||
+        velocity[0] != UINT32_C(0x80000000) ||
+        velocity[1] != fbits(3.0f) ||
+        velocity[2] != fbits(2.0f)) {
+        return 1;
+    }
+
+    return 0;
+}
+
 static int test_speed_request_count_limit(void)
 {
     uint8_t records[STF_CRUSH_PART_RECORD_SIZE];
@@ -885,8 +909,8 @@ static int test_crush_part_lifecycle_flow(void)
             &speed_input, &speed_request, 1u, &speed_result
         ) ||
         speed_result.generated != UINT8_C(1) ||
-        !stf_crush_part_resolve_speed_model2(
-            &speed_request, fbits(0.5f), fbits(0.25f), velocity[0]
+        !stf_crush_part_resolve_speed_semantic_model2(
+            &speed_request, velocity[0]
         )) {
         return 1;
     }
