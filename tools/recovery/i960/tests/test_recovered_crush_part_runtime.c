@@ -105,6 +105,10 @@ static int test_dormant_visibility_deactivation(void);
 static int test_visibility_mask_centered(void);
 static int test_visibility_mask_partial_edges(void);
 static int test_visibility_behind_camera(void);
+static int test_spawn_from_rom_record(void);
+static int test_spawn_respects_occupied_slot(void);
+static int test_delete_weight_mode_gate(void);
+static int test_spawn_bookkeeping_lane_selection(void);
 
 int main(void)
 {
@@ -118,6 +122,10 @@ int main(void)
     if (test_visibility_mask_centered() != 0) return 1;
     if (test_visibility_mask_partial_edges() != 0) return 1;
     if (test_visibility_behind_camera() != 0) return 1;
+    if (test_spawn_from_rom_record() != 0) return 1;
+    if (test_spawn_respects_occupied_slot() != 0) return 1;
+    if (test_delete_weight_mode_gate() != 0) return 1;
+    if (test_spawn_bookkeeping_lane_selection() != 0) return 1;
     return 0;
 }
 
@@ -352,6 +360,180 @@ static int test_visibility_behind_camera(void)
     if (!stf_crush_part_visibility_mask_model2(&input, &result) ||
         !result.behind_camera ||
         result.mask != UINT32_C(0)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+static int test_spawn_from_rom_record(void)
+{
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    uint8_t record[STF_CRUSH_PART_RECORD_SIZE];
+    int16_t spin_table[STF_CRUSH_PART_SPIN_TABLE_COUNT];
+    stf_crush_part_spawn_input input;
+    stf_crush_part_spawn_result result;
+    unsigned i;
+
+    memset(slot, 0, sizeof(slot));
+    memset(record, 0, sizeof(record));
+    memset(&input, 0, sizeof(input));
+
+    for (i = 0u; i < STF_CRUSH_PART_SPIN_TABLE_COUNT; ++i) {
+        spin_table[i] = (int16_t)(i * 10);
+    }
+
+    write_le16(record + 0x04u, INT16_C(-2));
+    write_le16(record + 0x06u, INT16_C(777));
+    write_le16(record + 0x08u, INT16_C(10));
+    write_le16(record + 0x0Au, INT16_C(20));
+    write_le16(record + 0x0Cu, INT16_C(30));
+    write_le16(record + 0x0Eu, INT16_C(100));
+    write_le16(record + 0x10u, INT16_C(200));
+    write_le16(record + 0x12u, INT16_C(300));
+    write_f32(record + 0x14u, 0.5f);
+    write_le32(record + 0x1Cu, UINT32_C(1) << 3u);
+    write_f32(record + 0x20u, -1.0f);
+    write_le32(record + 0x24u, UINT32_C(0x12345678));
+
+    input.record = record;
+    input.record_size = sizeof(record);
+    input.base_position[0] = UINT32_C(1);
+    input.base_position[1] = UINT32_C(2);
+    input.base_position[2] = UINT32_C(3);
+    input.velocity[0] = UINT32_C(0x3F800000);
+    input.velocity[1] = UINT32_C(0x40000000);
+    input.velocity[2] = UINT32_C(0x40400000);
+    input.radius_bits = UINT32_C(0x3F000000);
+    input.part_index = UINT8_C(4);
+    input.record_index = UINT8_C(2);
+    input.fighter_flags_byte = UINT8_C(1);
+    input.fighter_angle_y = INT16_C(100);
+    input.spin_table = spin_table;
+    input.spin_table_count = STF_CRUSH_PART_SPIN_TABLE_COUNT;
+
+    if (!stf_crush_part_spawn_model2(
+            slot, sizeof(slot), &input, &result
+        ) ||
+        !result.slot_was_free ||
+        !result.spawned ||
+        result.object_id != UINT16_C(777) ||
+        result.spin_index != UINT8_C(6) ||
+        result.spin_value != INT16_C(60) ||
+        (result.flags & (UINT32_C(1) << 11u)) == 0u ||
+        (result.flags & (UINT32_C(1) << 3u)) == 0u ||
+        (result.flags & UINT32_C(1)) == 0u ||
+        slot[0x00u] != UINT8_C(1) ||
+        slot[0x04u] != UINT8_C(2) ||
+        slot[0x08u] != UINT8_C(3) ||
+        read_f32(slot + 0x0Cu) != 1.0f ||
+        read_f32(slot + 0x10u) != 2.0f ||
+        read_f32(slot + 0x14u) != 3.0f ||
+        ((uint16_t)slot[0x1Eu] | ((uint16_t)slot[0x1Fu] << 8u)) != UINT16_C(120) ||
+        ((uint16_t)slot[0x2Eu] | ((uint16_t)slot[0x2Fu] << 8u)) != UINT16_C(60) ||
+        ((uint16_t)slot[0x30u] | ((uint16_t)slot[0x31u] << 8u)) != UINT16_C(2) ||
+        ((uint16_t)slot[0x32u] | ((uint16_t)slot[0x33u] << 8u)) != UINT16_C(4)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_spawn_respects_occupied_slot(void)
+{
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    uint8_t record[STF_CRUSH_PART_RECORD_SIZE];
+    int16_t spin_table[STF_CRUSH_PART_SPIN_TABLE_COUNT];
+    stf_crush_part_spawn_input input;
+    stf_crush_part_spawn_result result;
+
+    memset(slot, 0, sizeof(slot));
+    memset(record, 0, sizeof(record));
+    memset(spin_table, 0, sizeof(spin_table));
+    memset(&input, 0, sizeof(input));
+
+    write_le32(slot + 0x24u, UINT32_C(0x800));
+    write_le16(slot + 0x22u, INT16_C(55));
+    write_le16(record + 0x06u, INT16_C(99));
+
+    input.record = record;
+    input.record_size = sizeof(record);
+    input.spin_table = spin_table;
+    input.spin_table_count = STF_CRUSH_PART_SPIN_TABLE_COUNT;
+
+    if (!stf_crush_part_spawn_model2(
+            slot, sizeof(slot), &input, &result
+        ) ||
+        result.slot_was_free ||
+        result.spawned ||
+        ((uint16_t)slot[0x22u] | ((uint16_t)slot[0x23u] << 8u)) != UINT16_C(55)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int test_delete_weight_mode_gate(void)
+{
+    uint8_t defender[0x800];
+    uint8_t record[STF_CRUSH_PART_RECORD_SIZE];
+    bool applied = false;
+
+    memset(defender, 0, sizeof(defender));
+    memset(record, 0, sizeof(record));
+    write_f32(defender + 0x7D8u, 10.0f);
+    write_f32(defender + 0x7DCu, 100.0f);
+    write_f32(record + 0x14u, 2.0f);
+
+    if (!stf_crush_part_delete_weight_model2(
+            defender, sizeof(defender),
+            record, sizeof(record),
+            UINT8_C(17), UINT8_C(0), &applied
+        ) ||
+        !applied ||
+        read_f32(defender + 0x7D8u) != 8.0f ||
+        read_f32(defender + 0x5D8u) != 108.0f) {
+        return 1;
+    }
+
+    if (!stf_crush_part_should_delete_weight_model2(UINT8_C(9), UINT8_C(0)) ||
+        stf_crush_part_should_delete_weight_model2(UINT8_C(9), UINT8_C(16)) ||
+        !stf_crush_part_should_delete_weight_model2(UINT8_C(3), UINT8_C(5)) ||
+        stf_crush_part_should_delete_weight_model2(UINT8_C(12), UINT8_C(0))) {
+        return 2;
+    }
+
+    return 0;
+}
+
+static int test_spawn_bookkeeping_lane_selection(void)
+{
+    uint8_t defender[0x2000];
+    uint8_t record[STF_CRUSH_PART_RECORD_SIZE];
+    stf_crush_part_bookkeeping_result result;
+
+    memset(defender, 0, sizeof(defender));
+    memset(record, 0, sizeof(record));
+
+    write_le16(record + 0x04u, INT16_C(-2));
+    write_le16(defender + 0x1F60u, INT16_C(1u << 3u));
+
+    if (!stf_crush_part_bookkeeping_model2(
+            defender, sizeof(defender),
+            record, sizeof(record),
+            UINT8_C(3), UINT8_C(17), UINT8_C(0),
+            &result
+        ) ||
+        !result.applied ||
+        result.history_lane != UINT8_C(1) ||
+        result.stored_record_word != UINT32_C(0xFFFFFFFE) ||
+        ((uint16_t)defender[0x1F62u] |
+            ((uint16_t)defender[0x1F63u] << 8u)) != UINT16_C(1u << 3u) ||
+        ((uint32_t)defender[0x4Cu] |
+            ((uint32_t)defender[0x4Du] << 8u) |
+            ((uint32_t)defender[0x4Eu] << 16u) |
+            ((uint32_t)defender[0x4Fu] << 24u)) != UINT32_C(0xFFFFFFFE)) {
         return 1;
     }
 
