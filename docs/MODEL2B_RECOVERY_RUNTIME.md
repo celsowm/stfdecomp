@@ -310,9 +310,20 @@ tables rooted at 0x30600 and 0x30700, and returns nine words from scratch slots
 two are the horizontal push-out values consumed by epc_oidasi; the projectile
 path preserves the remaining seven as collision metadata. The runtime boundary
 therefore models the complete nine-word packet rather than only two synthetic
-outputs. The exact semantic names of words 2..8 and the internal scan formula
-remain the active recovery frontier. tools/recovery/analyze_cpres_77.py pins
-the protocol shape, while disasm_cpres_sharc.py follows the handler itself.
+outputs.
+
+The collision-query formula is now partially recovered from the handler itself.
+Each fighter scan has a 3D broad phase: the query is compared with a fighter
+root center, and the 32-entry fine scan is skipped when the distance exceeds
+3.0f. The fine phase reads one collision-ball center XYZ and radius per entry,
+skips zero-radius entries, computes full 3D center distance, and tests
+distance <= query_radius + ball_radius. That exact overlap predicate is exposed
+portably by stf_copro_collision_sphere_overlap_bits(), including the penetration
+depth. The remaining 0x77 frontier is the exact accumulation/resolution that
+turns one or more overlaps into words 0/1 plus the semantic names and values of
+metadata words 2..8. tools/recovery/analyze_cpres_77.py now pins both broad- and
+fine-phase instruction packets, while disasm_cpres_sharc.py follows the handler
+itself.
 
 copro_down2 is a separate Geometry SHARC loader (GEO_CTL1/GEO_PROGRAM_START);
 it does not replace the cpres program loaded by copro_down.
