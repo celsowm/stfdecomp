@@ -96,6 +96,13 @@ typedef struct stf_crush_part_bookkeeping_result {
     uint32_t stored_record_word;
 } stf_crush_part_bookkeeping_result;
 
+typedef struct stf_crush_part_speed_tables {
+    uint32_t radial_profile_bits[6];
+    uint32_t vertical_profile_bits[6];
+    int16_t angle_offsets[16];
+    uint32_t jitter_bits[16];
+} stf_crush_part_speed_tables;
+
 typedef struct stf_crush_part_speed_input {
     uint8_t count;
     uint8_t body_height_83d;
@@ -106,6 +113,7 @@ typedef struct stf_crush_part_speed_input {
     uint8_t part_index;
     const uint8_t *records;
     size_t records_size;
+    const stf_crush_part_speed_tables *tables;
 } stf_crush_part_speed_input;
 
 typedef struct stf_crush_part_speed_request {
@@ -252,8 +260,10 @@ bool stf_crush_part_bookkeeping_model2(
 
 /*
  * Recover the CPU side of efc_crushpts_speed_cont up to the Model 2 math
- * commands 0x24/0x25. The resulting requests contain the exact angle,
- * radial magnitude and CPU-computed Y velocity sent/used for each record.
+ * commands 0x24/0x25. Table data comes from the original program image via
+ * stf_crush_part_speed_tables, rather than duplicated magic constants. The
+ * resulting requests contain the exact angle, radial magnitude and CPU-computed
+ * Y velocity sent/used for each record.
  */
 bool stf_crush_part_build_speed_requests_model2(
     const stf_crush_part_speed_input *input,
