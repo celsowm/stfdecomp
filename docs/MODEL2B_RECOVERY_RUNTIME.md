@@ -302,6 +302,21 @@ follow the actual SHARC program and collision/height-map data rather than infer
 a formula from the i960 consumer. tools/recovery/extract_cpres_program.py emits
 either the raw upload or one 48-bit SHARC packet per line for that analysis.
 
+The SHARC dispatch table is now decoded directly from the upload. Command 0x77
+dispatches to PM 0x20B1F. Its handler consumes four FIFO floats in order
+(X, Y, Z, radius), initializes per-query scratch state, scans the collision
+tables rooted at 0x30600 and 0x30700, and returns nine words from scratch slots
++0x1C, +0x1E, +0x1A, +0x19, +0x18, +0x13, +0x15, +0x14, and +0x16. The first
+two are the horizontal push-out values consumed by epc_oidasi; the projectile
+path preserves the remaining seven as collision metadata. The runtime boundary
+therefore models the complete nine-word packet rather than only two synthetic
+outputs. The exact semantic names of words 2..8 and the internal scan formula
+remain the active recovery frontier. tools/recovery/analyze_cpres_77.py pins
+the protocol shape, while disasm_cpres_sharc.py follows the handler itself.
+
+copro_down2 is a separate Geometry SHARC loader (GEO_CTL1/GEO_PROGRAM_START);
+it does not replace the cpres program loaded by copro_down.
+
 efc_crush_parts_set is recovered as a composed transaction over the single
 0x48-byte +0x88 slot. It reproduces the pre-spawn +0x1F40 part mark, the
 per-record delete_parts_weight call before slot/gate rejection, the bit-3/bit-1
