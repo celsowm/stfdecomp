@@ -113,6 +113,8 @@ static int test_speed_request_generation(void);
 static int test_speed_request_count_limit(void);
 static int test_composed_crush_part_set(void);
 static int test_composed_crush_part_gate_reject(void);
+static int test_floor_sound_selection(void);
+static int test_crush_part_lifecycle_flow(void);
 
 int main(void)
 {
@@ -134,6 +136,8 @@ int main(void)
     if (test_speed_request_count_limit() != 0) return 1;
     if (test_composed_crush_part_set() != 0) return 1;
     if (test_composed_crush_part_gate_reject() != 0) return 1;
+    if (test_floor_sound_selection() != 0) return 1;
+    if (test_crush_part_lifecycle_flow() != 0) return 1;
     return 0;
 }
 
@@ -782,6 +786,158 @@ static int test_composed_crush_part_gate_reject(void)
         ((uint16_t)slot[0x22u] |
          ((uint16_t)slot[0x23u] << 8u)) != UINT16_C(0)) {
         return 1;
+    }
+
+    return 0;
+}
+
+
+static int test_floor_sound_selection(void)
+{
+    stf_crush_part_floor_sound_result result;
+
+    if (!stf_crush_part_floor_sound_select_model2(
+            UINT32_C(0), &result
+        ) ||
+        result.request_sound) {
+        return 1;
+    }
+
+    if (!stf_crush_part_floor_sound_select_model2(
+            UINT32_C(0x50000000), &result
+        ) ||
+        !result.request_sound ||
+        result.table_index != UINT8_C(2)) {
+        return 2;
+    }
+
+    if (!stf_crush_part_floor_sound_select_model2(
+            UINT32_C(0xF0000000), &result
+        ) ||
+        !result.request_sound ||
+        result.table_index != UINT8_C(3)) {
+        return 3;
+    }
+
+    return 0;
+}
+
+static int test_crush_part_lifecycle_flow(void)
+{
+    uint8_t defender[0x2000];
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    uint8_t record[STF_CRUSH_PART_RECORD_SIZE];
+    int16_t spin_table[STF_CRUSH_PART_SPIN_TABLE_COUNT];
+    stf_crush_part_speed_input speed_input;
+    stf_crush_part_speed_request speed_request;
+    stf_crush_part_speed_result speed_result;
+    uint32_t velocity[1][3];
+    stf_crush_part_set_input set_input;
+    stf_crush_part_set_result set_result;
+    stf_crush_part_physics_env physics_env;
+    stf_crush_part_physics_result physics_result;
+    stf_crush_part_angle_result angle_result;
+    stf_crush_part_visibility_input visibility_input;
+    stf_crush_part_visibility_result visibility_result;
+    stf_crush_part_draw draw;
+    stf_crush_part_floor_sound_result sound_result;
+    unsigned i;
+
+    memset(defender, 0, sizeof(defender));
+    memset(slot, 0, sizeof(slot));
+    memset(record, 0, sizeof(record));
+    memset(spin_table, 0, sizeof(spin_table));
+    memset(&speed_input, 0, sizeof(speed_input));
+    memset(&set_input, 0, sizeof(set_input));
+    memset(&physics_env, 0, sizeof(physics_env));
+    memset(&visibility_input, 0, sizeof(visibility_input));
+
+    for (i = 0u; i < STF_CRUSH_PART_SPIN_TABLE_COUNT; ++i) {
+        spin_table[i] = INT16_C(32);
+    }
+
+    write_le16(record + 0x06u, INT16_C(321));
+    write_f32(record + 0x14u, 1.0f);
+    write_f32(record + 0x18u, 1.0f);
+    write_le32(record + 0x1Cu, UINT32_C(0xA0000000));
+    write_f32(record + 0x20u, -100.0f);
+
+    write_f32(defender + 0x1F4u, 0.0f);
+    write_f32(defender + 0x1F8u, 5.0f);
+    write_f32(defender + 0x1FCu, 0.0f);
+
+    speed_input.count = UINT8_C(1);
+    speed_input.body_height_83d = UINT8_C(60);
+    speed_input.profile_843 = UINT8_C(0);
+    speed_input.part_index = UINT8_C(0);
+    speed_input.records = record;
+    speed_input.records_size = sizeof(record);
+
+    if (!stf_crush_part_build_speed_requests_model2(
+            &speed_input, &speed_request, 1u, &speed_result
+        ) ||
+        speed_result.generated != UINT8_C(1) ||
+        !stf_crush_part_resolve_speed_model2(
+            &speed_request, fbits(0.5f), fbits(0.25f), velocity[0]
+        )) {
+        return 1;
+    }
+
+    set_input.records = record;
+    set_input.records_size = sizeof(record);
+    set_input.velocities = velocity;
+    set_input.velocity_count = 1u;
+    set_input.count = UINT8_C(1);
+    set_input.part_index = UINT8_C(0);
+    set_input.spin_table = spin_table;
+    set_input.spin_table_count = STF_CRUSH_PART_SPIN_TABLE_COUNT;
+
+    if (!stf_crush_part_set_model2(
+            defender, sizeof(defender),
+            slot, sizeof(slot),
+            &set_input, &set_result
+        ) ||
+        set_result.spawned_count != UINT8_C(1) ||
+        !set_result.spawn.spawned ||
+        set_result.spawn.object_id != UINT16_C(321)) {
+        return 2;
+    }
+
+    physics_env.gravity_bits = fbits(0.0f);
+    physics_env.stage_x_bits = fbits(100.0f);
+    physics_env.cage_height_bits = fbits(100.0f);
+
+    if (!stf_crush_part_update_position_model2(
+            slot, sizeof(slot), &physics_env, &physics_result
+        ) ||
+        physics_result.deactivated ||
+        !stf_crush_part_update_angles_model2(
+            slot, sizeof(slot), &angle_result
+        )) {
+        return 3;
+    }
+
+    visibility_input.camera_x_bits = fbits(0.0f);
+    visibility_input.camera_y_bits = fbits(0.0f);
+    visibility_input.camera_z_bits = fbits(10.0f);
+    visibility_input.radius_bits = fbits(1.0f);
+    visibility_input.focus_distance_bits = fbits(100.0f);
+
+    if (!stf_crush_part_visibility_mask_model2(
+            &visibility_input, &visibility_result
+        ) ||
+        visibility_result.mask != UINT32_C(0x0F) ||
+        !stf_crush_part_build_draw_model2(
+            slot, sizeof(slot), &draw
+        ) ||
+        !draw.active ||
+        draw.object_id != UINT16_C(321) ||
+        !stf_crush_part_floor_sound_select_model2(
+            read_le32(slot + 0x24u), &sound_result
+        ) ||
+        !sound_result.request_sound ||
+        sound_result.table_index != UINT8_C(3)) {
+        return 4;
     }
 
     return 0;
