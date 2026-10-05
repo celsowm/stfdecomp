@@ -98,4 +98,49 @@ bool stf_copro_collision_sphere_overlap_bits(
     uint32_t *penetration_bits
 );
 
+enum {
+    STF_COPRO_COMMAND77_FIGHTERS = 2u,
+    STF_COPRO_COMMAND77_BALLS = 32u,
+    STF_COPRO_COMMAND77_WORDS = 9u
+};
+
+typedef struct stf_copro_command77_ball {
+    uint32_t position_bits[3];
+    uint32_t radius_bits;
+    uint8_t unit_index;
+} stf_copro_command77_ball;
+
+typedef struct stf_copro_command77_collision_state {
+    stf_copro_command77_ball
+        balls[STF_COPRO_COMMAND77_FIGHTERS][STF_COPRO_COMMAND77_BALLS];
+} stf_copro_command77_collision_state;
+
+/*
+ * Semantic recovery of cpres1 command 0x77 (Fn_parts_oidasi).
+ *
+ * Inputs are the loose sphere XYZ/radius plus the current 32 world-space
+ * collision balls for each fighter. Outputs preserve the firmware FIFO order:
+ *   [0] push X (float bits)
+ *   [1] push Z (float bits)
+ *   [2] last fighter hit (0/1, UINT32_MAX when none)
+ *   [3] last ball hit
+ *   [4] last unit hit
+ *   [5] P0 ball mask
+ *   [6] P0 unit mask
+ *   [7] P1 ball mask
+ *   [8] P1 unit mask
+ *
+ * The firmware's non-obvious push factor is semantically
+ * 1 - 2*distance/(query_radius+ball_radius), accumulated for every overlap.
+ * The real SHARC obtains the ratio through RECIPS/Newton steps; this helper
+ * models the recovered operation with host IEEE arithmetic and therefore does
+ * not claim bit-identical SHARC rounding.
+ */
+bool stf_copro_command77_semantic_bits(
+    const uint32_t query_xyz_bits[3],
+    uint32_t query_radius_bits,
+    const stf_copro_command77_collision_state *state,
+    uint32_t output_words[STF_COPRO_COMMAND77_WORDS]
+);
+
 #endif
