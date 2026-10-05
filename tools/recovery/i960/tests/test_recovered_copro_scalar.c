@@ -128,5 +128,49 @@ int main(void)
         return 14;
     }
 
+    {
+        uint32_t matrix[12] = {
+            float_to_bits(1.0f), float_to_bits(0.0f), float_to_bits(0.0f),
+            float_to_bits(0.0f), float_to_bits(1.0f), float_to_bits(0.0f),
+            float_to_bits(0.0f), float_to_bits(0.0f), float_to_bits(1.0f),
+            float_to_bits(10.0f), float_to_bits(20.0f), float_to_bits(30.0f)
+        };
+        uint32_t input[3] = {
+            float_to_bits(1.0f),
+            float_to_bits(2.0f),
+            float_to_bits(3.0f)
+        };
+        uint32_t output[3];
+
+        if (!stf_copro_scalar_transform_point_bits(matrix, input, output) ||
+            !nearf_value(bits_to_float(output[0]), 11.0f) ||
+            !nearf_value(bits_to_float(output[1]), 22.0f) ||
+            !nearf_value(bits_to_float(output[2]), 33.0f)) {
+            return 15;
+        }
+    }
+
+    {
+        uint32_t matrix[12] = {
+            float_to_bits(0.0f), float_to_bits(0.0f), float_to_bits(-1.0f),
+            float_to_bits(0.0f), float_to_bits(1.0f), float_to_bits(0.0f),
+            float_to_bits(1.0f), float_to_bits(0.0f), float_to_bits(0.0f),
+            float_to_bits(0.0f), float_to_bits(0.0f), float_to_bits(0.0f)
+        };
+        uint32_t input[3] = {
+            float_to_bits(2.0f),
+            float_to_bits(3.0f),
+            float_to_bits(4.0f)
+        };
+        uint32_t output[3];
+
+        if (!stf_copro_scalar_transform_point_bits(matrix, input, output) ||
+            !nearf_value(bits_to_float(output[0]), 4.0f) ||
+            !nearf_value(bits_to_float(output[1]), 3.0f) ||
+            !nearf_value(bits_to_float(output[2]), -2.0f)) {
+            return 16;
+        }
+    }
+
     return 0;
 }
