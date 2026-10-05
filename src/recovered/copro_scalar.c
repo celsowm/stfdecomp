@@ -122,3 +122,51 @@ bool stf_copro_scalar_rotate_y_xz_bits(
     *out_z_bits = float_to_bits(out_z);
     return true;
 }
+
+
+bool stf_copro_scalar_transform_point_bits(
+    const uint32_t matrix_bits[12],
+    const uint32_t input_bits[3],
+    uint32_t output_bits[3]
+)
+{
+    float m[12];
+    float x;
+    float y;
+    float z;
+    float out_x;
+    float out_y;
+    float out_z;
+    size_t i;
+
+    if (matrix_bits == NULL || input_bits == NULL || output_bits == NULL) {
+        return false;
+    }
+
+    for (i = 0u; i < 12u; ++i) {
+        m[i] = bits_to_float(matrix_bits[i]);
+        if (!isfinite(m[i])) {
+            return false;
+        }
+    }
+
+    x = bits_to_float(input_bits[0]);
+    y = bits_to_float(input_bits[1]);
+    z = bits_to_float(input_bits[2]);
+    if (!isfinite(x) || !isfinite(y) || !isfinite(z)) {
+        return false;
+    }
+
+    out_x = x * m[0] + y * m[3] + z * m[6] + m[9];
+    out_y = x * m[1] + y * m[4] + z * m[7] + m[10];
+    out_z = x * m[2] + y * m[5] + z * m[8] + m[11];
+
+    if (!isfinite(out_x) || !isfinite(out_y) || !isfinite(out_z)) {
+        return false;
+    }
+
+    output_bits[0] = float_to_bits(out_x);
+    output_bits[1] = float_to_bits(out_y);
+    output_bits[2] = float_to_bits(out_z);
+    return true;
+}
