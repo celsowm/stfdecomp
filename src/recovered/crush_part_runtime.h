@@ -275,6 +275,16 @@ bool stf_crush_part_resolve_speed_model2(
 );
 
 /*
+ * Resolve the same 0x24/0x25 pair through the already recovered cpres1
+ * scaled-trigonometric semantics, removing the synthetic backend-output
+ * dependency from normal portable gameplay execution.
+ */
+bool stf_crush_part_resolve_speed_semantic_model2(
+    const stf_crush_part_speed_request *request,
+    uint32_t velocity_bits[3]
+);
+
+/*
  * Compose efc_crush_parts_set over the single +0x88 slot. This includes the
  * pre-spawn +0x1F40 mark, per-record delete_parts_weight calls, the original
  * bit-3/bit-1 spawn gate, slot population, and post-loop bookkeeping.
