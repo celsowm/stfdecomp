@@ -287,40 +287,42 @@ static int test_dormant_visibility_deactivation(void)
     uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
     stf_crush_part_physics_env env;
     stf_crush_part_physics_result result;
-    stf_crush_part_visibility_input visibility_input;
     stf_crush_part_visibility_result visibility;
+    uint32_t camera_matrix[12];
+    size_t i;
 
     memset(slot, 0, sizeof(slot));
     memset(&env, 0, sizeof(env));
-    memset(&visibility_input, 0, sizeof(visibility_input));
+    memset(camera_matrix, 0, sizeof(camera_matrix));
 
-    visibility_input.camera_x_bits = fbits(30.0f);
-    visibility_input.camera_y_bits = fbits(30.0f);
-    visibility_input.camera_z_bits = fbits(10.0f);
-    visibility_input.radius_bits = fbits(1.0f);
-    visibility_input.focus_distance_bits = fbits(100.0f);
-
-    if (!stf_crush_part_visibility_mask_model2(
-            &visibility_input, &visibility
-        ) ||
-        visibility.mask != UINT32_C(0)) {
-        return 1;
+    for (i = 0u; i < 12u; ++i) {
+        camera_matrix[i] = fbits(0.0f);
     }
+    camera_matrix[0] = fbits(1.0f);
+    camera_matrix[4] = fbits(1.0f);
+    camera_matrix[8] = fbits(1.0f);
+    camera_matrix[11] = fbits(10.0f);
 
+    write_f32(slot + 0x00u, 30.0f);
+    write_f32(slot + 0x04u, 30.0f);
+    write_f32(slot + 0x08u, 0.0f);
+    write_f32(slot + 0x18u, 1.0f);
     write_le16(slot + 0x22u, INT16_C(9));
     write_le32(slot + 0x24u,
                (UINT32_C(1) << 7u) | (UINT32_C(1) << 3u));
     env.effect_active_914 = UINT32_C(0);
-    env.visibility_mask = visibility.mask;
 
-    if (!stf_crush_part_update_position_model2(
-            slot, sizeof(slot), &env, &result
+    if (!stf_crush_part_update_position_with_visibility_model2(
+            slot, sizeof(slot), &env,
+            camera_matrix, fbits(100.0f),
+            &result, &visibility
         ) ||
+        visibility.mask != UINT32_C(0) ||
         !result.deactivated ||
         slot[0x22u] != UINT8_C(0) ||
         slot[0x23u] != UINT8_C(0) ||
         result.flags != UINT32_C(0)) {
-        return 2;
+        return 1;
     }
 
     return 0;
