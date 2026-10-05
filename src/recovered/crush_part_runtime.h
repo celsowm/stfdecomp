@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "copro_scalar.h"
+
 enum {
     STF_CRUSH_PART_SLOT_SIZE = 0x48u,
     STF_CRUSH_PART_RECORD_SIZE = 0x28u,
@@ -90,6 +92,7 @@ typedef struct stf_crush_part_frame_input {
     stf_crush_part_physics_env physics;
     const uint32_t *camera_matrix_bits;
     uint32_t focus_distance_bits;
+    const stf_copro_command77_collision_state *command77_collision;
 } stf_crush_part_frame_input;
 
 typedef struct stf_crush_part_frame_result {
