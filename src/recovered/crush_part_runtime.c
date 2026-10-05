@@ -40,22 +40,6 @@ static int16_t add_wrap16(int16_t a, int32_t b)
     return (int16_t)((uint16_t)a + (uint16_t)b);
 }
 
-static int16_t approach_axis(int16_t current, int16_t target, int32_t step)
-{
-    const int32_t delta = (int32_t)target - (int32_t)current;
-
-    if (target == 0 || target == current) {
-        return current;
-    }
-    if (delta > step) {
-        return add_wrap16(current, -step);
-    }
-    if (delta < -step) {
-        return add_wrap16(current, step);
-    }
-    return target;
-}
-
 bool stf_crush_part_update_angles_model2(
     uint8_t *slot,
     size_t slot_size,
@@ -180,7 +164,6 @@ bool stf_crush_part_build_draw_model2(
 }
 
 
-#include <string.h>
 
 static float bits_to_float(uint32_t bits)
 {
