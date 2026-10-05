@@ -194,6 +194,60 @@ static void write_f32(uint8_t *p, float value)
     p[3] = (uint8_t)(bits >> 24u);
 }
 
+bool stf_crush_part_oidasi_model2(
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_oidasi_input *input,
+    stf_crush_part_oidasi_result *result
+)
+{
+    stf_crush_part_oidasi_result local;
+    float x;
+    float y;
+    float z;
+    float dx;
+    float dz;
+    const float scale = bits_to_float(UINT32_C(0x3E23D70A));
+
+    if (slot == NULL || input == NULL || result == NULL ||
+        slot_size < STF_CRUSH_PART_SLOT_SIZE) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    x = read_f32(slot + 0x00u);
+    y = read_f32(slot + 0x04u);
+    z = read_f32(slot + 0x08u);
+
+    if (input->fighter0_parts_locked || input->fighter1_parts_locked) {
+        local.skipped = true;
+        local.position_bits[0] = read_le32(slot + 0x00u);
+        local.position_bits[1] = read_le32(slot + 0x04u);
+        local.position_bits[2] = read_le32(slot + 0x08u);
+        *result = local;
+        return true;
+    }
+
+    dx = bits_to_float(input->command77_output0_bits);
+    dz = bits_to_float(input->command77_output1_bits);
+    if (!isfinite(dx) || !isfinite(dz)) {
+        return false;
+    }
+
+    x += dx * scale;
+    z += dz * scale;
+    write_f32(slot + 0x00u, x);
+    write_f32(slot + 0x08u, z);
+
+    local.applied = true;
+    local.position_bits[0] = read_le32(slot + 0x00u);
+    local.position_bits[1] = read_le32(slot + 0x04u);
+    local.position_bits[2] = read_le32(slot + 0x08u);
+    *result = local;
+    return true;
+}
+
+
 bool stf_crush_part_update_position_model2(
     uint8_t *slot,
     size_t slot_size,
