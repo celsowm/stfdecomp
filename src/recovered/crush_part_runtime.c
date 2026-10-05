@@ -489,7 +489,7 @@ bool stf_crush_part_spawn_model2(
     write_le32(slot + 0x0Cu, input->velocity[0]);
     write_le32(slot + 0x10u, input->velocity[1]);
     write_le32(slot + 0x14u, input->velocity[2]);
-    write_le32(slot + 0x18u, input->radius_bits);
+    write_le32(slot + 0x18u, read_le32(record + 0x18u));
 
     write_le16(slot + 0x32u, (int16_t)input->part_index);
     write_le16(slot + 0x30u, (int16_t)input->record_index);
