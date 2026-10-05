@@ -223,6 +223,23 @@ bool stf_crush_part_update_position_model2(
     stf_crush_part_physics_result *result
 );
 
+
+/*
+ * Compose epc_parts_pos_calc's dormant visibility path with sub_3464C.
+ * For bit-7/bit-3 parts with effect_active_914 == 0, the wrapper transforms
+ * the slot's current XYZ through the camera matrix, derives 0x50A368, and
+ * feeds that mask into the recovered position/cull logic.
+ */
+bool stf_crush_part_update_position_with_visibility_model2(
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_physics_env *env,
+    const uint32_t camera_matrix_bits[12],
+    uint32_t focus_distance_bits,
+    stf_crush_part_physics_result *result,
+    stf_crush_part_visibility_result *visibility
+);
+
 /*
  * Recover the arithmetic after sub_3464C's Model 2 transform command.
  *
