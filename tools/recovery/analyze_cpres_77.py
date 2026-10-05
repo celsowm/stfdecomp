@@ -27,13 +27,13 @@ INPUT_LOADS = {
 OUTPUT_SCRATCH = (
     (0, 0x1C, "push_x"),
     (1, 0x1E, "push_z"),
-    (2, 0x1A, "meta_1a"),
-    (3, 0x19, "meta_19"),
-    (4, 0x18, "meta_18"),
-    (5, 0x13, "meta_13"),
-    (6, 0x15, "meta_15"),
-    (7, 0x14, "meta_14"),
-    (8, 0x16, "meta_16"),
+    (2, 0x1A, "last_fighter"),
+    (3, 0x19, "last_ball"),
+    (4, 0x18, "last_unit"),
+    (5, 0x13, "p0_ball_mask"),
+    (6, 0x15, "p0_unit_mask"),
+    (7, 0x14, "p1_ball_mask"),
+    (8, 0x16, "p1_unit_mask"),
 )
 
 
@@ -144,7 +144,12 @@ def main() -> int:
 
     print(
         "host use: epc_oidasi scales word[0]/word[1] by 0.16 and "
-        "adds them to X/Z; projectile code preserves words[2..8]."
+        "adds them to X/Z; projectile code consumes the typed hit metadata."
+    )
+    print(
+        "push resolution: sum dx/dz * (1 - 2*distance/(query_radius+ball_radius)) "
+        "for every overlap; the factor-of-two is the observed SHARC register "
+        "reuse behavior, not a geometric simplification."
     )
     return 0
 
