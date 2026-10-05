@@ -153,12 +153,16 @@ def decode(opcode: int, pc: int) -> str:
         comp = decode_compute(opcode & 0x7FFFFF)
         return f"RTS {cond_name(opcode)}" + (f"; {comp}" if comp else "")
     if top in (0x0C, 0x0D):
-        return (
-            f"DO_COUNTER target=0x{pc + ((opcode & 0xFFFFFF) if "
-            f"(opcode & 0x800000) == 0 else (opcode & 0xFFFFFF)-0x1000000):05X}"
-        )
+        raw = opcode & 0xFFFFFF
+        if raw & 0x800000:
+            raw -= 0x1000000
+        count = (opcode >> 24) & 0xFFFF
+        return f"DO_COUNTER count=0x{count:X} target=0x{pc + raw:05X}"
     if top == 0x0E:
-        return f"DO_UNTIL target=0x{pc + (opcode & 0xFFFFFF):05X}"
+        raw = opcode & 0xFFFFFF
+        if raw & 0x800000:
+            raw -= 0x1000000
+        return f"DO_UNTIL target=0x{pc + raw:05X}"
     if 0x40 <= top <= 0x5F:
         cond = cond_name(opcode)
         g = (opcode >> 32) & 1
