@@ -285,9 +285,10 @@ The active-slot body of efc_parts_cont is now composed in its original order:
 epc_oidasi, epc_parts_pos_calc/sub_3464C, then epc_parts_ang_calc. epc_oidasi's
 CPU-visible behavior is recovered exactly: either fighter's +0x7D2 bit 0 skips
 the adjustment; otherwise the first two outputs from cpres command 0x77 are
-scaled by 0.16 and added to X and Z respectively, leaving Y untouched. Command
-0x77 itself remains an explicit coprocessor boundary because the routine emits
-nine result words and its internal geometric meaning is not yet proven.
+scaled by 0.16 and added to X and Z respectively, leaving Y untouched. The
+command-0x77 collision query is now recovered semantically too, so normal
+portable frame execution derives those outputs from typed fighter collision
+balls instead of receiving them from an external coprocessor stub.
 
 The boundary is now anchored to the DSP image itself. Model 2B's boot loader
 uploads 0x3A0E 16-bit words (0x741C bytes, 4954 48-bit SHARC packets) starting
@@ -297,9 +298,9 @@ relocates the header by +0x138 to 0xB6444 and the actual upload starts at
 f86acf80cca9a82cbefb6c8b8f38e4e3a5862cb7b409058075823fea8267fe4d.
 The two host-side 0x3B807777 call words are pinned at 0x31E28 (epc_oidasi) and
 0x8AFA8 (the projectile collision query). The associated mpr-19015.29/.30
-copro_data image is also reconstructed and hash-pinned, so future 0x77 work can
-follow the actual SHARC program and collision/height-map data rather than infer
-a formula from the i960 consumer. tools/recovery/extract_cpres_program.py emits
+copro_data image is also reconstructed and hash-pinned, so the recovered 0x77
+semantics remain anchored to the actual SHARC program and collision data rather
+than inferred solely from the i960 consumer. tools/recovery/extract_cpres_program.py emits
 either the raw upload or one 48-bit SHARC packet per line for that analysis.
 
 The SHARC dispatch table is now decoded directly from the upload. Command 0x77
