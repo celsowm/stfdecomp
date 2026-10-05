@@ -154,6 +154,21 @@ typedef struct stf_crush_part_set_result {
     stf_crush_part_bookkeeping_result bookkeeping;
 } stf_crush_part_set_result;
 
+typedef struct stf_crush_part_put_input {
+    stf_crush_part_speed_input speed;
+    uint8_t record_index;
+    uint8_t also_mode;
+    uint8_t also_sub_mode;
+    const int16_t *spin_table;
+    size_t spin_table_count;
+} stf_crush_part_put_input;
+
+typedef struct stf_crush_part_put_result {
+    stf_crush_part_speed_result speed;
+    stf_crush_part_set_result set;
+    uint32_t velocities[STF_CRUSH_PART_MAX_SPEEDS][3];
+} stf_crush_part_put_result;
+
 typedef struct stf_crush_part_floor_sound_result {
     bool request_sound;
     uint8_t table_index;
@@ -306,6 +321,21 @@ bool stf_crush_part_set_model2(
     size_t slot_size,
     const stf_crush_part_set_input *input,
     stf_crush_part_set_result *result
+);
+
+
+/*
+ * Compose efc_crush_parts_put_cont: build each speed request, execute the
+ * recovered 0x24/0x25 trig semantics, then feed the resulting triples into
+ * efc_crush_parts_set as one portable transaction.
+ */
+bool stf_crush_part_put_model2(
+    uint8_t *defender,
+    size_t defender_size,
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_put_input *input,
+    stf_crush_part_put_result *result
 );
 
 /* Recover sub_3FA78's scanbit selection into no_sfx_or_sd_punch_k. */
