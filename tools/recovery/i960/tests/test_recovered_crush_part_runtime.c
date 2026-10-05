@@ -234,11 +234,13 @@ static int test_composed_frame_transaction(void)
     uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
     stf_crush_part_frame_input input;
     stf_crush_part_frame_result result;
+    stf_copro_command77_collision_state collision;
     uint32_t camera_matrix[12];
     size_t i;
 
     memset(slot, 0, sizeof(slot));
     memset(&input, 0, sizeof(input));
+    memset(&collision, 0, sizeof(collision));
     memset(camera_matrix, 0, sizeof(camera_matrix));
 
     for (i = 0u; i < 12u; ++i) {
@@ -261,8 +263,17 @@ static int test_composed_frame_transaction(void)
     write_le16(slot + 0x2Eu, INT16_C(32));
     write_le32(slot + 0x24u, UINT32_C(1) << 12u);
 
-    input.oidasi.command77.words[0] = fbits(10.0f);
-    input.oidasi.command77.words[1] = fbits(-5.0f);
+    collision.balls[0][13].position_bits[0] = fbits(1.0f);
+    collision.balls[0][13].position_bits[1] = fbits(5.0f);
+    collision.balls[0][13].position_bits[2] = fbits(2.0f);
+    collision.balls[0][0].position_bits[0] = fbits(1.5f);
+    collision.balls[0][0].position_bits[1] = fbits(5.0f);
+    collision.balls[0][0].position_bits[2] = fbits(2.0f);
+    collision.balls[0][0].radius_bits = fbits(1.0f);
+    collision.balls[0][0].unit_index = UINT8_C(4);
+    collision.balls[1][13].position_bits[0] = fbits(20.0f);
+
+    input.command77_collision = &collision;
     input.physics.gravity_bits = fbits(0.0f);
     input.physics.stage_x_bits = fbits(100.0f);
     input.physics.cage_height_bits = fbits(100.0f);
@@ -275,10 +286,10 @@ static int test_composed_frame_transaction(void)
         !result.oidasi.applied ||
         result.physics.deactivated ||
         !result.angle_updated ||
-        read_f32(slot + 0x00u) < 2.599f ||
-        read_f32(slot + 0x00u) > 2.601f ||
-        read_f32(slot + 0x08u) < 1.199f ||
-        read_f32(slot + 0x08u) > 1.201f ||
+        read_f32(slot + 0x00u) < 1.039f ||
+        read_f32(slot + 0x00u) > 1.041f ||
+        read_f32(slot + 0x08u) < 1.999f ||
+        read_f32(slot + 0x08u) > 2.001f ||
         result.angles.angle_x != INT16_C(32) ||
         result.angles.angle_y != INT16_C(32)) {
         return 1;
