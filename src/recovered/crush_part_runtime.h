@@ -56,7 +56,6 @@ typedef struct stf_crush_part_visibility_input {
     uint32_t camera_x_bits;
     uint32_t camera_y_bits;
     uint32_t camera_z_bits;
-    uint32_t radius_bits;
     uint32_t focus_distance_bits;
 } stf_crush_part_visibility_input;
 
@@ -120,6 +119,32 @@ typedef struct stf_crush_part_speed_result {
     bool count_rejected;
     uint8_t generated;
 } stf_crush_part_speed_result;
+
+typedef struct stf_crush_part_set_input {
+    const uint8_t *records;
+    size_t records_size;
+    const uint32_t (*velocities)[3];
+    size_t velocity_count;
+    uint8_t count;
+    uint8_t part_index;
+    uint8_t record_index;
+    uint32_t effect_active_914;
+    uint8_t also_mode;
+    uint8_t also_sub_mode;
+    const int16_t *spin_table;
+    size_t spin_table_count;
+} stf_crush_part_set_input;
+
+typedef struct stf_crush_part_set_result {
+    bool marked_part_1f40;
+    bool spawn_gate_rejected;
+    bool slot_occupied_break;
+    uint8_t iterations_entered;
+    uint8_t weights_applied;
+    uint8_t spawned_count;
+    stf_crush_part_spawn_result spawn;
+    stf_crush_part_bookkeeping_result bookkeeping;
+} stf_crush_part_set_result;
 
 /*
  * Recover epc_parts_ang_calc for the 0x48-byte part slot at
@@ -242,6 +267,20 @@ bool stf_crush_part_resolve_speed_model2(
     uint32_t command24_output_bits,
     uint32_t command25_output_bits,
     uint32_t velocity_bits[3]
+);
+
+/*
+ * Compose efc_crush_parts_set over the single +0x88 slot. This includes the
+ * pre-spawn +0x1F40 mark, per-record delete_parts_weight calls, the original
+ * bit-3/bit-1 spawn gate, slot population, and post-loop bookkeeping.
+ */
+bool stf_crush_part_set_model2(
+    uint8_t *defender,
+    size_t defender_size,
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_set_input *input,
+    stf_crush_part_set_result *result
 );
 
 #endif
