@@ -106,6 +106,7 @@ static int test_draw_extraction(void)
     return 0;
 }
 
+static int test_oidasi_correction(void);
 static int test_position_air_integration(void);
 static int test_floor_bounce_and_stop(void);
 static int test_wall_reflection(void);
@@ -131,6 +132,7 @@ int main(void)
     if (test_free_spin_branch() != 0) return 1;
     if (test_target_approach_branch() != 0) return 1;
     if (test_draw_extraction() != 0) return 1;
+    if (test_oidasi_correction() != 0) return 1;
     if (test_position_air_integration() != 0) return 1;
     if (test_floor_bounce_and_stop() != 0) return 1;
     if (test_wall_reflection() != 0) return 1;
@@ -177,6 +179,53 @@ static void write_f32(uint8_t *p, float value)
 {
     write_le32(p, fbits(value));
 }
+
+static int test_oidasi_correction(void)
+{
+    uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
+    stf_crush_part_oidasi_input input;
+    stf_crush_part_oidasi_result result;
+
+    memset(slot, 0, sizeof(slot));
+    memset(&input, 0, sizeof(input));
+
+    write_f32(slot + 0x00u, 1.0f);
+    write_f32(slot + 0x04u, 2.0f);
+    write_f32(slot + 0x08u, 3.0f);
+    write_f32(slot + 0x18u, 4.0f);
+
+    input.command77_output0_bits = fbits(10.0f);
+    input.command77_output1_bits = fbits(-5.0f);
+
+    if (!stf_crush_part_oidasi_model2(
+            slot, sizeof(slot), &input, &result
+        ) ||
+        result.skipped ||
+        !result.applied ||
+        read_f32(slot + 0x00u) < 2.599f ||
+        read_f32(slot + 0x00u) > 2.601f ||
+        read_f32(slot + 0x04u) != 2.0f ||
+        read_f32(slot + 0x08u) < 2.199f ||
+        read_f32(slot + 0x08u) > 2.201f) {
+        return 1;
+    }
+
+    input.fighter0_parts_locked = true;
+    if (!stf_crush_part_oidasi_model2(
+            slot, sizeof(slot), &input, &result
+        ) ||
+        !result.skipped ||
+        result.applied ||
+        read_f32(slot + 0x00u) < 2.599f ||
+        read_f32(slot + 0x00u) > 2.601f ||
+        read_f32(slot + 0x08u) < 2.199f ||
+        read_f32(slot + 0x08u) > 2.201f) {
+        return 2;
+    }
+
+    return 0;
+}
+
 
 static int test_position_air_integration(void)
 {
