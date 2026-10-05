@@ -54,8 +54,21 @@ typedef struct stf_crush_part_physics_result {
     uint32_t flags;
 } stf_crush_part_physics_result;
 
+enum {
+    STF_CPRES77_PUSH_X = 0u,
+    STF_CPRES77_PUSH_Z = 1u,
+    STF_CPRES77_LAST_FIGHTER = 2u,
+    STF_CPRES77_LAST_BALL = 3u,
+    STF_CPRES77_LAST_UNIT = 4u,
+    STF_CPRES77_P0_BALL_MASK = 5u,
+    STF_CPRES77_P0_UNIT_MASK = 6u,
+    STF_CPRES77_P1_BALL_MASK = 7u,
+    STF_CPRES77_P1_UNIT_MASK = 8u,
+    STF_CPRES77_WORD_COUNT = 9u
+};
+
 typedef struct stf_cpres_command77_result {
-    uint32_t words[9];
+    uint32_t words[STF_CPRES77_WORD_COUNT];
 } stf_cpres_command77_result;
 
 typedef struct stf_crush_part_oidasi_input {
