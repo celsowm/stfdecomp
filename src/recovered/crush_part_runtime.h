@@ -6,7 +6,10 @@
 #include <stdint.h>
 
 enum {
-    STF_CRUSH_PART_SLOT_SIZE = 0x48u
+    STF_CRUSH_PART_SLOT_SIZE = 0x48u,
+    STF_CRUSH_PART_RECORD_SIZE = 0x28u,
+    STF_CRUSH_PART_SPEED_SIZE = 0x0Cu,
+    STF_CRUSH_PART_SPIN_TABLE_COUNT = 16u
 };
 
 typedef struct stf_crush_part_angle_result {
@@ -64,6 +67,35 @@ typedef struct stf_crush_part_visibility_result {
     bool behind_camera;
 } stf_crush_part_visibility_result;
 
+typedef struct stf_crush_part_spawn_input {
+    const uint8_t *record;
+    size_t record_size;
+    uint32_t base_position[3];
+    uint32_t velocity[3];
+    uint32_t radius_bits;
+    uint8_t part_index;
+    uint8_t record_index;
+    uint8_t fighter_flags_byte;
+    int16_t fighter_angle_y;
+    const int16_t *spin_table;
+    size_t spin_table_count;
+} stf_crush_part_spawn_input;
+
+typedef struct stf_crush_part_spawn_result {
+    bool slot_was_free;
+    bool spawned;
+    uint8_t spin_index;
+    int16_t spin_value;
+    uint32_t flags;
+    uint16_t object_id;
+} stf_crush_part_spawn_result;
+
+typedef struct stf_crush_part_bookkeeping_result {
+    bool applied;
+    uint8_t history_lane;
+    uint32_t stored_record_word;
+} stf_crush_part_bookkeeping_result;
+
 /*
  * Recover epc_parts_ang_calc for the 0x48-byte part slot at
  * mod_fa_effect+0x88.
@@ -117,6 +149,50 @@ bool stf_crush_part_update_position_model2(
 bool stf_crush_part_visibility_mask_model2(
     const stf_crush_part_visibility_input *input,
     stf_crush_part_visibility_result *result
+);
+
+/* Recover the deterministic slot population performed by efc_crush_parts_set. */
+bool stf_crush_part_spawn_model2(
+    uint8_t *slot,
+    size_t slot_size,
+    const stf_crush_part_spawn_input *input,
+    stf_crush_part_spawn_result *result
+);
+
+/* Mode gate used by delete_parts_weight. */
+bool stf_crush_part_should_delete_weight_model2(
+    uint8_t also_mode,
+    uint8_t also_sub_mode
+);
+
+/*
+ * Apply delete_parts_weight using record +0x14 as a float value:
+ * defender +0x7D8 -= value; defender +0x5D8 = +0x7DC + +0x7D8.
+ */
+bool stf_crush_part_delete_weight_model2(
+    uint8_t *defender,
+    size_t defender_size,
+    const uint8_t *record,
+    size_t record_size,
+    uint8_t also_mode,
+    uint8_t also_sub_mode,
+    bool *applied
+);
+
+/*
+ * Recover the post-spawn persistence bookkeeping from efc_crush_parts_set.
+ * The mode gate stores signed record +0x04 at defender +0x40[part_index] and
+ * inserts part_index into the first free lane among +0x1F60/62/64/66.
+ */
+bool stf_crush_part_bookkeeping_model2(
+    uint8_t *defender,
+    size_t defender_size,
+    const uint8_t *record,
+    size_t record_size,
+    uint8_t part_index,
+    uint8_t also_mode,
+    uint8_t also_sub_mode,
+    stf_crush_part_bookkeeping_result *result
 );
 
 #endif
