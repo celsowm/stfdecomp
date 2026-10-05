@@ -1,4 +1,5 @@
 #include "crush_part_runtime.h"
+#include "copro_scalar.h"
 
 #include <string.h>
 
@@ -754,6 +755,39 @@ bool stf_crush_part_resolve_speed_model2(
     velocity_bits[1] = request->vertical_speed_bits;
     velocity_bits[2] = command25_output_bits;
     return true;
+}
+
+bool stf_crush_part_resolve_speed_semantic_model2(
+    const stf_crush_part_speed_request *request,
+    uint32_t velocity_bits[3]
+)
+{
+    uint32_t command24_output_bits;
+    uint32_t command25_output_bits;
+
+    if (request == NULL || velocity_bits == NULL) {
+        return false;
+    }
+
+    if (!stf_copro_scalar_sin_scale_bits(
+            request->angle,
+            request->radial_speed_bits,
+            &command24_output_bits
+        ) ||
+        !stf_copro_scalar_cos_scale_bits(
+            request->angle,
+            request->radial_speed_bits,
+            &command25_output_bits
+        )) {
+        return false;
+    }
+
+    return stf_crush_part_resolve_speed_model2(
+        request,
+        command24_output_bits,
+        command25_output_bits,
+        velocity_bits
+    );
 }
 
 
