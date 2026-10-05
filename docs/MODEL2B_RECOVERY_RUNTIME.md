@@ -274,6 +274,13 @@ sfight's 0x34A4C..0x34ADC block. validate_schamp_rom.py pins both the full
 block SHA-256 and all decoded entries, so the cross-title address is evidence
 from the supplied program ROM rather than an inferred relocation.
 
+The outer efc_crush_parts_put_cont wrapper is composed now as well. The
+portable transaction builds all speed requests, executes the recovered
+0x24/0x25 scalar trig operations, materializes the velocity triples, and feeds
+them directly into efc_crush_parts_set. The Sonic Championship validator also
+pins the corresponding relocated program corridor at 0x32174..0x32564,
+covering the put wrapper, set transaction, and speed generator together.
+
 efc_crush_parts_set is recovered as a composed transaction over the single
 0x48-byte +0x88 slot. It reproduces the pre-spawn +0x1F40 part mark, the
 per-record delete_parts_weight call before slot/gate rejection, the bit-3/bit-1
