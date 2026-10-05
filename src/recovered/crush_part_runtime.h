@@ -146,6 +146,11 @@ typedef struct stf_crush_part_set_result {
     stf_crush_part_bookkeeping_result bookkeeping;
 } stf_crush_part_set_result;
 
+typedef struct stf_crush_part_floor_sound_result {
+    bool request_sound;
+    uint8_t table_index;
+} stf_crush_part_floor_sound_result;
+
 /*
  * Recover epc_parts_ang_calc for the 0x48-byte part slot at
  * mod_fa_effect+0x88.
@@ -281,6 +286,12 @@ bool stf_crush_part_set_model2(
     size_t slot_size,
     const stf_crush_part_set_input *input,
     stf_crush_part_set_result *result
+);
+
+/* Recover sub_3FA78's scanbit selection into no_sfx_or_sd_punch_k. */
+bool stf_crush_part_floor_sound_select_model2(
+    uint32_t slot_flags,
+    stf_crush_part_floor_sound_result *result
 );
 
 #endif
