@@ -68,6 +68,13 @@ typedef struct stf_crush_part_visibility_result {
     bool behind_camera;
 } stf_crush_part_visibility_result;
 
+typedef struct stf_crush_part_visibility_world_input {
+    uint32_t world_position_bits[3];
+    uint32_t radius_bits;
+    uint32_t focus_distance_bits;
+    uint32_t camera_matrix_bits[12];
+} stf_crush_part_visibility_world_input;
+
 typedef struct stf_crush_part_spawn_input {
     const uint8_t *record;
     size_t record_size;
@@ -219,13 +226,24 @@ bool stf_crush_part_update_position_model2(
 /*
  * Recover the arithmetic after sub_3464C's Model 2 transform command.
  *
- * The original first transforms 0x50A314 through the graphics command path;
- * this helper intentionally starts from the resulting camera-space XYZ. It
- * then applies focus-distance perspective projection and recreates the four
- * visibility bits written to 0x50A368.
+ * This lower-level helper starts from the camera-space XYZ produced by command
+ * 0x29, then applies focus-distance perspective projection and recreates the
+ * four visibility bits written to 0x50A368. Normal portable execution can use
+ * stf_crush_part_visibility_from_matrix_model2 to include the transform.
  */
 bool stf_crush_part_visibility_mask_model2(
     const stf_crush_part_visibility_input *input,
+    stf_crush_part_visibility_result *result
+);
+
+
+/*
+ * Recover sub_3464C across command 0x29 as well: transform the world-space
+ * point by the caller-supplied current Model 2 3x4 camera matrix, then execute
+ * the exact perspective/edge-mask arithmetic.
+ */
+bool stf_crush_part_visibility_from_matrix_model2(
+    const stf_crush_part_visibility_world_input *input,
     stf_crush_part_visibility_result *result
 );
 
