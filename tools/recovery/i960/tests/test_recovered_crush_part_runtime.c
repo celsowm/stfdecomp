@@ -571,12 +571,46 @@ static float float_from_bits(uint32_t bits)
     return value;
 }
 
+static void fill_speed_tables(stf_crush_part_speed_tables *tables)
+{
+    static const float radial[6] = {
+        0.06f, 0.15f, 0.09f, 0.09f, 0.26f, 0.10f
+    };
+    static const float vertical[6] = {
+        0.04f, 0.03f, 0.08f, 0.06f, 0.03f, 0.0f
+    };
+    static const uint16_t angle[16] = {
+        0xE940u, 0xF1C8u, 0xFA50u, 0xEC18u,
+        0xF778u, 0xEEF0u, 0xF4A0u, 0xFD28u,
+        0x05B0u, 0x0888u, 0x02D8u, 0x13E8u,
+        0x0E38u, 0x16C0u, 0x0B60u, 0x1110u
+    };
+    static const uint32_t jitter[16] = {
+        0x3D0B4396u, 0x3CFDF3B6u, 0xBB449BA6u, 0x3C1374BCu,
+        0x3D0F5C29u, 0xBB03126Fu, 0x3CED9168u, 0x3B449BA6u,
+        0x3C8B4396u, 0x3D5D2F1Bu, 0xBC83126Fu, 0x3CAC0831u,
+        0x3D3020C5u, 0x3C75C28Fu, 0xBBC49BA6u, 0x3D8B4396u
+    };
+    size_t i;
+
+    memset(tables, 0, sizeof(*tables));
+    for (i = 0u; i < 6u; ++i) {
+        tables->radial_profile_bits[i] = fbits(radial[i]);
+        tables->vertical_profile_bits[i] = fbits(vertical[i]);
+    }
+    for (i = 0u; i < 16u; ++i) {
+        tables->angle_offsets[i] = (int16_t)angle[i];
+        tables->jitter_bits[i] = jitter[i];
+    }
+}
+
 static int test_speed_request_generation(void)
 {
     uint8_t records[2u * STF_CRUSH_PART_RECORD_SIZE];
     stf_crush_part_speed_input input;
     stf_crush_part_speed_request requests[STF_CRUSH_PART_MAX_SPEEDS];
     stf_crush_part_speed_result result;
+    stf_crush_part_speed_tables tables;
     uint32_t velocity[3];
     float radial0;
     float radial1;
@@ -585,6 +619,7 @@ static int test_speed_request_generation(void)
     memset(records, 0, sizeof(records));
     memset(&input, 0, sizeof(input));
     memset(requests, 0, sizeof(requests));
+    fill_speed_tables(&tables);
 
     write_le16(records + STF_CRUSH_PART_RECORD_SIZE + 0x06u, INT16_C(1));
 
@@ -597,6 +632,7 @@ static int test_speed_request_generation(void)
     input.part_index = UINT8_C(0);
     input.records = records;
     input.records_size = sizeof(records);
+    input.tables = &tables;
 
     if (!stf_crush_part_build_speed_requests_model2(
             &input, requests, STF_CRUSH_PART_MAX_SPEEDS, &result
@@ -662,15 +698,18 @@ static int test_speed_request_count_limit(void)
     stf_crush_part_speed_input input;
     stf_crush_part_speed_request request;
     stf_crush_part_speed_result result;
+    stf_crush_part_speed_tables tables;
 
     memset(records, 0, sizeof(records));
     memset(&input, 0, sizeof(input));
     memset(&request, 0, sizeof(request));
+    fill_speed_tables(&tables);
 
     input.count = UINT8_C(5);
     input.profile_843 = UINT8_C(0);
     input.records = records;
     input.records_size = sizeof(records);
+    input.tables = &tables;
 
     if (!stf_crush_part_build_speed_requests_model2(
             &input, &request, 1u, &result
@@ -863,6 +902,7 @@ static int test_crush_part_lifecycle_flow(void)
     stf_crush_part_speed_input speed_input;
     stf_crush_part_speed_request speed_request;
     stf_crush_part_speed_result speed_result;
+    stf_crush_part_speed_tables speed_tables;
     uint32_t velocity[1][3];
     stf_crush_part_set_input set_input;
     stf_crush_part_set_result set_result;
@@ -880,6 +920,7 @@ static int test_crush_part_lifecycle_flow(void)
     memset(record, 0, sizeof(record));
     memset(spin_table, 0, sizeof(spin_table));
     memset(&speed_input, 0, sizeof(speed_input));
+    fill_speed_tables(&speed_tables);
     memset(&set_input, 0, sizeof(set_input));
     memset(&physics_env, 0, sizeof(physics_env));
     memset(&visibility_input, 0, sizeof(visibility_input));
@@ -904,6 +945,7 @@ static int test_crush_part_lifecycle_flow(void)
     speed_input.part_index = UINT8_C(0);
     speed_input.records = record;
     speed_input.records_size = sizeof(record);
+    speed_input.tables = &speed_tables;
 
     if (!stf_crush_part_build_speed_requests_model2(
             &speed_input, &speed_request, 1u, &speed_result
