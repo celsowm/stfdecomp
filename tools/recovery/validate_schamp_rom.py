@@ -132,6 +132,34 @@ RING_POOL_HELPERS_SHA256 = (
     "2a6956dc83fdb627fdc7e9a0a737273f386f1fae1553baae8abdbdb471183779"
 )
 
+# efc_crushpts_speed_cont's four contiguous profile/jitter tables.  The
+# Sonic Championship program relocates the sfight 0x34A4C block by +0x2C.
+CRUSH_SPEED_TABLE_START = 0x00034A78
+CRUSH_SPEED_TABLE_END = 0x00034B08
+CRUSH_SPEED_TABLE_SHA256 = (
+    "bfc20e1fef9c80ac96c2ab898d55eed5be5dd16988788c8ae2c6675b41273503"
+)
+CRUSH_RADIAL_BITS = (
+    0x3D75C28F, 0x3E19999A, 0x3DB851EC,
+    0x3DB851EC, 0x3E851EB8, 0x3DCCCCCD,
+)
+CRUSH_VERTICAL_BITS = (
+    0x3D23D70A, 0x3CF5C28F, 0x3DA3D70A,
+    0x3D75C28F, 0x3CF5C28F, 0x00000000,
+)
+CRUSH_ANGLE_OFFSETS = (
+    0xE940, 0xF1C8, 0xFA50, 0xEC18,
+    0xF778, 0xEEF0, 0xF4A0, 0xFD28,
+    0x05B0, 0x0888, 0x02D8, 0x13E8,
+    0x0E38, 0x16C0, 0x0B60, 0x1110,
+)
+CRUSH_JITTER_BITS = (
+    0x3D0B4396, 0x3CFDF3B6, 0xBB449BA6, 0x3C1374BC,
+    0x3D0F5C29, 0xBB03126F, 0x3CED9168, 0x3B449BA6,
+    0x3C8B4396, 0x3D5D2F1B, 0xBC83126F, 0x3CAC0831,
+    0x3D3020C5, 0x3C75C28F, 0xBBC49BA6, 0x3D8B4396,
+)
+
 RING_TRAJECTORIES = {
     "A": (0x000AE5C0, 99),
     "B": (0x000AE750, 119),
@@ -266,6 +294,35 @@ def validate(path: Path) -> int:
         if digest != expected_digest:
             return 16
 
+    crush_speed_tables = program[
+        CRUSH_SPEED_TABLE_START:CRUSH_SPEED_TABLE_END
+    ]
+    crush_speed_digest = hashlib.sha256(crush_speed_tables).hexdigest()
+    crush_speed_status = (
+        "ok" if crush_speed_digest == CRUSH_SPEED_TABLE_SHA256 else "FAIL"
+    )
+    print(
+        "crush speed tables "
+        f"[0x{CRUSH_SPEED_TABLE_START:08X},0x{CRUSH_SPEED_TABLE_END:08X}) "
+        f"sha256={crush_speed_digest} {crush_speed_status}"
+    )
+    if crush_speed_digest != CRUSH_SPEED_TABLE_SHA256:
+        return 17
+
+    radial = struct.unpack_from("<6I", crush_speed_tables, 0x00)
+    vertical = struct.unpack_from("<6I", crush_speed_tables, 0x18)
+    angles = struct.unpack_from("<16H", crush_speed_tables, 0x30)
+    jitter = struct.unpack_from("<16I", crush_speed_tables, 0x50)
+    if (
+        radial != CRUSH_RADIAL_BITS
+        or vertical != CRUSH_VERTICAL_BITS
+        or angles != CRUSH_ANGLE_OFFSETS
+        or jitter != CRUSH_JITTER_BITS
+    ):
+        print("crush speed table contents: FAIL")
+        return 18
+    print("crush speed table contents: ok")
+
     ring_render_tables = program[
         RING_RENDER_TABLE_START:RING_RENDER_TABLE_END
     ]
@@ -376,7 +433,7 @@ def validate(path: Path) -> int:
     if ring_pool_helpers_digest != RING_POOL_HELPERS_SHA256:
         return 15
 
-    print("schamp collision/ring signatures: verified (secondary evidence)")
+    print("schamp collision/ring/crush signatures: verified (secondary evidence)")
     return 0
 
 
