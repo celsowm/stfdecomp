@@ -899,13 +899,9 @@ static int test_crush_part_lifecycle_flow(void)
     uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
     uint8_t record[STF_CRUSH_PART_RECORD_SIZE];
     int16_t spin_table[STF_CRUSH_PART_SPIN_TABLE_COUNT];
-    stf_crush_part_speed_input speed_input;
-    stf_crush_part_speed_request speed_request;
-    stf_crush_part_speed_result speed_result;
     stf_crush_part_speed_tables speed_tables;
-    uint32_t velocity[1][3];
-    stf_crush_part_set_input set_input;
-    stf_crush_part_set_result set_result;
+    stf_crush_part_put_input put_input;
+    stf_crush_part_put_result put_result;
     stf_crush_part_physics_env physics_env;
     stf_crush_part_physics_result physics_result;
     stf_crush_part_angle_result angle_result;
@@ -919,9 +915,8 @@ static int test_crush_part_lifecycle_flow(void)
     memset(slot, 0, sizeof(slot));
     memset(record, 0, sizeof(record));
     memset(spin_table, 0, sizeof(spin_table));
-    memset(&speed_input, 0, sizeof(speed_input));
     fill_speed_tables(&speed_tables);
-    memset(&set_input, 0, sizeof(set_input));
+    memset(&put_input, 0, sizeof(put_input));
     memset(&physics_env, 0, sizeof(physics_env));
     memset(&visibility_input, 0, sizeof(visibility_input));
 
@@ -939,42 +934,26 @@ static int test_crush_part_lifecycle_flow(void)
     write_f32(defender + 0x1F8u, 5.0f);
     write_f32(defender + 0x1FCu, 0.0f);
 
-    speed_input.count = UINT8_C(1);
-    speed_input.body_height_83d = UINT8_C(60);
-    speed_input.profile_843 = UINT8_C(0);
-    speed_input.part_index = UINT8_C(0);
-    speed_input.records = record;
-    speed_input.records_size = sizeof(record);
-    speed_input.tables = &speed_tables;
+    put_input.speed.count = UINT8_C(1);
+    put_input.speed.body_height_83d = UINT8_C(60);
+    put_input.speed.profile_843 = UINT8_C(0);
+    put_input.speed.part_index = UINT8_C(0);
+    put_input.speed.records = record;
+    put_input.speed.records_size = sizeof(record);
+    put_input.speed.tables = &speed_tables;
+    put_input.spin_table = spin_table;
+    put_input.spin_table_count = STF_CRUSH_PART_SPIN_TABLE_COUNT;
 
-    if (!stf_crush_part_build_speed_requests_model2(
-            &speed_input, &speed_request, 1u, &speed_result
-        ) ||
-        speed_result.generated != UINT8_C(1) ||
-        !stf_crush_part_resolve_speed_semantic_model2(
-            &speed_request, velocity[0]
-        )) {
-        return 1;
-    }
-
-    set_input.records = record;
-    set_input.records_size = sizeof(record);
-    set_input.velocities = velocity;
-    set_input.velocity_count = 1u;
-    set_input.count = UINT8_C(1);
-    set_input.part_index = UINT8_C(0);
-    set_input.spin_table = spin_table;
-    set_input.spin_table_count = STF_CRUSH_PART_SPIN_TABLE_COUNT;
-
-    if (!stf_crush_part_set_model2(
+    if (!stf_crush_part_put_model2(
             defender, sizeof(defender),
             slot, sizeof(slot),
-            &set_input, &set_result
+            &put_input, &put_result
         ) ||
-        set_result.spawned_count != UINT8_C(1) ||
-        !set_result.spawn.spawned ||
-        set_result.spawn.object_id != UINT16_C(321)) {
-        return 2;
+        put_result.speed.generated != UINT8_C(1) ||
+        put_result.set.spawned_count != UINT8_C(1) ||
+        !put_result.set.spawn.spawned ||
+        put_result.set.spawn.object_id != UINT16_C(321)) {
+        return 1;
     }
 
     physics_env.gravity_bits = fbits(0.0f);
