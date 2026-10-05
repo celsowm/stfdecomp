@@ -56,6 +56,7 @@ typedef struct stf_crush_part_visibility_input {
     uint32_t camera_x_bits;
     uint32_t camera_y_bits;
     uint32_t camera_z_bits;
+    uint32_t radius_bits;
     uint32_t focus_distance_bits;
 } stf_crush_part_visibility_input;
 
@@ -72,7 +73,6 @@ typedef struct stf_crush_part_spawn_input {
     size_t record_size;
     uint32_t base_position[3];
     uint32_t velocity[3];
-    uint32_t radius_bits;
     uint8_t part_index;
     uint8_t record_index;
     uint8_t fighter_flags_byte;
