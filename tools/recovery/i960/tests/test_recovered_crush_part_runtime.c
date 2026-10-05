@@ -18,6 +18,14 @@ static void write_le32(uint8_t *p, uint32_t v)
     p[3] = (uint8_t)(v >> 24u);
 }
 
+static uint32_t read_le32(const uint8_t *p)
+{
+    return (uint32_t)p[0] |
+           ((uint32_t)p[1] << 8u) |
+           ((uint32_t)p[2] << 16u) |
+           ((uint32_t)p[3] << 24u);
+}
+
 static int test_free_spin_branch(void)
 {
     uint8_t slot[STF_CRUSH_PART_SLOT_SIZE];
