@@ -9,7 +9,8 @@ enum {
     STF_CRUSH_PART_SLOT_SIZE = 0x48u,
     STF_CRUSH_PART_RECORD_SIZE = 0x28u,
     STF_CRUSH_PART_SPEED_SIZE = 0x0Cu,
-    STF_CRUSH_PART_SPIN_TABLE_COUNT = 16u
+    STF_CRUSH_PART_SPIN_TABLE_COUNT = 16u,
+    STF_CRUSH_PART_MAX_SPEEDS = 4u
 };
 
 typedef struct stf_crush_part_angle_result {
@@ -95,6 +96,30 @@ typedef struct stf_crush_part_bookkeeping_result {
     uint8_t history_lane;
     uint32_t stored_record_word;
 } stf_crush_part_bookkeeping_result;
+
+typedef struct stf_crush_part_speed_input {
+    uint8_t count;
+    uint8_t body_height_83d;
+    uint8_t profile_843;
+    uint32_t effect_active_914;
+    int16_t fighter_angle_26;
+    int16_t fighter_angle_82a;
+    uint8_t part_index;
+    const uint8_t *records;
+    size_t records_size;
+} stf_crush_part_speed_input;
+
+typedef struct stf_crush_part_speed_request {
+    uint8_t jitter_index;
+    uint16_t angle;
+    uint32_t radial_speed_bits;
+    uint32_t vertical_speed_bits;
+} stf_crush_part_speed_request;
+
+typedef struct stf_crush_part_speed_result {
+    bool count_rejected;
+    uint8_t generated;
+} stf_crush_part_speed_result;
 
 /*
  * Recover epc_parts_ang_calc for the 0x48-byte part slot at
@@ -193,6 +218,30 @@ bool stf_crush_part_bookkeeping_model2(
     uint8_t also_mode,
     uint8_t also_sub_mode,
     stf_crush_part_bookkeeping_result *result
+);
+
+/*
+ * Recover the CPU side of efc_crushpts_speed_cont up to the Model 2 math
+ * commands 0x24/0x25. The resulting requests contain the exact angle,
+ * radial magnitude and CPU-computed Y velocity sent/used for each record.
+ */
+bool stf_crush_part_build_speed_requests_model2(
+    const stf_crush_part_speed_input *input,
+    stf_crush_part_speed_request *requests,
+    size_t request_capacity,
+    stf_crush_part_speed_result *result
+);
+
+/*
+ * Complete one speed triple from the two coprocessor outputs exactly as the
+ * assembly does: command 0x24 output has its sign bit toggled for X, CPU Y is
+ * copied unchanged, and command 0x25 output becomes Z.
+ */
+bool stf_crush_part_resolve_speed_model2(
+    const stf_crush_part_speed_request *request,
+    uint32_t command24_output_bits,
+    uint32_t command25_output_bits,
+    uint32_t velocity_bits[3]
 );
 
 #endif
