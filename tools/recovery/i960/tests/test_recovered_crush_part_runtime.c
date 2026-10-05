@@ -109,6 +109,8 @@ static int test_spawn_from_rom_record(void);
 static int test_spawn_respects_occupied_slot(void);
 static int test_delete_weight_mode_gate(void);
 static int test_spawn_bookkeeping_lane_selection(void);
+static int test_speed_request_generation(void);
+static int test_speed_request_count_limit(void);
 
 int main(void)
 {
@@ -126,6 +128,8 @@ int main(void)
     if (test_spawn_respects_occupied_slot() != 0) return 1;
     if (test_delete_weight_mode_gate() != 0) return 1;
     if (test_spawn_bookkeeping_lane_selection() != 0) return 1;
+    if (test_speed_request_generation() != 0) return 1;
+    if (test_speed_request_count_limit() != 0) return 1;
     return 0;
 }
 
@@ -534,6 +538,104 @@ static int test_spawn_bookkeeping_lane_selection(void)
             ((uint32_t)defender[0x4Du] << 8u) |
             ((uint32_t)defender[0x4Eu] << 16u) |
             ((uint32_t)defender[0x4Fu] << 24u)) != UINT32_C(0xFFFFFFFE)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+static float float_from_bits(uint32_t bits)
+{
+    float value;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+static int test_speed_request_generation(void)
+{
+    uint8_t records[2u * STF_CRUSH_PART_RECORD_SIZE];
+    stf_crush_part_speed_input input;
+    stf_crush_part_speed_request requests[STF_CRUSH_PART_MAX_SPEEDS];
+    stf_crush_part_speed_result result;
+    uint32_t velocity[3];
+    float radial0;
+    float radial1;
+    float vertical0;
+
+    memset(records, 0, sizeof(records));
+    memset(&input, 0, sizeof(input));
+    memset(requests, 0, sizeof(requests));
+
+    write_le16(records + STF_CRUSH_PART_RECORD_SIZE + 0x06u, INT16_C(1));
+
+    input.count = UINT8_C(2);
+    input.body_height_83d = UINT8_C(0);
+    input.profile_843 = UINT8_C(5);
+    input.effect_active_914 = UINT32_C(0);
+    input.fighter_angle_26 = INT16_C(0);
+    input.fighter_angle_82a = INT16_C(0);
+    input.part_index = UINT8_C(0);
+    input.records = records;
+    input.records_size = sizeof(records);
+
+    if (!stf_crush_part_build_speed_requests_model2(
+            &input, requests, STF_CRUSH_PART_MAX_SPEEDS, &result
+        ) ||
+        result.count_rejected ||
+        result.generated != UINT8_C(2) ||
+        requests[0].jitter_index != UINT8_C(0) ||
+        requests[1].jitter_index != UINT8_C(1) ||
+        requests[0].angle != UINT16_C(0x16C0)) {
+        return 1;
+    }
+
+    radial0 = float_from_bits(requests[0].radial_speed_bits);
+    radial1 = float_from_bits(requests[1].radial_speed_bits);
+    vertical0 = float_from_bits(requests[0].vertical_speed_bits);
+
+    if (radial0 < 0.0339f || radial0 > 0.0341f ||
+        radial1 < 0.0649f || radial1 > 0.0651f ||
+        vertical0 < 0.1279f || vertical0 > 0.1281f) {
+        return 2;
+    }
+
+    if (!stf_crush_part_resolve_speed_model2(
+            &requests[0],
+            fbits(1.0f),
+            fbits(2.0f),
+            velocity
+        ) ||
+        velocity[0] != fbits(-1.0f) ||
+        velocity[1] != requests[0].vertical_speed_bits ||
+        velocity[2] != fbits(2.0f)) {
+        return 3;
+    }
+
+    return 0;
+}
+
+static int test_speed_request_count_limit(void)
+{
+    uint8_t records[STF_CRUSH_PART_RECORD_SIZE];
+    stf_crush_part_speed_input input;
+    stf_crush_part_speed_request request;
+    stf_crush_part_speed_result result;
+
+    memset(records, 0, sizeof(records));
+    memset(&input, 0, sizeof(input));
+    memset(&request, 0, sizeof(request));
+
+    input.count = UINT8_C(5);
+    input.profile_843 = UINT8_C(0);
+    input.records = records;
+    input.records_size = sizeof(records);
+
+    if (!stf_crush_part_build_speed_requests_model2(
+            &input, &request, 1u, &result
+        ) ||
+        !result.count_rejected ||
+        result.generated != UINT8_C(0)) {
         return 1;
     }
 
