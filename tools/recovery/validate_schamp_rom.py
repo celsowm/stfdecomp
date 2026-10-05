@@ -173,13 +173,14 @@ CRUSH_JITTER_BITS = (
 )
 
 # The Model 2B i960 uploads this embedded halfword stream into the SHARC at
-# boot (0x3A0E halfwords / 0x741C bytes).  Keeping the exact secondary-set
+# boot (0x3A0E halfwords / 0x741C bytes). Sonic Championship relocates the
+# sfight upload start by +0x138: header 0xB6444, first upload word 0xB6450.  Keeping the exact secondary-set
 # digest lets command handlers such as cpres 0x77 be studied from the real DSP
 # program rather than guessed from host call sites.
-CPRES_PROGRAM_START = 0x000B6318
+CPRES_PROGRAM_START = 0x000B6450
 CPRES_PROGRAM_SIZE = 0x0000741C
 CPRES_PROGRAM_SHA256 = (
-    "489f2c9d461d31cf800c30ae9a99203269bf5ae867304cd98255e431fdcbefb0"
+    "f86acf80cca9a82cbefb6c8b8f38e4e3a5862cb7b409058075823fea8267fe4d"
 )
 
 # cpres command 0x77 host call sites in the Sonic Championship i960 image.
@@ -189,7 +190,7 @@ CPRES_77_COMMAND_WORD = 0x3B807777
 
 # SHARC dispatch table: 136 consecutive 48-bit instructions beginning at
 # upload packet 0xDB write handler PM addresses to DM 0x30000..0x30087.
-CPRES_DISPATCH_PACKET_START = 0xDB
+CPRES_DISPATCH_PACKET_START = 0xA7
 CPRES_DISPATCH_COUNT = 136
 CPRES_DISPATCH_HANDLERS = {
     0x24: 0x00020624,
