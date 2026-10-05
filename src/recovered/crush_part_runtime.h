@@ -264,8 +264,10 @@ bool stf_crush_part_build_draw_model2(
  * The original skips entirely when either fighter's parts-lock byte +0x7D2
  * has bit 0 set. Otherwise it submits slot XYZ and radius to command 0x77,
  * consumes words 0/1 of the complete nine-word result packet, scales each by
- * 0.16, and adds them to slot X and Z respectively. All nine raw command
- * outputs remain explicit until command 0x77 itself is proven.
+ * 0.16, and adds them to slot X and Z respectively. The low-level entry keeps
+ * the raw packet explicit for differential replay; stf_crush_part_frame_model2
+ * can instead derive it from typed collision state through the recovered
+ * command-0x77 semantics.
  */
 bool stf_crush_part_oidasi_model2(
     uint8_t *slot,
