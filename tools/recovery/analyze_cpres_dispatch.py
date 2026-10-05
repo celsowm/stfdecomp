@@ -4,6 +4,7 @@
 Input is the raw 0x741C-byte upload produced by extract_cpres_program.py.
 The boot code builds a 136-entry table in DM 0x30000; each entry contains the
 program-memory handler address for the corresponding cpres command number.
+For a correctly extracted upload the table begins at SHARC packet 0xA7.
 
 This deliberately decodes only the evidence-backed dispatch construction, not
 arbitrary SHARC instructions.
@@ -15,7 +16,7 @@ import argparse
 from pathlib import Path
 
 SHARC_PACKET_BYTES = 6
-DISPATCH_PACKET_START = 0xDB
+DISPATCH_PACKET_START = 0xA7
 DISPATCH_COUNT = 136
 DISPATCH_DM_BASE = 0x30000
 
