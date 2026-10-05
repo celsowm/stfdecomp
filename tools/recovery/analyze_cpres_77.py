@@ -37,6 +37,19 @@ OUTPUT_SCRATCH = (
 )
 
 
+
+FINE_PHASE_PACKETS = {
+    0x20B92: 0x587E00000000,
+    0x20B93: 0x587E00882008,
+    0x20B94: 0x587E01082119,
+    0x20B95: 0x5A7E0308222A,
+    0x20B96: 0x013E00040666,
+    0x20B99: 0x06BE0402034C,
+    0x20B9B: 0xA6030000001B,
+    0x20B9C: 0x467E00881663,
+    0x20B9D: 0x013E0008A006,
+}
+
 BROAD_PHASE_PACKETS = {
     0x20B83: 0xA80000000027,
     0x20B84: 0xA80100000028,
@@ -98,6 +111,22 @@ def main() -> int:
         "reject when distance > 3.0f, then scan 32 collision entries"
     )
 
+    print("fine phase:")
+    for address, expected in FINE_PHASE_PACKETS.items():
+        actual = packet(data, address)
+        status = "ok" if actual == expected else "FAIL"
+        print(
+            f"  PM 0x{address:05X} packet=0x{actual:012X} "
+            f"expected=0x{expected:012X} {status}"
+        )
+        if actual != expected:
+            return 3
+    print(
+        "  semantics: each scan record supplies center XYZ and radius; "
+        "zero radius is skipped, otherwise distance3(query, center) is "
+        "compared with query_radius + ball_radius"
+    )
+
     print("collision scan bases:")
     for address, expected_base in SCAN_BASES:
         actual = packet(data, address) & 0xFFFFFFFF
@@ -107,7 +136,7 @@ def main() -> int:
             f"expected=0x{expected_base:08X} {status}"
         )
         if actual != expected_base:
-            return 3
+            return 4
 
     print("outputs:")
     for index, scratch, name in OUTPUT_SCRATCH:
