@@ -165,6 +165,21 @@ CRUSH_JITTER_BITS = (
     0x3D3020C5, 0x3C75C28F, 0xBBC49BA6, 0x3D8B4396,
 )
 
+# The Model 2B i960 uploads this embedded halfword stream into the SHARC at
+# boot (0x3A0E halfwords / 0x741C bytes).  Keeping the exact secondary-set
+# digest lets command handlers such as cpres 0x77 be studied from the real DSP
+# program rather than guessed from host call sites.
+CPRES_PROGRAM_START = 0x000B6318
+CPRES_PROGRAM_SIZE = 0x0000741C
+CPRES_PROGRAM_SHA256 = (
+    "489f2c9d461d31cf800c30ae9a99203269bf5ae867304cd98255e431fdcbefb0"
+)
+
+# cpres command 0x77 host call sites in the Sonic Championship i960 image.
+# The first is epc_oidasi; the second is the projectile collision helper.
+CPRES_77_CALL_SITES = (0x00031E28, 0x0008AFA8)
+CPRES_77_COMMAND_WORD = 0x3B807777
+
 RING_TRAJECTORIES = {
     "A": (0x000AE5C0, 99),
     "B": (0x000AE750, 119),
@@ -298,6 +313,33 @@ def validate(path: Path) -> int:
         )
         if digest != expected_digest:
             return 16
+
+    cpres_program = program[
+        CPRES_PROGRAM_START:CPRES_PROGRAM_START + CPRES_PROGRAM_SIZE
+    ]
+    cpres_digest = hashlib.sha256(cpres_program).hexdigest()
+    cpres_status = "ok" if cpres_digest == CPRES_PROGRAM_SHA256 else "FAIL"
+    print(
+        "embedded cpres SHARC program "
+        f"[0x{CPRES_PROGRAM_START:08X},"
+        f"0x{CPRES_PROGRAM_START + CPRES_PROGRAM_SIZE:08X}) "
+        f"sha256={cpres_digest} {cpres_status}"
+    )
+    if cpres_digest != CPRES_PROGRAM_SHA256:
+        return 20
+
+    for address in CPRES_77_CALL_SITES:
+        if address + 4 > len(program):
+            print(f"cpres 0x77 call site outside program: 0x{address:08X}")
+            return 21
+        command = struct.unpack_from("<I", program, address)[0]
+        status = "ok" if command == CPRES_77_COMMAND_WORD else "FAIL"
+        print(
+            f"cpres 0x77 call @0x{address:08X}: "
+            f"0x{command:08X} {status}"
+        )
+        if command != CPRES_77_COMMAND_WORD:
+            return 22
 
     crush_runtime = program[CRUSH_RUNTIME_START:CRUSH_RUNTIME_END]
     crush_runtime_digest = hashlib.sha256(crush_runtime).hexdigest()
@@ -451,7 +493,7 @@ def validate(path: Path) -> int:
     if ring_pool_helpers_digest != RING_POOL_HELPERS_SHA256:
         return 15
 
-    print("schamp collision/ring/crush signatures: verified (secondary evidence)")
+    print("schamp collision/ring/crush/cpres signatures: verified (secondary evidence)")
     return 0
 
 
