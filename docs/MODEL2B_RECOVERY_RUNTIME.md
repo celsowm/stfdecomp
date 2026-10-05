@@ -298,14 +298,16 @@ compose speed request/resolution, spawn, position physics, angle update,
 visibility projection, draw extraction, and floor-sound selection in one
 lifecycle path.
 
-sub_3464C's post-transform visibility arithmetic is now recovered too. The
-portable helper deliberately starts from the camera-space XYZ produced by the
-original Model 2 transform command rather than pretending that command RAM or
-the camera matrix is already recovered. It projects X/Y and the part radius by
-focus_distance / camera_z, rejects negative-Z points, and recreates the four
-0x50A368 edge-visibility bits against the original +/-248 horizontal and
-+/-192 vertical limits. The dormant epc_parts_pos_calc path is tested end to
-end by feeding this recovered mask into the part-cull decision.
+sub_3464C is now recovered across its command-0x29 transform as well as the
+post-transform visibility arithmetic. The portable cpres helper models the
+observed Model 2 3x4 affine point transform, then the visibility layer projects
+X/Y and the part radius by focus_distance / camera_z, rejects negative-Z
+points, and recreates the four 0x50A368 edge-visibility bits against the
+original +/-248 horizontal and +/-192 vertical limits. The low-level
+camera-space entry remains available for differential work, but normal portable
+execution can now start from the part's world-space XYZ plus the current camera
+matrix. The dormant epc_parts_pos_calc path is tested end to end through this
+matrix-backed transform and cull decision.
 
 epc_parts_pos_calc is now recovered for its CPU-visible physics path as well.
 The normal branch subtracts the global gravity term from Y velocity, damps X/Z
