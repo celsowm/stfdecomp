@@ -52,11 +52,14 @@ typedef struct stf_crush_part_physics_result {
     uint32_t flags;
 } stf_crush_part_physics_result;
 
+typedef struct stf_cpres_command77_result {
+    uint32_t words[9];
+} stf_cpres_command77_result;
+
 typedef struct stf_crush_part_oidasi_input {
     bool fighter0_parts_locked;
     bool fighter1_parts_locked;
-    uint32_t command77_output0_bits;
-    uint32_t command77_output1_bits;
+    stf_cpres_command77_result command77;
 } stf_crush_part_oidasi_input;
 
 typedef struct stf_crush_part_oidasi_result {
@@ -244,9 +247,9 @@ bool stf_crush_part_build_draw_model2(
  *
  * The original skips entirely when either fighter's parts-lock byte +0x7D2
  * has bit 0 set. Otherwise it submits slot XYZ and radius to command 0x77,
- * consumes the first two of nine returned words, scales each by 0.16, and
- * adds them to slot X and Z respectively. The raw command outputs remain
- * explicit until command 0x77 itself is proven.
+ * consumes words 0/1 of the complete nine-word result packet, scales each by
+ * 0.16, and adds them to slot X and Z respectively. All nine raw command
+ * outputs remain explicit until command 0x77 itself is proven.
  */
 bool stf_crush_part_oidasi_model2(
     uint8_t *slot,
