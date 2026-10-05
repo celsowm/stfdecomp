@@ -306,8 +306,10 @@ points, and recreates the four 0x50A368 edge-visibility bits against the
 original +/-248 horizontal and +/-192 vertical limits. The low-level
 camera-space entry remains available for differential work, but normal portable
 execution can now start from the part's world-space XYZ plus the current camera
-matrix. The dormant epc_parts_pos_calc path is tested end to end through this
-matrix-backed transform and cull decision.
+matrix. epc_parts_pos_calc's dormant bit-7/bit-3 branch is composed with that
+transform too: the wrapper reads XYZ/radius straight from the 0x48-byte slot,
+derives the visibility mask, and performs the original deactivate-on-zero cull
+without a caller-supplied mask.
 
 epc_parts_pos_calc is now recovered for its CPU-visible physics path as well.
 The normal branch subtracts the global gravity term from Y velocity, damps X/Z
