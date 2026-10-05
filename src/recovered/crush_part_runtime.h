@@ -65,6 +65,21 @@ typedef struct stf_crush_part_oidasi_result {
     uint32_t position_bits[3];
 } stf_crush_part_oidasi_result;
 
+typedef struct stf_crush_part_frame_input {
+    stf_crush_part_oidasi_input oidasi;
+    stf_crush_part_physics_env physics;
+    const uint32_t *camera_matrix_bits;
+    uint32_t focus_distance_bits;
+} stf_crush_part_frame_input;
+
+typedef struct stf_crush_part_frame_result {
+    stf_crush_part_oidasi_result oidasi;
+    stf_crush_part_physics_result physics;
+    stf_crush_part_visibility_result visibility;
+    stf_crush_part_angle_result angles;
+    bool angle_updated;
+} stf_crush_part_frame_result;
+
 typedef struct stf_crush_part_visibility_input {
     uint32_t camera_x_bits;
     uint32_t camera_y_bits;
