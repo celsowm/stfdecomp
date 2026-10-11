@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "collision_copro_attack.h"
+#include "collision_area_distance.h"
 
 enum {
     STF_COLLISION_AREA_QUERY_WORDS = 6u,
@@ -90,12 +91,17 @@ typedef struct stf_collision_copro_area_model2 {
     bool force_flat_mode;
     stf_collision_area_geometry_fn geometry;
     void *geometry_user_data;
+    /* Optional measured 0x15802B2B FIFO query after each area. */
+    stf_collision_area_distance_fn distance;
+    void *distance_user_data;
 } stf_collision_copro_area_model2;
 
 typedef struct stf_collision_copro_area_result {
     stf_copro_attack_flag_result attack[2];
     stf_collision_area_result area[2];
     uint8_t completed_areas;
+    uint8_t completed_distances;
+    stf_collision_area_plane plane[2];
 } stf_collision_copro_area_result;
 
 /*
@@ -104,6 +110,8 @@ typedef struct stf_collision_copro_area_result {
  * The original 0x1F003E3E and 0x1D003A3A FIFO commands happen before this
  * integration seam and must be supplied by the caller.
  *
+ * When a distance provider is given, the recovered +0x680 scalar query
+ * follows each area response before the next fighter is processed.
  * Static buffers and ROM lookups are validated before any writes.
  * Callback failure is fail-closed but *not* transactional; completed_areas
  * records observable partial progress.

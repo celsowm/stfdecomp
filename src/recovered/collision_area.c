@@ -174,6 +174,8 @@ bool stf_collision_copro_area_stage_model2(
     stf_collision_area_query requests[2];
     stf_copro_attack_flag_result computed[2];
     uint32_t response[STF_COLLISION_AREA_RESPONSE_WORDS];
+    stf_collision_area_distance_query distance_query;
+    uint32_t distance_bits;
     uint8_t i;
 
     if (model == NULL || result == NULL || model->geometry == NULL ||
@@ -223,6 +225,24 @@ bool stf_collision_copro_area_stage_model2(
             return false;
         }
         ++local.completed_areas;
+        if (model->distance != NULL) {
+            if (!stf_collision_area_distance_query_build_model2(
+                    model->fighter[i], model->fighter_size[i],
+                    &distance_query) ||
+                !model->distance(
+                    model->distance_user_data, i,
+                    &distance_query, &distance_bits) ||
+                !stf_collision_area_distance_response_apply_model2(
+                    model->fighter[i], model->fighter_size[i],
+                    distance_bits) ||
+                !stf_collision_area_plane_choose_model2(
+                    model->fighter[i], model->fighter_size[i],
+                    &local.plane[i])) {
+                *result = local;
+                return false;
+            }
+            ++local.completed_distances;
+        }
     }
     *result = local;
     return true;

@@ -612,3 +612,31 @@ normal/inverted phases, zero suppression and a failed second callback.
 not guessed, and later area_coli 0x15802B2B queries, angular side
 selection, decide_coli_kind and position recalculation remain unrecovered
 in this runtime.
+
+
+### area_coli 0x15802B2B scalar query, side-plane selection
+
+At the area_coli boundary immediately after the 18-word response, the
+next Model 2 copro query writes 0x15802B2B followed by fighter +0x1F4
+(XYZ) and a zero origin (XYZ). One FIFO result is written to fighter
++0x680. This CPU packet and state store are now exposed through
+\`stf_collision_area_distance_query_build_model2\` and
+\`stf_collision_area_distance_response_apply_model2\`.
+\`stf_collision_area_distance_semantic_bits\` supplies a host-only
+three-dimensional Euclidean distance for controlled experiments, with
+no claim of cycle- or bit-exact Model 2 math.
+
+The original unsigned, sign-stripped branch choice between planes
++0x644 and +0x64C is exposed by
+\`stf_collision_area_plane_choose_model2\`. The later angle lookup and
+unit-sort remain beyond this contract.
+
+\`stf_collision_copro_area_stage_model2\` now supports an optional
+measured \`distance\` callback. When supplied, the original execution
+order is area0 -> distance0 -> area1 -> distance1 (not two areas followed
+by two distances); scalar writes go to +0x680 and \`completed_distances\`
+tracks partial execution separately from \`completed_areas\`. The callback
+must represent a real or controlled geometry result. An absent callback
+retains the existing prefix-only behavior without guessing hardware.
+The integration test covers both ordered paths, 3-4-5 distance,
+branch classification, buffer guards and second-query failures.
