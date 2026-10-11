@@ -37,7 +37,9 @@ static bool validate(const stf_collision_pipeline_model2 *pipeline)
         frame->effect_size < STF_COLLISION_ATTACK_EFFECT_MODEL2_SIZE ||
         frame->copro_hit_xyz == NULL ||
         frame->copro_hit_xyz_size < STF_COLLISION_ATTACK_EFFECT_XYZ_SIZE ||
-        combat->effect == NULL || combat->attack_body == NULL) {
+        combat->effect == NULL || combat->attack_body == NULL ||
+        (combat->normal_profile_table != NULL &&
+         combat->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE)) {
         return false;
     }
     for (i = 0u; i < 2u; ++i) {

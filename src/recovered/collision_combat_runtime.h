@@ -7,6 +7,7 @@
 
 #include "attack_hit.h"
 #include "attack_hit_special.h"
+#include "attack_hit_normal_entry.h"
 #include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
@@ -50,6 +51,9 @@ typedef struct stf_collision_combat_model2 {
     void *special_record_user_data;
     stf_attack_hit_special_tgp_fn special_tgp;
     void *special_tgp_user_data;
+    /* Optional ROM-backed normal attack prelude, excluding sub_19888. */
+    const uint8_t *normal_profile_table;
+    size_t normal_profile_table_size;
 } stf_collision_combat_model2;
 
 typedef struct stf_collision_combat_pair_result {
@@ -59,6 +63,8 @@ typedef struct stf_collision_combat_pair_result {
     stf_damage_unit_runtime_result damage;
     bool prefix_applied;
     bool special_applied;
+    bool normal_entry_applied;
+    stf_attack_hit_normal_entry_result normal_entry;
     stf_attack_hit_special_result special;
     bool body_completed;
     bool damage_completed;
@@ -78,6 +84,10 @@ typedef struct stf_collision_combat_result {
  * execute the recovered sub_19888/sub_1980C path INSTEAD of the generic
  * attack_body continuation, preserving the original early return. The
  * special tag-5 record is selected from ROM by the supplied resolver.
+ * Optional normal_profile_table activates the CPU strength prelude,
+ * 40-byte profile lookup and guard-route classification before the
+ * mandatory normal attack_body continuation. Host float math is semantic,
+ * not claimed bit-for-bit accurate to the original sqrt coprocessor.
  *
  * Validate all shared buffers and the dispatch list before mutating anything.
  * A failed callback or downstream step may leave partial state: attempted

@@ -35,6 +35,8 @@ bool stf_collision_combat_apply_model2(
         model->enemy_slots[0] == NULL || model->enemy_slots[1] == NULL ||
         model->workspace == NULL || model->effect == NULL ||
         model->attack_body == NULL ||
+        (model->normal_profile_table != NULL &&
+         model->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE) ||
         model->workspace_size < STF_COLLISION_ATTACK_WORKSPACE_MODEL2_MIN_SIZE ||
         model->fighter_sizes[0] < STF_DAMAGE_UNIT_DEFENDER_MIN_SIZE ||
         model->fighter_sizes[1] < STF_DAMAGE_UNIT_DEFENDER_MIN_SIZE ||
@@ -88,13 +90,27 @@ bool stf_collision_combat_apply_model2(
                 return false;
             }
             pair->special_applied = true;
-        } else if (!model->attack_body(
-                model->attack_body_user_data,
-                attacker_index, defender_index,
-                attacker, attacker_size, defender, defender_size,
-                model->workspace, model->workspace_size, &pair->prefix)) {
-            *result = local;
-            return false;
+        } else {
+            if (model->normal_profile_table != NULL) {
+                if (!stf_attack_hit_normal_entry_apply_model2(
+                        attacker, attacker_size, defender, defender_size,
+                        model->workspace, model->workspace_size,
+                        &pair->prefix, model->normal_profile_table,
+                        model->normal_profile_table_size,
+                        &pair->normal_entry)) {
+                    *result = local;
+                    return false;
+                }
+                pair->normal_entry_applied = true;
+            }
+            if (!model->attack_body(
+                    model->attack_body_user_data,
+                    attacker_index, defender_index,
+                    attacker, attacker_size, defender, defender_size,
+                    model->workspace, model->workspace_size, &pair->prefix)) {
+                *result = local;
+                return false;
+            }
         }
         pair->body_completed = true;
 

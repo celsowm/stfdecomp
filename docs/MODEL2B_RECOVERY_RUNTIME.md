@@ -807,3 +807,28 @@ following recovered damage_unit correctly skips damage.
 All other attack_hit branches preserve the existing mandatory
 generic continuation. Tests exercise no-device, mandatory-device,
 callback failure and ordered-combat integration.
+
+
+### Normal attack_hit strength/profile + guard classification prelude
+
+\`src/recovered/attack_hit_normal_entry.[ch]\` composes previously
+isolated CPU recovery contracts from the normal \`attack_hit\`
+\`0x2A8F8\` to \`0x2A9F0\`: the i960's +0x82A/+0x26 heading
+addition, +0x822 strength byte float conversion, workspace +0x26C
+bit0 activation, ROM-backed 40-byte hit-kind profile decode at
+\`0x50A800\`, and guard classification based on fighter and opponent
+live flags. It returns the selected guard route (EXIT, 2AC74,
+2AA70, 2AB54) and the semantic host strength multiplier. The
+host float calculation is **not** an exact surrogate for the
+\`0x0D001A1A\` Model 2 coprocessor sqrt operation; unlike the
+real device result, it is explicitly marked approximate.
+
+\`stf_collision_combat_apply_model2\` can now optionally invoke
+that prelude for each non-special accepted hit when provided the
+original per-kind profile byte table. The genuine sub_19888 special
+path keeps priority and bypasses the normal prelude. The existing
+\`attack_body\` callback remains **mandatory** for all normal
+branches: a guard classifier alone is not a complete reaction,
+damage, sound, or motion continuation. The result records
+\`normal_entry_applied\` separately, including partial callback
+failures. With no table, old consumers work unchanged.
