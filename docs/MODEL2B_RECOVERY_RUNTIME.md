@@ -861,3 +861,38 @@ original already-performed writes are not rolled back. Non-guard
 paths and deployments without guard_tail keep the previous
 generic callback unchanged. This is a CPU-state recovery milestone,
 not full 1:1 arcade execution.
+
+
+### Guard-vector TGP recovery (loc_2B738 through loc_2B898)
+
+\`src/recovered/attack_hit_guard_vector.[ch]\` now recovers the
+post-BLOCK_A/B CPU-visible force-to-velocity sequence at 0x2B738.
+The guard branches enter with \`r8 = r6 = r11 = 0\`; this permits
+recovery of the five-command device chain independently of the still
+missing normal-hit state. The scalar magnitude starts with
+\`4 * r9 / (60 + (defender+0x5D8 - 60)*0.3)\`; the preceding
+\`attack_hit_normal_entry\` supplies a *host semantic estimate* for
+r9, which is not yet the original TGP bit-exact output. The wrapper
+sends \`0x0D001A1A\`, \`0x12002424\`, \`0x12802525\`,
+\`0x12002424\`, \`0x12802525\` with the recovered sequential
+arguments, including the negative combined heading, through a
+caller-supplied TGP provider. Three final response words are
+committed to defender +0x5E4 (vertical) and +0x5E0/+0x5E8
+(horizontal). Failed, nonfinite or incomplete device replies do
+not overwrite any of those three values; the number of successfully
+completed commands is retained for replay analysis.
+
+When attacker +0x7D2 bit0 is set, the original two-float row
+\`flt_2B904[hit_kind]\` is supplied as a ROM byte view: the first
+float scales vertical velocity, the second scales both horizontal
+components. Tables are checked strictly by byte count, and neither
+TGP trigonometric behavior nor proprietary ROM float rows are
+guessed.
+
+\`collision_combat_runtime\` accepts optional \`guard_vector_tgp\`
+and performs this sequence after the recovered guard-state stores
+and before the mandatory \`guard_tail\`. The latter must still
+handle remaining damage-calculation/sound side effects, so this
+is **not** the end-to-end replacement of attack_hit.
+The earlier profile-only and guard-state-only workflows remain
+backward compatible.

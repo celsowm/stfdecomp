@@ -9,6 +9,7 @@
 #include "attack_hit_special.h"
 #include "attack_hit_normal_entry.h"
 #include "attack_hit_guard_state_runtime.h"
+#include "attack_hit_guard_vector.h"
 #include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
@@ -83,6 +84,13 @@ typedef struct stf_collision_combat_model2 {
     void *guard_tail_user_data;
     stf_hit_motion_table_resolver guard_motion_resolver;
     void *guard_motion_resolver_user_data;
+    /* Optional 5-command Model 2 guard-vector continuation 0x2B738.
+     * Requires guard_tail and normal_profile_table. The guard_tail still
+     * handles damage_calculation, events and other unrecovered work. */
+    stf_attack_hit_guard_vector_tgp_fn guard_vector_tgp;
+    void *guard_vector_tgp_user_data;
+    const uint8_t *guard_vector_boost_table;
+    size_t guard_vector_boost_table_size;
 } stf_collision_combat_model2;
 
 typedef struct stf_collision_combat_pair_result {
@@ -96,6 +104,8 @@ typedef struct stf_collision_combat_pair_result {
     stf_attack_hit_normal_entry_result normal_entry;
     bool guard_applied;
     bool guard_tail_completed;
+    bool guard_vector_applied;
+    stf_attack_hit_guard_vector_result guard_vector;
     stf_guard_state_runtime_result guard_state;
     stf_attack_hit_special_result special;
     bool body_completed;
@@ -123,8 +133,10 @@ typedef struct stf_collision_combat_result {
  * and invoke that branch-specific tail, not the generic attack_body.
  * BLOCK_B resolves sub_2B94C motion through guard_motion_resolver before
  * modifying defender/attacker state. Other paths retain the generic hook.
- * The original tail at loc_2B738 includes further coprocessor work;
- * guard_tail MUST implement it for ROM equivalence.
+ * The optional guard_vector_tgp resolves the five explicit TGP commands
+ * at loc_2B738..loc_2B898 before guard_tail. Without it, guard_tail still
+ * owns these vector operations. In either case guard_tail MUST handle
+ * the remaining damage_calculation/audio/event work for ROM equivalence.
  * Host float math is semantic,
  * not claimed bit-for-bit accurate to the original sqrt coprocessor.
  *

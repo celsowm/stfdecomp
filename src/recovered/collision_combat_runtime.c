@@ -36,6 +36,7 @@ bool stf_collision_combat_apply_model2(
         model->workspace == NULL || model->effect == NULL ||
         model->attack_body == NULL ||
         (model->guard_tail != NULL && model->normal_profile_table == NULL) ||
+        (model->guard_vector_tgp != NULL && model->guard_tail == NULL) ||
         (model->normal_profile_table != NULL &&
          model->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE) ||
         model->workspace_size < STF_COLLISION_ATTACK_WORKSPACE_MODEL2_MIN_SIZE ||
@@ -126,6 +127,23 @@ bool stf_collision_combat_apply_model2(
                     return false;
                 }
                 pair->guard_applied = true;
+                if (model->guard_vector_tgp != NULL) {
+                    if (!stf_attack_hit_guard_vector_apply_model2(
+                            attacker, attacker_size,
+                            defender, defender_size,
+                            pair->normal_entry.strength.combined_82a_026,
+                            pair->normal_entry.host_strength_scale_bits,
+                            (uint8_t)pair->prefix.hit_kind_843,
+                            model->guard_vector_boost_table,
+                            model->guard_vector_boost_table_size,
+                            model->guard_vector_tgp,
+                            model->guard_vector_tgp_user_data,
+                            &pair->guard_vector)) {
+                        *result = local;
+                        return false;
+                    }
+                    pair->guard_vector_applied = true;
+                }
                 if (!model->guard_tail(
                         model->guard_tail_user_data,
                         attacker_index, defender_index,
