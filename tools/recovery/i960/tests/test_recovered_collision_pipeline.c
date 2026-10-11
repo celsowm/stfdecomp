@@ -1,5 +1,6 @@
 #include "collision_pipeline.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 enum { F_SIZE=0x2200u, TASK_SIZE=0x2B0u };
@@ -163,11 +164,11 @@ int main(void)
     s.workspace[0x170u]=0xA5u;
     if(stf_collision_pipeline_apply_model2(&s.pipeline,&out) ||
        s.events.geometry_calls!=0u ||
-       s.workspace[0x170u]!=0xA5u) return 1;
+       s.workspace[0x170u]!=0xA5u) {fprintf(stderr, "pipeline test failed: stage 1 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 1;}
     s.frame.workspace_size=TASK_SIZE;
     s.combat.attack_body=NULL;
     if(stf_collision_pipeline_apply_model2(&s.pipeline,&out) ||
-       s.events.geometry_calls!=0u) return 2;
+       s.events.geometry_calls!=0u) {fprintf(stderr, "pipeline test failed: stage 2 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 2;}
     s.combat.attack_body=fake_body;
 
     /* Without attack flags, full area + suppression + frame + combat
@@ -177,11 +178,11 @@ int main(void)
        !out.completed_checks || !out.completed_combat ||
        out.frame.order.count!=0u || out.combat.completed!=0u ||
        s.events.geometry_calls!=2u || s.events.hit_calls!=0u ||
-       out.suppression_mask[0]!=0u || out.suppression_mask[1]!=0u) return 3;
+       out.suppression_mask[0]!=0u || out.suppression_mask[1]!=0u) {fprintf(stderr, "pipeline test failed: stage 3 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 3;}
 
     init_scene(&s);
     enable_hits(&s);
-    if(!stf_collision_pipeline_apply_model2(&s.pipeline,&out)) return 4;
+    if(!stf_collision_pipeline_apply_model2(&s.pipeline,&out)) {fprintf(stderr, "pipeline test failed: stage 4 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 4;}
     if(!out.completed_area || !out.area.completed_kind ||
        out.area.kind.kind!=STF_COLLISION_KIND_NORMAL ||
        out.completed_suppressions!=2u ||
@@ -200,7 +201,7 @@ int main(void)
        r16(s.workspace+0x274u)!=1u ||
        r16(s.workspace+0x276u)!=1u ||
        r32(s.fighters[1]+0x1234u)!=31u ||
-       r32(s.fighters[0]+0x1234u)!=21u) return 5;
+       r32(s.fighters[0]+0x1234u)!=21u) {fprintf(stderr, "pipeline test failed: stage 5 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 5;}
 
     /* A failed recovered attack body cannot be counted as damage. */
     init_scene(&s);
@@ -211,7 +212,7 @@ int main(void)
        !out.completed_checks || out.completed_combat ||
        out.combat.attempted!=1u || out.combat.completed!=0u ||
        s.events.hit_calls!=1u ||
-       r32(s.fighters[1]+0x1234u)!=30u) return 6;
+       r32(s.fighters[1]+0x1234u)!=30u) {fprintf(stderr, "pipeline test failed: stage 6 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 6;}
 
     /* A failure on the second geometry query retains only the
        first area and prevents any suppression/combat writes. */
@@ -220,9 +221,9 @@ int main(void)
     if(stf_collision_pipeline_apply_model2(&s.pipeline,&out) ||
        out.completed_area || out.area.completed_areas!=1u ||
        out.completed_suppressions!=0u || out.completed_checks ||
-       s.events.geometry_calls!=2u) return 7;
+       s.events.geometry_calls!=2u) {fprintf(stderr, "pipeline test failed: stage 7 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 7;}
 
     if(stf_collision_pipeline_apply_model2(NULL,&out) ||
-       stf_collision_pipeline_apply_model2(&s.pipeline,NULL)) return 8;
+       stf_collision_pipeline_apply_model2(&s.pipeline,NULL)) {fprintf(stderr, "pipeline test failed: stage 8 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 8;}
     return 0;
 }
