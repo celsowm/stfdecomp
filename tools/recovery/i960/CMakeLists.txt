@@ -54,6 +54,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/crush_part_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/crush_part_rom_view.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit.c"
+    "${STF_REPO_ROOT}/src/recovered/attack_hit_special.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_strength.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_profile.c"
     "${STF_REPO_ROOT}/src/recovered/copro_scalar.c"
@@ -543,6 +544,11 @@ add_executable(stf_recovered_collision_pipeline_tests
 )
 target_link_libraries(stf_recovered_collision_pipeline_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_attack_hit_special_tests
+    tests/test_recovered_attack_hit_special.c
+)
+target_link_libraries(stf_recovered_attack_hit_special_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
@@ -570,6 +576,7 @@ add_test(NAME stf_recovered_collision_area_side_tests COMMAND stf_recovered_coll
 add_test(NAME stf_recovered_collision_area_opponent_tests COMMAND stf_recovered_collision_area_opponent_tests)
 add_test(NAME stf_recovered_collision_kind_tests COMMAND stf_recovered_collision_kind_tests)
 add_test(NAME stf_recovered_collision_pipeline_tests COMMAND stf_recovered_collision_pipeline_tests)
+add_test(NAME stf_recovered_attack_hit_special_tests COMMAND stf_recovered_attack_hit_special_tests)
 add_test(NAME stf_recovered_collision_combat_runtime_tests COMMAND stf_recovered_collision_combat_runtime_tests)
 add_test(NAME stf_recovered_attack_hit_tests COMMAND stf_recovered_attack_hit_tests)
 add_test(NAME stf_recovered_attack_hit_strength_tests COMMAND stf_recovered_attack_hit_strength_tests)

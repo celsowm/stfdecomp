@@ -777,3 +777,33 @@ with computed ROM-view attack profiles and deterministic ordered damage,
 preflight alias rejection, failure of the first hit continuation,
 and failure of the second geometry query. ROM-vs-runtime differential
 replay is still needed to substantiate original arcade equivalence.
+
+
+### attack_hit's sub_19888 special-opponent continuation
+
+\`src/recovered/attack_hit_special.[ch]\` closes the genuine
+\`opponent+0x19F==0x12\` early-return branch, instead of accepting a
+no-op callback in the middle of attack_hit. The CPU states from
+\`sub_19888\` and \`sub_1980C\` are now updated directly: original
+tag-5 animation record, signed motion direction bit, attacker +0x198,
++0x1C, +0x822, defender +0x198, state flags +0 and +0x1A4.
+When attacker state bit 2 was set, it also computes +0x84 from the
+current height and clears the original state/motion bits.
+
+The original \`calc_mht_adr\` lookup is supplied as an explicit callback
+that returns the tag-5 record from the caller's actual animation
+data. When the moving branch requires the TGP
+\`0x2D805B5B\` operation, a separate callback receives the exact
+original 3-word input (signed heading, vector +0x80, vector +0x88)
+and returns the two float words for +0x18/+0x20 updates.
+No hit animation addresses or coprocessor outputs are fabricated;
+missing dependencies fail before the special-path state writes.
+
+\`stf_collision_combat_apply_model2\` now optionally routes only
+the defender-state-0x12 case through the dedicated special path.
+Unlike the generic attack_body callback, that branch returns after
+\`sub_19888\` and leaves workspace +0x26C bit 0 clear, so the
+following recovered damage_unit correctly skips damage.
+All other attack_hit branches preserve the existing mandatory
+generic continuation. Tests exercise no-device, mandatory-device,
+callback failure and ordered-combat integration.

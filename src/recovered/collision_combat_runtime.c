@@ -70,7 +70,25 @@ bool stf_collision_combat_apply_model2(
         }
         pair->prefix_applied = true;
 
-        if (!model->attack_body(
+        if (pair->prefix.special_opponent_path &&
+            model->special_record != NULL) {
+            const uint8_t *record = NULL;
+            size_t record_size = 0u;
+            const uint16_t motion_id =
+                (uint16_t)((uint16_t)defender[0x19Cu] |
+                           ((uint16_t)defender[0x19Du] << 8u));
+            if (!model->special_record(
+                    model->special_record_user_data, motion_id,
+                    &record, &record_size) ||
+                !stf_attack_hit_special_apply_model2(
+                    attacker, attacker_size, defender, defender_size,
+                    record, record_size, model->special_tgp,
+                    model->special_tgp_user_data, &pair->special)) {
+                *result = local;
+                return false;
+            }
+            pair->special_applied = true;
+        } else if (!model->attack_body(
                 model->attack_body_user_data,
                 attacker_index, defender_index,
                 attacker, attacker_size, defender, defender_size,
