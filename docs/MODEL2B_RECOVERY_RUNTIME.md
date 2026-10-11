@@ -576,3 +576,39 @@ addressable profile lookup -> two fighter masks -> RAM reset -> two
 attack checks -> dual-hit ordering, along with inactive modes and bounds.
 The TGP collision outputs, suppressions, r5 impact vector and remaining
 attack_hit body still need native execution/differential replay.
+
+
+### Recovered area_coli geometry query and FIFO response prefix
+
+\`src/recovered/collision_area.[ch]\` recovers the first
+\`area_coli\` query/response window from 0x2DCB0 to the next TGP command
+at 0x2DEE8. The exact six-word request begins with 0x38007070, followed by
+fighter +0x1C, stage_soko, stage_x, adjusted cage height and a per-fighter
+phase selector. The cage calculation subtracts the original 0x3E428F5C
+float and adds 10.0f when phase <2 and motion bit 9 is clear. Phase 3 sets
+the selector's high bit.
+
+The external geometry provider supplies **18 FIFO output words**, which
+the recovered CPU side distributes to workspace +0x118..+0x124 and fighter
++0x670/+0x710, +0x660..+0x66F, +0xA58..+0xA67,
++0x650..+0x65F, +0x614/+0x674/+0x624/+0x618. The following
+\`ac_make_vect_outset\` path is also recovered: phase-specific tangent
+inversion, negative-zero normalization, float sums at +0x644 and +0x64C,
+and direction-dependent zeroing of selected +0x650/+0x658 plane words.
+The special game-mode predicate is an explicit \`force_flat_mode\` input.
+It is not inferred without the caller's live also_mode/sub_mode.
+
+\`stf_collision_copro_area_stage_model2\` connects the previously recovered
+two-fighter \`calc_attack_flag\` and \`coli_ram_init\` stage to two sequential
+\`area_coli\` packet submissions. Device responses are mandatory and passed
+through a callback. If the second response fails, the first fighter's writes
+remain, and \`completed_areas=1\` records that boundary. Invalid static
+buffers/profile lookups fail before the first mutation. Request/response
+ordering is tested with a deterministic fixture, including slope signs,
+normal/inverted phases, zero suppression and a failed second callback.
+
+**Boundary:** the original coprocessor's initial 0x1F003E3E and
+0x1D003A3A packets still precede this C seam. Hardware responses are
+not guessed, and later area_coli 0x15802B2B queries, angular side
+selection, decide_coli_kind and position recalculation remain unrecovered
+in this runtime.
