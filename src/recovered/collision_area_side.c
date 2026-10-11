@@ -91,7 +91,7 @@ bool stf_collision_area_side_apply_model2(
 
     /* loc_2E030..loc_2E060: read four float planes, keep the minimum.
      * cmpr/bl is strictly less, so ties choose the later entry.
-     * subi r11,0,r10; addi 4,r10,r10 => i=1:-8, i=2:-4, i=3:0.
+     * subi r11,0,r10; addi 4,r10,r10 => i=1:1, i=2:2, i=3:3.
      */
     minimum_bits=read32(fighter+0x650u);
     minimum_float=as_float(minimum_bits);
@@ -108,7 +108,7 @@ bool stf_collision_area_side_apply_model2(
             minimum_float=current;
             minimum_bits=current_bits;
             local.min_plane_index=(uint16_t)i;
-            encoded_direction=(int32_t)(4*(int)i-12);
+            encoded_direction=(int32_t)i;
         }
     }
     local.minimum_bits=minimum_bits;

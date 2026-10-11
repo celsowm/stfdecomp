@@ -188,7 +188,13 @@ bool stf_collision_copro_area_stage_model2(
         (model->angle_lut != NULL &&
          (model->distance == NULL ||
           model->angle_lut_size < STF_COLLISION_AREA_ANGLE_LUT_COUNT ||
-          model->workspace_size < STF_COLLISION_AREA_SIDE_WORKSPACE_MIN_SIZE))) {
+          model->workspace_size < STF_COLLISION_AREA_SIDE_WORKSPACE_MIN_SIZE)) ||
+        ((model->table_2e250 != NULL || model->table_2e230 != NULL) &&
+         (model->table_2e250 == NULL || model->table_2e230 == NULL ||
+          model->angle_lut == NULL ||
+          model->table_2e250_count < STF_COLLISION_AREA_TABLE_2E250_COUNT ||
+          model->table_2e230_count < STF_COLLISION_AREA_TABLE_2E230_COUNT ||
+          model->workspace_size < STF_COLLISION_AREA_OPPONENT_WORKSPACE_MIN_SIZE))) {
         return false;
     }
     memset(&local, 0, sizeof(local));
@@ -256,6 +262,19 @@ bool stf_collision_copro_area_stage_model2(
                     return false;
                 }
                 ++local.completed_sides;
+                if (model->table_2e250 != NULL) {
+                    if (!stf_collision_area_opponent_apply_model2(
+                            model->fighter[i], model->fighter_size[i],
+                            model->fighter[1u-i], model->fighter_size[1u-i],
+                            model->workspace, model->workspace_size,
+                            model->table_2e250, model->table_2e250_count,
+                            model->table_2e230, model->table_2e230_count,
+                            &local.opponent[i])) {
+                        *result = local;
+                        return false;
+                    }
+                    ++local.completed_opponents;
+                }
             }
         }
     }

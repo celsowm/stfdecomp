@@ -670,3 +670,41 @@ recording completed side stages. Requests lacking the table preserve the
 previous area/distance-only API. The later opponent minimum scan at
 0x2E074..0x2E0F4 and its \`word_2E230 / word_2E250\` lookups remain
 separate pending a matched trace; their output is not fabricated.
+
+
+### area_coli opposing-plane tail at 0x2E074..0x2E0F4
+
+The recovered area-collision path now covers the final CPU-side opposing
+fighter plane scan and 16-way classification. The ROM-independent
+\`stf_collision_area_opponent_apply_model2\` reads four opponent planes
+(+0x650..+0x65C), selects their minimum with the original
+last-record-wins tie rule, and stores the selected IEEE-754 bits at
+task +0x204 (fighter 0) or +0x208 (fighter 1). For fighter 1 the
+minimum plane index flips bit 0 as in the i960 \`not/and/or\` sequence.
+
+The original task +0x1E0 angular classification is recovered:
+\`((angle ^ (angle << 1)) >> 12) & 4\` supplies one direction bit;
+\`word_2E250[angle >> 13]\` supplies another; their OR with the
+opponent plane index addresses \`word_2E230\`. The two original
+ROM tables are explicit caller-provided eight- and sixteen-word views,
+with strict index/bounds validation. Task +0x1FC / +0x1FE receives
+the composed index; +0x200 / +0x202 receives the lookup result.
+No ROM bytes are embedded in the portable library.
+
+The composed path executes **area0 / distance0 / side0 / opponent0**
+before starting **area1 / distance1 / side1 / opponent1**. The first
+fighter therefore scans opponent planes remaining from the previous
+frame, exactly as in the original sequential assembly. The second
+fighter scans fighter 0's newly computed planes. The result exposes
+\`completed_opponents\` and per-fighter opponent records to diagnose
+failed mid-frame iterations. If the table pointers are absent,
+the previous area/distance/side prefix behavior is retained.
+
+An earlier recovery error in \`area_coli\`'s own minimum-plane
+encoding is also fixed: \`subi r11,0,r10; addi 4,r10,r10\` gives
+indices 1/2/3 for the three compared candidates, not -8/-4/0.
+The packed task +0x1F8 value now uses the original low index shifted
+left four bits. A controlled ROM trace remains necessary to establish
+how the inherited r9 register affects lower direction bits in all
+call paths; this implementation does not claim that unknown state
+to be proven by the new table scan.

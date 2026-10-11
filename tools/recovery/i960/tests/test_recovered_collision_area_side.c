@@ -57,12 +57,12 @@ static int direct_side_tests(void)
             angles,sizeof(angles),&result) ||
         !result.applied || result.plane!=STF_COLLISION_AREA_PLANE_X ||
         result.lut_index!=1u || result.orientation_code!=5u ||
-        result.minimum_record_offset!=-8 ||
+        result.minimum_record_offset!=1 ||
         result.min_plane_index!=1u || result.minimum_bits!=fb(1.0f) ||
-        result.selected_1f8!=UINT16_C(0xFF85) ||
+        result.selected_1f8!=UINT16_C(0x0015) ||
         r16(workspace+0x1F0u)!=UINT16_C(0x1000) ||
         r16(workspace+0x1F4u)!=5u ||
-        r16(workspace+0x1F8u)!=UINT16_C(0xFF85) ||
+        r16(workspace+0x1F8u)!=UINT16_C(0x0015) ||
         r16(workspace+0x23Cu)!=2u ||
         r16(fighter+0xAE2u)!=5u) return 1;
 
@@ -75,7 +75,7 @@ static int direct_side_tests(void)
         result.lut_index!=9u || result.orientation_code!=12u ||
         r16(fighter+0xAE2u)!=4u ||
         (r32(fighter+0xA08u)&UINT32_C(0x800))==0u ||
-        r16(workspace+0x1F8u)!=UINT16_C(0xFF84)) return 2;
+        r16(workspace+0x1F8u)!=UINT16_C(0x0014)) return 2;
 
     /* Negative Z with quarter-turn subtraction: signed index 10. */
     w32(fighter+0x644u,fb(1.0f));
@@ -88,7 +88,7 @@ static int direct_side_tests(void)
         result.lut_index!=10u || result.orientation_code!=10u ||
         r16(fighter+0xAE2u)!=2u ||
         r16(workspace+0x1F4u)!=10u ||
-        r16(workspace+0x1F8u)!=UINT16_C(0xFF80)) return 3;
+        r16(workspace+0x1F8u)!=UINT16_C(0x0010)) return 3;
 
     /* Ties in minimum candidate float select the *last* one. */
     four_planes(fighter);
@@ -99,8 +99,8 @@ static int direct_side_tests(void)
             fighter,sizeof(fighter),workspace,sizeof(workspace),
             angles,sizeof(angles),&result) ||
         result.min_plane_index!=3u ||
-        result.minimum_record_offset!=0 ||
-        result.selected_1f8!=0u) return 4;
+        result.minimum_record_offset!=3 ||
+        result.selected_1f8!=UINT16_C(0x0030)) return 4;
 
     /* Two-zero branch cannot invent an angle, and must not modify state. */
     w32(fighter+0x644u,0u);w32(fighter+0x64Cu,0u);
@@ -229,8 +229,8 @@ static int integrated_side_tests(void)
        result.side[1].orientation_code!=5u ||
        r16(ram+0x1F4u)!=0u || r16(ram+0x1F6u)!=5u ||
        r16(ram+0x23Cu)!=2u || r16(ram+0x23Eu)!=2u ||
-       r16(ram+0x1F8u)!=UINT16_C(0xFFC0) ||
-       r16(ram+0x1FAu)!=UINT16_C(0xFFC5)) return 3;
+       r16(ram+0x1F8u)!=UINT16_C(0x0020) ||
+       r16(ram+0x1FAu)!=UINT16_C(0x0025)) return 3;
 
     cb.count=0u;
     model.distance=NULL;

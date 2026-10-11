@@ -8,6 +8,7 @@
 #include "collision_copro_attack.h"
 #include "collision_area_distance.h"
 #include "collision_area_side.h"
+#include "collision_area_opponent.h"
 
 enum {
     STF_COLLISION_AREA_QUERY_WORDS = 6u,
@@ -98,6 +99,11 @@ typedef struct stf_collision_copro_area_model2 {
     /* Optional 16-byte ROM byte_2E260 table for the side selection tail. */
     const uint8_t *angle_lut;
     size_t angle_lut_size;
+    /* Optional pair of original lookup tables for the opponent scan. */
+    const uint16_t *table_2e250;
+    size_t table_2e250_count;
+    const uint16_t *table_2e230;
+    size_t table_2e230_count;
 } stf_collision_copro_area_model2;
 
 typedef struct stf_collision_copro_area_result {
@@ -108,6 +114,8 @@ typedef struct stf_collision_copro_area_result {
     stf_collision_area_plane plane[2];
     uint8_t completed_sides;
     stf_collision_area_side_result side[2];
+    uint8_t completed_opponents;
+    stf_collision_area_opponent_result opponent[2];
 } stf_collision_copro_area_result;
 
 /*
@@ -120,6 +128,9 @@ typedef struct stf_collision_copro_area_result {
  * follows each area response before the next fighter is processed.
  * An optional angle LUT adds the selected X/Z orientation and minimum
  * collision-plane scan after the scalar distance. No device data is invented.
+ * The optional pair of word_2E250/word_2E230 tables closes the second
+ * (opponent) plane scan before moving to the next fighter. Consequently
+ * fighter0 reads fighter1 previous-frame planes, not its updated planes.
  * Static buffers and ROM lookups are validated before any writes.
  * Callback failure is fail-closed but *not* transactional; completed_areas
  * records observable partial progress.
