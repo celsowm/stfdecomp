@@ -212,7 +212,9 @@ int main(void)
        !out.completed_checks || out.completed_combat ||
        out.combat.attempted!=1u || out.combat.completed!=0u ||
        s.events.hit_calls!=1u ||
-       r32(s.fighters[1]+0x1234u)!=30u) {fprintf(stderr, "pipeline test failed: stage 6 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 6;}
+       !out.combat.pairs[0].prefix_applied ||
+       out.combat.pairs[0].body_completed ||
+       r32(s.fighters[1]+0x1234u)!=31u) {fprintf(stderr, "pipeline test failed: stage 6 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 6;}
 
     /* A failure on the second geometry query retains only the
        first area and prevents any suppression/combat writes. */
