@@ -743,3 +743,37 @@ area-only clients work without additional state or tables.
 Remaining limitations: direct differential trace comparison against
 STF ROM and hardware-fidelity math are needed; the portable mapping
 does not embed original proprietary ROM tables.
+
+
+### Composed collision-to-combat frame corridor
+
+\`src/recovered/collision_pipeline.[ch]\` now provides a single
+buffer-validated frame transaction across the recovered Model 2 stages:
+
+1. \`coli_cont_cop\` / \`calc_attack_flag\` / \`coli_ram_init\` /
+   \`area_coli\` / optional \`decide_coli_kind\` (via the existing typed
+   geometry providers and externally supplied ROM tables).
+2. \`no_coli_unit_set\` for fighter 0 and then fighter 1, populating
+   both +0x6F8 suppression masks from fighter/mode inputs.
+3. \`coli_attack_chk\` for fighter 0 and fighter 1, including the
+   accepted hit effects and original priority/dual-hit arbitration.
+   Their attack profile masks come **directly** from
+   \`calc_attack_flag\`'s +0xAC8 outputs, not injected a second time.
+4. \`attack_hit\` prefix, the mandatory real continuation callback and
+   \`damage_unit\` for each ordered accepted hit (fighter 1 precedes
+   fighter 0 on a dual-hit tie).
+
+The pipeline insists that the area, frame-check and combat configurations
+share the SAME fighter buffers and workspace, with identical size
+contracts. It validates essential callback and output sizes before
+the first geometry write. Explicit progress reporting distinguishes
+the completed area stage, 0/1/2 suppression masks, completed hit
+checks and ordered combat attempts/completions. External coprocessor
+requests are **never silently approximated**, and attack_hit's missing
+body is still a mandatory continuation, not a success stub.
+
+Host regression tests include a no-hit frame, a dual-hit frame
+with computed ROM-view attack profiles and deterministic ordered damage,
+preflight alias rejection, failure of the first hit continuation,
+and failure of the second geometry query. ROM-vs-runtime differential
+replay is still needed to substantiate original arcade equivalence.
