@@ -167,6 +167,7 @@ tests:
 - support_rob_position CPU-side prelude;
 - no_coli_unit_set suppression mask;
 - coli_attack_chk core and Model 2 state adapter;
+- collision (0x294D4..0x29534) simultaneous-hit selection, priority-bit arbitration, strength/frame tie-breaks, and ordered dual-hit dispatch;
 - attack_hit input/state prefix;
 - attack strength byte -> IEEE-754 conversion;
 - scalar coprocessor command 0x0D001A1A as square root;
@@ -473,3 +474,23 @@ The branch transaction suite now resolves guard/down sub_2B94C calls internally:
 group 0 for guard-common, group 1 for guard block B, group 4 for generic down,
 and group 5 for SPECIAL_BIT16. Generic down also continues through calc_mht_adr
 and the shared knockback vector, while guard-common composes total_skill_adder_g7.
+
+### Collision dispatch priority (0x294D4..0x29534)
+
+The portable `stf_collision_hit_order_resolve` function decodes the final
+`collision` arbitration after both `coli_attack_chk` calls. It reads the
+latches at task-workspace +0x274/+0x276. A single hit goes directly to its
+attacker; when both latch, bit 15 of fighter +0x804 has first priority.
+When those bits agree, the unsigned byte at +0x822 selects the larger
+attacker value; if those agree, the unsigned halfword at +0x808 selects the
+smaller value. Complete ties invoke `attack_hit`/`damage_unit` for fighter 1,
+then restore fighter 0 and invoke both again. This order is observable and must
+not be collapsed into a single hit.
+
+`stf_collision_hit_order_read_model2` extracts the exact six fighter fields
+and two latch words from caller-owned buffers without binding game logic to
+Model 2 memory. Tests exercise all decision paths and invalid buffer bounds.
+The functions return a decision list; they do **not** claim to have recovered
+the remaining `collision` callbacks (e.g. kabe_hit, zibaku_ckeck,
+gusya_ckeck), and runtime frame integration/differential ROM replay remain
+future work.
