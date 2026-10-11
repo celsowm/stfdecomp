@@ -494,3 +494,30 @@ The functions return a decision list; they do **not** claim to have recovered
 the remaining `collision` callbacks (e.g. kabe_hit, zibaku_ckeck,
 gusya_ckeck), and runtime frame integration/differential ROM replay remain
 future work.
+
+### Composed collision hit-check / effect stage (0x2A75C..0x2A7D0)
+
+The original accepted `coli_attack_chk` path copies a 12-byte impact point
+from defender +0x1F4 + selected_unit*0x0C into `mod_fa_effect+0x7C`,
+`mod_fa_effect+0x8EC` and global `0x50A3FC`, sets the effect countdown
+at `+0x78` to 10, and copies a second 12-byte vector from the i960 `r5`
+indexed source into `mod_fa_effect+0x8F8`. The new portable
+`stf_collision_attack_effect_apply_model2` implements those writes from the
+hit resolver's selected unit. The second source is **caller supplied**:
+the assembler references `(r5)[r6*1]`, but the correct live pointer at this
+call boundary has not been established by a differential trace. The recovered
+effect API intentionally refuses to invent it. Misses preserve the effect
+and global hit-point buffers.
+
+`stf_collision_frame_check_model2` composes `coli_attack_chk` for fighter 0
+then fighter 1 using the same mutable collision workspace, applying each
+accepted-hit effect in the original check order, then extracting the
+`collision` priority/dual-hit event list. This preserves the lockout
+interaction (the first hit sets task +0x2AC to 8), and when both are
+allowed, the second hit's effect is the final value in the shared slot.
+`stf_collision_frame_dispatch` calls a backend-provided hit/damage
+transaction once per event in the original dispatch order, with early-exit
+handling. Tests cover simultaneous hits, lockout, one-hit and miss paths,
+source offsets and all output buffers. This is a portable collision *stage*,
+not a replacement for `coli_cont_cop`, sound/video, kabe_hit or the
+entire `collision` function.
