@@ -194,7 +194,12 @@ bool stf_collision_copro_area_stage_model2(
           model->angle_lut == NULL ||
           model->table_2e250_count < STF_COLLISION_AREA_TABLE_2E250_COUNT ||
           model->table_2e230_count < STF_COLLISION_AREA_TABLE_2E230_COUNT ||
-          model->workspace_size < STF_COLLISION_AREA_OPPONENT_WORKSPACE_MIN_SIZE))) {
+          model->workspace_size < STF_COLLISION_AREA_OPPONENT_WORKSPACE_MIN_SIZE)) ||
+        (model->kind_profiles != NULL &&
+         (model->kind_profile_count < STF_COLLISION_KIND_COUNT ||
+          model->workspace_size < STF_COLLISION_KIND_APPLY_WORKSPACE_MIN_SIZE ||
+          model->fighter_size[0] < STF_COLLISION_KIND_FIGHTER_MIN_SIZE ||
+          model->fighter_size[1] < STF_COLLISION_KIND_FIGHTER_MIN_SIZE))) {
         return false;
     }
     memset(&local, 0, sizeof(local));
@@ -277,6 +282,23 @@ bool stf_collision_copro_area_stage_model2(
                 }
             }
         }
+    }
+    if (model->kind_profiles != NULL) {
+        if (!stf_collision_kind_select_model2(
+                model->fighter[0], model->fighter_size[0],
+                model->fighter[1], model->fighter_size[1],
+                model->workspace, model->workspace_size,
+                &local.kind) ||
+            !stf_collision_kind_apply_model2(
+                &local.kind, model->kind_profiles, model->kind_profile_count,
+                model->unit_rows[0], model->unit_rows_sizes[0],
+                model->unit_rows[1], model->unit_rows_sizes[1],
+                model->workspace, model->workspace_size,
+                model->kind_special, model->kind_special_user_data)) {
+            *result = local;
+            return false;
+        }
+        local.completed_kind = true;
     }
     *result = local;
     return true;

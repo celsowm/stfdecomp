@@ -9,6 +9,7 @@
 #include "collision_area_distance.h"
 #include "collision_area_side.h"
 #include "collision_area_opponent.h"
+#include "collision_kind.h"
 
 enum {
     STF_COLLISION_AREA_QUERY_WORDS = 6u,
@@ -104,6 +105,13 @@ typedef struct stf_collision_copro_area_model2 {
     size_t table_2e250_count;
     const uint16_t *table_2e230;
     size_t table_2e230_count;
+    /* Optional decide_coli_kind pass after both area_coli calls. */
+    const stf_collision_kind_profile *kind_profiles;
+    size_t kind_profile_count;
+    const uint8_t *unit_rows[2];
+    size_t unit_rows_sizes[2];
+    stf_collision_kind_special_fn kind_special;
+    void *kind_special_user_data;
 } stf_collision_copro_area_model2;
 
 typedef struct stf_collision_copro_area_result {
@@ -116,6 +124,8 @@ typedef struct stf_collision_copro_area_result {
     stf_collision_area_side_result side[2];
     uint8_t completed_opponents;
     stf_collision_area_opponent_result opponent[2];
+    bool completed_kind;
+    stf_collision_kind_result kind;
 } stf_collision_copro_area_result;
 
 /*
@@ -131,6 +141,8 @@ typedef struct stf_collision_copro_area_result {
  * The optional pair of word_2E250/word_2E230 tables closes the second
  * (opponent) plane scan before moving to the next fighter. Consequently
  * fighter0 reads fighter1 previous-frame planes, not its updated planes.
+ * An optional classifier expands selected unit masks to collision ball
+ * masks only after BOTH area_coli calls have completed.
  * Static buffers and ROM lookups are validated before any writes.
  * Callback failure is fail-closed but *not* transactional; completed_areas
  * records observable partial progress.

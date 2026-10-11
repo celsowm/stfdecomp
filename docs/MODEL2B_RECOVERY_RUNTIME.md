@@ -708,3 +708,38 @@ left four bits. A controlled ROM trace remains necessary to establish
 how the inherited r9 register affects lower direction bits in all
 call paths; this implementation does not claim that unknown state
 to be proven by the new table scan.
+
+
+### decide_coli_kind profile classification and unit_to_ball expansion
+
+\`src/recovered/collision_kind.[ch]\` recovers the CPU-visible decision
+tree at 0x2CFD0..0x2D248. It distinguishes NORMAL, FIX_0/1, RISE_0/1,
+RIDE_0/1, BODY/BODY_0, KABE/KABE_0, JUMP_0/1 and TOBIKOE_0/1,
+preserves decision bits in the i960 g6 word, and tests the original
+fighter flags at +0x1A4, +0x70C, +0x804 and corresponding opponent/
+motion checks. BODY/KABE takes the relevant plane index from the
+original eight-element directional mapping, reads the appropriate
++0x650 plane and compares it against the original 0.1 threshold.
+No player motion or live game state is guessed.
+
+The subsequent original \`unit_to_ball\` helper walks a 32-unit map
+with eight-byte descriptors; it maps each encoded byte >> 2 to a
+32-bit ball selection bit, with a zero *after the first byte*
+terminating a row. Host mapping is supplied explicitly by the caller,
+not loaded by guessed ROM addresses. The recovered application stage
+expands both primary masks at workspace +0xC0/+0xC4 (inverted), the
+auxiliary masks at +0x264/+0x268 and copies associated profile scalars
+to +0xCC/+0xD0/+0xC8/+0x88. For the special 0x2D005A5A device
+command, a callback is REQUIRED when nonzero source magnitudes would
+invoke the device. Unsupported devices fail closed.
+
+The existing two-fighter \`stf_collision_copro_area_stage_model2\` can
+optionally perform \`decide_coli_kind\` after BOTH area_coli calls.
+This preserves the assembly order:
+area0 -> area1 -> decide_coli_kind. The extra step remains opt-in
+and exposes \`completed_kind\` and the selected kind; earlier
+area-only clients work without additional state or tables.
+
+Remaining limitations: direct differential trace comparison against
+STF ROM and hardware-fidelity math are needed; the portable mapping
+does not embed original proprietary ROM tables.
