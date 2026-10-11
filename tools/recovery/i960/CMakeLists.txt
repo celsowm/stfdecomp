@@ -42,6 +42,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/collision_ram_init.c"
     "${STF_REPO_ROOT}/src/recovered/collision_copro_attack.c"
     "${STF_REPO_ROOT}/src/recovered/collision_area.c"
+    "${STF_REPO_ROOT}/src/recovered/collision_area_distance.c"
     "${STF_REPO_ROOT}/src/recovered/collision_combat_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/collision_particle_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/collision_particle_render.c"
