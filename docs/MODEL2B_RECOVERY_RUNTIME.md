@@ -521,3 +521,32 @@ handling. Tests cover simultaneous hits, lockout, one-hit and miss paths,
 source offsets and all output buffers. This is a portable collision *stage*,
 not a replacement for `coli_cont_cop`, sound/video, kabe_hit or the
 entire `collision` function.
+
+
+### Frame collision RAM reset and attack/damage dispatch
+
+The \`coli_ram_init\` routine at the start of the Model 2B geometry collision
+corridor is now a bounded, ROM-independent C adapter:
+\`stf_collision_ram_init_apply_model2\`. It reproduces the exact i960
+\`movq/stq/stl/stos/st\` zero-write ranges at task +0x170..0x1AF and
++0x98..0xAB, and each fighter +0x75C..0x75F and +0xA68..0xA6F.
+It must execute at the original call site **inside** \`coli_cont_cop\`,
+not at the end of the frame (when post-damage state is live).
+
+After \`stf_collision_frame_check_model2\` has generated the ordered hit
+events, \`stf_collision_combat_apply_model2\` now composes the recovered
+\`attack_hit\` prefix (workspace bit-0 gate, +0x1234 counter and enemy
++0x108), an explicit per-pair **attack_hit continuation hook**, then the
+recovered \`damage_unit\` accumulation and post-state runtime. It preserves
+the original fighter-1/fighter-0 order on simultaneous tie outcomes.
+The continuation hook is mandatory: attack_hit's guard/motion/sound paths
+cannot be treated as a no-op, and they can change workspace +0x26C before
+damage_unit. The sub_19888 special-opponent branch remains exposed in
+the prefix result rather than fabricated. Partial failure records whether
+the prefix and continuation ran and how many damage transactions completed;
+writes before failure are not rolled back.
+
+Tests cover simultaneous mutual impacts into separate fighter damage arrays,
+special-opponent/bit-0 skips, per-hit continuation gating, order prevalidation
+and partial-completion reporting. No ROM bytes or hidden device assumptions
+are embedded.

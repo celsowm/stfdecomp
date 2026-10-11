@@ -39,6 +39,8 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/collision_hit_order.c"
     "${STF_REPO_ROOT}/src/recovered/collision_attack_effect.c"
     "${STF_REPO_ROOT}/src/recovered/collision_frame.c"
+    "${STF_REPO_ROOT}/src/recovered/collision_ram_init.c"
+    "${STF_REPO_ROOT}/src/recovered/collision_combat_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/collision_particle_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/collision_particle_render.c"
     "${STF_REPO_ROOT}/src/recovered/spark_effect_runtime.c"
@@ -489,6 +491,16 @@ add_executable(stf_recovered_collision_frame_tests
 )
 target_link_libraries(stf_recovered_collision_frame_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_collision_ram_init_tests
+    tests/test_recovered_collision_ram_init.c
+)
+target_link_libraries(stf_recovered_collision_ram_init_tests PRIVATE stf_recovered_game)
+
+add_executable(stf_recovered_collision_combat_runtime_tests
+    tests/test_recovered_collision_combat_runtime.c
+)
+target_link_libraries(stf_recovered_collision_combat_runtime_tests PRIVATE stf_recovered_game)
+
 enable_testing()
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
 add_test(NAME stf_i960_corridor_help COMMAND stf_i960_corridor --help)
@@ -508,6 +520,8 @@ add_test(NAME stf_recovered_collision_attack_tests COMMAND stf_recovered_collisi
 add_test(NAME stf_recovered_collision_hit_order_tests COMMAND stf_recovered_collision_hit_order_tests)
 add_test(NAME stf_recovered_collision_attack_effect_tests COMMAND stf_recovered_collision_attack_effect_tests)
 add_test(NAME stf_recovered_collision_frame_tests COMMAND stf_recovered_collision_frame_tests)
+add_test(NAME stf_recovered_collision_ram_init_tests COMMAND stf_recovered_collision_ram_init_tests)
+add_test(NAME stf_recovered_collision_combat_runtime_tests COMMAND stf_recovered_collision_combat_runtime_tests)
 add_test(NAME stf_recovered_attack_hit_tests COMMAND stf_recovered_attack_hit_tests)
 add_test(NAME stf_recovered_attack_hit_strength_tests COMMAND stf_recovered_attack_hit_strength_tests)
 add_test(NAME stf_recovered_attack_hit_profile_tests COMMAND stf_recovered_attack_hit_profile_tests)
