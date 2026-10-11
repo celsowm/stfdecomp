@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "attack_hit.h"
+#include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
 
