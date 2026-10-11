@@ -896,3 +896,27 @@ handle remaining damage-calculation/sound side effects, so this
 is **not** the end-to-end replacement of attack_hit.
 The earlier profile-only and guard-state-only workflows remain
 backward compatible.
+
+
+### Common guard branch 0x2AC74 and abort 0x2B8C8 in ordered combat
+
+\`stf_collision_combat_apply_model2\` can now opt into the common
+guard branch (\`STF_ATTACK_GUARD_BRANCH_2AC74\`) using
+\`guard_common_tail\`, the existing ROM-backed \`guard_motion_resolver\`,
+and the original guard-limit value supplied by its caller. The
+already-recovered \`stf_attack_hit_guard_common_apply_resolved_model2\`
+handles the CPU-side animation selection, stun duration, counters,
+guard motion and flags, returning explicit audio/skill requests.
+The continuation callback is still **mandatory** for live TGP,
+audio, scoring and other unported effects.
+
+The initial \`+0x860 bit19 && +0x822 == 0\` check is made before
+the ROM motion lookup. An abort follows original \`loc_2B8C8\`
+through \`stf_attack_hit_abort_cleanup_apply_model2\`: undo the
+prefix +0x1234 counter increment and clear BOTH enemy +0x108
+activity bytes, without invoking the motion resolver or a
+guard/audio continuation. The caller then reaches the usual
+post-attack \`damage_unit\` stage, which retains its own workspace
+gate. The composed result explicitly distinguishes a completed
+common-guard state, early aborted event and completed tail.
+Other guard and non-guard continuations remain unchanged.

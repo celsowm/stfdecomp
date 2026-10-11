@@ -36,6 +36,8 @@ bool stf_collision_combat_apply_model2(
         model->workspace == NULL || model->effect == NULL ||
         model->attack_body == NULL ||
         (model->guard_tail != NULL && model->normal_profile_table == NULL) ||
+        (model->guard_common_tail != NULL &&
+         model->normal_profile_table == NULL) ||
         (model->guard_vector_tgp != NULL && model->guard_tail == NULL) ||
         (model->normal_profile_table != NULL &&
          model->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE) ||
@@ -44,6 +46,9 @@ bool stf_collision_combat_apply_model2(
         model->fighter_sizes[1] < STF_DAMAGE_UNIT_DEFENDER_MIN_SIZE ||
         model->enemy_slot_sizes[0] < STF_ATTACK_HIT_ENEMY_MODEL2_MIN_SIZE ||
         model->enemy_slot_sizes[1] < STF_ATTACK_HIT_ENEMY_MODEL2_MIN_SIZE ||
+        (model->guard_common_tail != NULL &&
+         (model->enemy_slot_sizes[0] < STF_GUARD_COMMON_ENEMY_MIN_SIZE ||
+          model->enemy_slot_sizes[1] < STF_GUARD_COMMON_ENEMY_MIN_SIZE)) ||
         model->fighters[0][4u] != 0u || model->fighters[1][4u] != 1u) {
         return false;
     }
@@ -155,6 +160,75 @@ bool stf_collision_combat_apply_model2(
                     return false;
                 }
                 pair->guard_tail_completed = true;
+            } else if (model->guard_common_tail != NULL &&
+                       pair->normal_entry_applied &&
+                       pair->normal_entry.guard_branch ==
+                           STF_ATTACK_GUARD_BRANCH_2AC74) {
+                /* ROM loc_2AC74 tests for early abort BEFORE sub_2B94C
+                 * resolves any animation. Do not query ROM in that case. */
+                stf_attack_side_exit_result exit_result;
+                if (!stf_attack_hit_side_exit_apply_model2(
+                        STF_ATTACK_SIDE_EXIT_GUARD_2AC74,
+                        attacker, attacker_size,
+                        defender, defender_size, &exit_result)) {
+                    *result = local;
+                    return false;
+                }
+                if (exit_result.path ==
+                        STF_ATTACK_SIDE_EXIT_ABORT_2B8C8) {
+                    if (!stf_attack_hit_abort_cleanup_apply_model2(
+                            attacker, attacker_size,
+                            model->enemy_slots[0], model->enemy_slot_sizes[0],
+                            model->enemy_slots[1], model->enemy_slot_sizes[1],
+                            &pair->guard_common_cleanup)) {
+                        *result = local;
+                        return false;
+                    }
+                    pair->guard_common_aborted = true;
+                } else {
+                    if (!stf_attack_hit_guard_common_apply_resolved_model2(
+                            attacker, attacker_size,
+                            defender, defender_size,
+                            model->workspace, model->workspace_size,
+                            model->enemy_slots[attacker_index],
+                            model->enemy_slot_sizes[attacker_index],
+                            (uint16_t)pair->prefix.hit_flags_828,
+                            (uint8_t)pair->prefix.hit_kind_83e,
+                            model->guard_common_limit,
+                            model->guard_motion_resolver,
+                            model->guard_motion_resolver_user_data,
+                            &pair->guard_common)) {
+                        *result = local;
+                        return false;
+                    }
+                    pair->guard_common_applied = true;
+                    if (pair->guard_common.guard.skipped) {
+                        if (!stf_attack_hit_abort_cleanup_apply_model2(
+                                attacker, attacker_size,
+                                model->enemy_slots[0],
+                                model->enemy_slot_sizes[0],
+                                model->enemy_slots[1],
+                                model->enemy_slot_sizes[1],
+                                &pair->guard_common_cleanup)) {
+                            *result = local;
+                            return false;
+                        }
+                        pair->guard_common_aborted = true;
+                    } else {
+                        if (!model->guard_common_tail(
+                                model->guard_common_tail_user_data,
+                                attacker_index, defender_index,
+                                attacker, attacker_size,
+                                defender, defender_size,
+                                model->workspace, model->workspace_size,
+                                &pair->prefix, &pair->normal_entry,
+                                &pair->guard_common)) {
+                            *result = local;
+                            return false;
+                        }
+                        pair->guard_common_tail_completed = true;
+                    }
+                }
             } else if (!model->attack_body(
                     model->attack_body_user_data,
                     attacker_index, defender_index,

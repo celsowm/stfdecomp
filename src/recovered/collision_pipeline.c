@@ -40,6 +40,8 @@ static bool validate(const stf_collision_pipeline_model2 *pipeline)
         combat->effect == NULL || combat->attack_body == NULL ||
         (combat->guard_tail != NULL &&
          combat->normal_profile_table == NULL) ||
+        (combat->guard_common_tail != NULL &&
+         combat->normal_profile_table == NULL) ||
         (combat->normal_profile_table != NULL &&
          combat->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE) ||
         (combat->guard_vector_tgp != NULL && combat->guard_tail == NULL)) {

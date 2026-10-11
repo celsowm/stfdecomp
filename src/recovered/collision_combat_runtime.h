@@ -10,6 +10,8 @@
 #include "attack_hit_normal_entry.h"
 #include "attack_hit_guard_state_runtime.h"
 #include "attack_hit_guard_vector.h"
+#include "attack_hit_guard_common_runtime.h"
+#include "attack_hit_side_exit.h"
 #include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
@@ -57,6 +59,28 @@ typedef bool (*stf_collision_attack_hit_guard_tail_fn)(
     const stf_guard_state_runtime_result *guard_state
 );
 
+/*
+ * Continuation for the 0x2AC74 common guard path. The CPU-resolved
+ * motion, counters, stun state, and audio/skill requests have already
+ * been produced by guard_common. This callback remains responsible for
+ * the original audio/skill/TGP tail (it MUST NOT be a success stub
+ * in a real gameplay port).
+ */
+typedef bool (*stf_collision_attack_hit_guard_common_tail_fn)(
+    void *user_data,
+    uint8_t attacker_index,
+    uint8_t defender_index,
+    uint8_t *attacker,
+    size_t attacker_size,
+    uint8_t *defender,
+    size_t defender_size,
+    uint8_t *workspace,
+    size_t workspace_size,
+    const stf_attack_hit_prefix_result *prefix,
+    const stf_attack_hit_normal_entry_result *normal_entry,
+    const stf_guard_common_runtime_result *guard_common
+);
+
 typedef struct stf_collision_combat_model2 {
     uint8_t *fighters[2];
     size_t fighter_sizes[2];
@@ -91,6 +115,11 @@ typedef struct stf_collision_combat_model2 {
     void *guard_vector_tgp_user_data;
     const uint8_t *guard_vector_boost_table;
     size_t guard_vector_boost_table_size;
+    /* Optional 0x2AC74 common-guard path, using guard_motion_resolver.
+     * Strength/stun effects are computed in C; audio/skill/TGP need tail. */
+    stf_collision_attack_hit_guard_common_tail_fn guard_common_tail;
+    void *guard_common_tail_user_data;
+    uint8_t guard_common_limit;
 } stf_collision_combat_model2;
 
 typedef struct stf_collision_combat_pair_result {
@@ -107,6 +136,11 @@ typedef struct stf_collision_combat_pair_result {
     bool guard_vector_applied;
     stf_attack_hit_guard_vector_result guard_vector;
     stf_guard_state_runtime_result guard_state;
+    bool guard_common_applied;
+    bool guard_common_aborted;
+    bool guard_common_tail_completed;
+    stf_guard_common_runtime_result guard_common;
+    stf_attack_abort_cleanup_result guard_common_cleanup;
     stf_attack_hit_special_result special;
     bool body_completed;
     bool damage_completed;
@@ -137,6 +171,9 @@ typedef struct stf_collision_combat_result {
  * at loc_2B738..loc_2B898 before guard_tail. Without it, guard_tail still
  * owns these vector operations. In either case guard_tail MUST handle
  * the remaining damage_calculation/audio/event work for ROM equivalence.
+ * The optional guard_common_tail handles the distinct 0x2AC74 branch;
+ * its early abort at 0x2B8C8 is handled in C without a motion lookup.
+ * The tail must still perform the unrecovered events and device work.
  * Host float math is semantic,
  * not claimed bit-for-bit accurate to the original sqrt coprocessor.
  *
