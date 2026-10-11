@@ -55,12 +55,12 @@ static int standalone_tests(void)
     wr32(defender+0x1A4u,UINT32_C(1)<<13u);
     prefix.hit_flags_828=UINT16_C(1)<<12u;
 
-    /* Guard block A and exact CPU strength source, with an explicit
+    /* Guard block B and exact CPU strength source, with an explicit
        semantic-only strength scale (coprocessor rounding remains open). */
     if(!stf_attack_hit_normal_entry_apply_model2(
             attacker,sizeof(attacker),defender,sizeof(defender),
             task,sizeof(task),&prefix,table,sizeof(table),&out) ||
-       out.guard_branch!=STF_ATTACK_GUARD_BLOCK_A_2AA70 ||
+       out.guard_branch!=STF_ATTACK_GUARD_BLOCK_B_2AB54 ||
        out.strength.combined_82a_026!=7 ||
        out.strength.raw_822!=4u ||
        out.strength.raw_822_float_bits!=fbits(4.0f) ||
@@ -69,13 +69,13 @@ static int standalone_tests(void)
        fabsf(asfloat(out.host_strength_scale_bits)-0.025f)>0.0001f)
         return 1;
 
-    /* At c70 > 1 the same bit12 selects block B. */
+    /* At c70 > 1 the same bit12 selects block A. */
     wr32(defender+0xC70u,2u);
     prefix.hit_kind_843=3;
     if(!stf_attack_hit_normal_entry_apply_model2(
             attacker,sizeof(attacker),defender,sizeof(defender),
             task,sizeof(task),&prefix,table,sizeof(table),&out) ||
-       out.guard_branch!=STF_ATTACK_GUARD_BLOCK_B_2AB54 ||
+       out.guard_branch!=STF_ATTACK_GUARD_BLOCK_A_2AA70 ||
        fabsf(asfloat(out.host_strength_scale_bits)-0.0125f)>0.0001f)
         return 2;
 
@@ -185,7 +185,7 @@ static int combat_tests(void)
        result.pairs[0].special_applied ||
        !result.pairs[0].body_completed ||
        result.pairs[0].normal_entry.guard_branch!=
-           STF_ATTACK_GUARD_BLOCK_A_2AA70 ||
+           STF_ATTACK_GUARD_BLOCK_B_2AB54 ||
        result.pairs[0].normal_entry.strength.raw_822!=9u ||
        hook.bodies!=1u ||
        rd32(f1+0x1234u)!=1u)
