@@ -3,6 +3,7 @@
 
 #include "collision_copro_attack.h"
 #include "collision_frame.h"
+#include "collision_ram_init.h"
 
 enum { TEST_FIGHTER_SIZE = 0x1E20u };
 
@@ -147,9 +148,9 @@ int main(void)
         rd32(f0+0xAC8u)!=UINT32_C(0x12345678)) return 8;
     view.profile_count=42u;
     if (stf_calc_attack_flag_read_model2(
-            f0,sizeof(f0)-1u,&view,&one)) return 9;
+            f0,STF_COPRO_ATTACK_FLAG_FIGHTER_MIN_SIZE-1u,&view,&one)) return 9;
     if (stf_collision_copro_attack_prepare_model2(
-            workspace,sizeof(workspace)-1u,f0,sizeof(f0),f1,sizeof(f1),
+            workspace,STF_COLLISION_RAM_INIT_WORKSPACE_MIN_SIZE-1u,f0,sizeof(f0),f1,sizeof(f1),
             &view,flags)) return 10;
 
     /* Frame API catches undersized fighters before mutation. */
