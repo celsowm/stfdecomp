@@ -35,6 +35,7 @@ bool stf_collision_combat_apply_model2(
         model->enemy_slots[0] == NULL || model->enemy_slots[1] == NULL ||
         model->workspace == NULL || model->effect == NULL ||
         model->attack_body == NULL ||
+        (model->guard_tail != NULL && model->normal_profile_table == NULL) ||
         (model->normal_profile_table != NULL &&
          model->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE) ||
         model->workspace_size < STF_COLLISION_ATTACK_WORKSPACE_MODEL2_MIN_SIZE ||
@@ -103,7 +104,40 @@ bool stf_collision_combat_apply_model2(
                 }
                 pair->normal_entry_applied = true;
             }
-            if (!model->attack_body(
+            if (model->guard_tail != NULL &&
+                pair->normal_entry_applied &&
+                (pair->normal_entry.guard_branch ==
+                     STF_ATTACK_GUARD_BLOCK_A_2AA70 ||
+                 pair->normal_entry.guard_branch ==
+                     STF_ATTACK_GUARD_BLOCK_B_2AB54)) {
+                const stf_guard_block_kind kind =
+                    pair->normal_entry.guard_branch ==
+                        STF_ATTACK_GUARD_BLOCK_A_2AA70
+                        ? STF_GUARD_BLOCK_A : STF_GUARD_BLOCK_B;
+                if (!stf_attack_hit_guard_apply_resolved_model2(
+                        kind, attacker, attacker_size,
+                        defender, defender_size,
+                        model->workspace, model->workspace_size,
+                        (uint16_t)pair->prefix.hit_flags_828,
+                        model->guard_motion_resolver,
+                        model->guard_motion_resolver_user_data,
+                        &pair->guard_state)) {
+                    *result = local;
+                    return false;
+                }
+                pair->guard_applied = true;
+                if (!model->guard_tail(
+                        model->guard_tail_user_data,
+                        attacker_index, defender_index,
+                        attacker, attacker_size, defender, defender_size,
+                        model->workspace, model->workspace_size,
+                        &pair->prefix, &pair->normal_entry,
+                        &pair->guard_state)) {
+                    *result = local;
+                    return false;
+                }
+                pair->guard_tail_completed = true;
+            } else if (!model->attack_body(
                     model->attack_body_user_data,
                     attacker_index, defender_index,
                     attacker, attacker_size, defender, defender_size,

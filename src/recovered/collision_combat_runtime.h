@@ -8,6 +8,7 @@
 #include "attack_hit.h"
 #include "attack_hit_special.h"
 #include "attack_hit_normal_entry.h"
+#include "attack_hit_guard_state_runtime.h"
 #include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
@@ -33,6 +34,28 @@ typedef bool (*stf_collision_attack_hit_body_fn)(
     const stf_attack_hit_prefix_result *prefix
 );
 
+
+/*
+ * Continuation after the recovered BLOCK_A/B CPU branch (loc_2B738).
+ * Must implement the remaining real coprocessor/vector and event work;
+ * merely returning true without the continuation is NOT 1:1 gameplay.
+ * The resolved BLOCK_B motion and guard sound request are in guard_state.
+ */
+typedef bool (*stf_collision_attack_hit_guard_tail_fn)(
+    void *user_data,
+    uint8_t attacker_index,
+    uint8_t defender_index,
+    uint8_t *attacker,
+    size_t attacker_size,
+    uint8_t *defender,
+    size_t defender_size,
+    uint8_t *workspace,
+    size_t workspace_size,
+    const stf_attack_hit_prefix_result *prefix,
+    const stf_attack_hit_normal_entry_result *normal_entry,
+    const stf_guard_state_runtime_result *guard_state
+);
+
 typedef struct stf_collision_combat_model2 {
     uint8_t *fighters[2];
     size_t fighter_sizes[2];
@@ -54,6 +77,12 @@ typedef struct stf_collision_combat_model2 {
     /* Optional ROM-backed normal attack prelude, excluding sub_19888. */
     const uint8_t *normal_profile_table;
     size_t normal_profile_table_size;
+    /* Opt-in recovered BLOCK_A/B state: requires original profile table.
+     * BLOCK_B additionally requires guard_motion_resolver. */
+    stf_collision_attack_hit_guard_tail_fn guard_tail;
+    void *guard_tail_user_data;
+    stf_hit_motion_table_resolver guard_motion_resolver;
+    void *guard_motion_resolver_user_data;
 } stf_collision_combat_model2;
 
 typedef struct stf_collision_combat_pair_result {
@@ -65,6 +94,9 @@ typedef struct stf_collision_combat_pair_result {
     bool special_applied;
     bool normal_entry_applied;
     stf_attack_hit_normal_entry_result normal_entry;
+    bool guard_applied;
+    bool guard_tail_completed;
+    stf_guard_state_runtime_result guard_state;
     stf_attack_hit_special_result special;
     bool body_completed;
     bool damage_completed;
@@ -86,7 +118,14 @@ typedef struct stf_collision_combat_result {
  * special tag-5 record is selected from ROM by the supplied resolver.
  * Optional normal_profile_table activates the CPU strength prelude,
  * 40-byte profile lookup and guard-route classification before the
- * mandatory normal attack_body continuation. Host float math is semantic,
+ * mandatory normal attack_body continuation. When guard_tail is supplied,
+ * BLOCK_A and BLOCK_B execute the recovered guard-state CPU writes in C
+ * and invoke that branch-specific tail, not the generic attack_body.
+ * BLOCK_B resolves sub_2B94C motion through guard_motion_resolver before
+ * modifying defender/attacker state. Other paths retain the generic hook.
+ * The original tail at loc_2B738 includes further coprocessor work;
+ * guard_tail MUST implement it for ROM equivalence.
+ * Host float math is semantic,
  * not claimed bit-for-bit accurate to the original sqrt coprocessor.
  *
  * Validate all shared buffers and the dispatch list before mutating anything.

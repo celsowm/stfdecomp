@@ -832,3 +832,32 @@ branches: a guard classifier alone is not a complete reaction,
 damage, sound, or motion continuation. The result records
 \`normal_entry_applied\` separately, including partial callback
 failures. With no table, old consumers work unchanged.
+
+
+### Recovered BLOCK_A / BLOCK_B live guard branches
+
+The combat runtime can now opt into an original guard continuation
+via \`guard_tail\`, in addition to the normal ROM-backed hit profile
+and prelude. For the two proven paths selected at
+\`0x2AA70\` (BLOCK_A) or \`0x2AB54\` (BLOCK_B), the runtime
+executes \`stf_attack_hit_guard_apply_resolved_model2\` directly.
+This reuses the existing ROM-recovered +0x26C flag bits (0, 2, 3),
+defender +0xC6C/+0xC70/+0x198/+0x6D8/+0x5DE stores, attacker
++0x194 and conditional +0x121C/+0x1220/+0x1244 copies. The
+BLOCK_A fixed motion does not require a lookup. For BLOCK_B,
+the resolver must supply the actual \`sub_2B94C\` group-1 motion
+before the guard-state writes; missing/out-of-range ROM records
+fail without writing the guarded state.
+
+After these recovered CPU writes, the **specific**
+\`guard_tail\` continuation is invoked, instead of rerunning the
+generic \`attack_body\`. The tail still has to implement the vector
+coprocessor and audio/effect actions at \`loc_2B738\`; this C
+integration does **not** silently treat the branch as completed.
+The guard-state result reports the knock sound event but does not
+play audio. On failed guard-tail callbacks, partial progress is
+explicit (\`guard_applied=true\`, \`guard_tail_completed=false\`);
+original already-performed writes are not rolled back. Non-guard
+paths and deployments without guard_tail keep the previous
+generic callback unchanged. This is a CPU-state recovery milestone,
+not full 1:1 arcade execution.
