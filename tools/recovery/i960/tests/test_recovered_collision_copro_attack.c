@@ -4,6 +4,8 @@
 #include "collision_copro_attack.h"
 #include "collision_frame.h"
 
+enum { TEST_FIGHTER_SIZE = 0x1E20u };
+
 static void wr16(uint8_t *p, uint16_t v)
 {
     p[0]=(uint8_t)v; p[1]=(uint8_t)(v>>8u);
@@ -21,8 +23,8 @@ static uint32_t rd32(const uint8_t *p)
 
 int main(void)
 {
-    uint8_t f0[STF_COLLISION_NO_UNIT_SELF_MIN_SIZE];
-    uint8_t f1[STF_COLLISION_NO_UNIT_SELF_MIN_SIZE];
+    uint8_t f0[TEST_FIGHTER_SIZE];
+    uint8_t f1[TEST_FIGHTER_SIZE];
     uint8_t image[0x400u];
     uint8_t workspace[STF_COLLISION_ATTACK_WORKSPACE_MODEL2_MIN_SIZE];
     uint8_t effect[STF_COLLISION_ATTACK_EFFECT_MODEL2_SIZE];
