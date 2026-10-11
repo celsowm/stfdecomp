@@ -22,7 +22,7 @@ enum {
 
 typedef struct stf_attack_hit_special_tgp_query {
     uint32_t opcode; /* 0x2D805B5B */
-    uint16_t heading_26;
+    int32_t heading_26; /* sign-extended ldis 0x26(g7) */
     uint32_t vector_80;
     uint32_t vector_88;
 } stf_attack_hit_special_tgp_query;

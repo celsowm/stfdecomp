@@ -140,7 +140,7 @@ static int direct_special(void)
        !result.needed_tgp ||
        ctx.tgp_calls!=2u ||
        ctx.last_request.opcode!=UINT32_C(0x2D805B5B) ||
-       ctx.last_request.heading_26!=UINT16_C(0xA120) ||
+       ctx.last_request.heading_26!=(int32_t)(int16_t)UINT16_C(0xA120) ||
        ctx.last_request.vector_80!=UINT32_C(0x11223344) ||
        ctx.last_request.vector_88!=UINT32_C(0x88776655) ||
        r32(a+0x18u)!=fb(7.5f) ||

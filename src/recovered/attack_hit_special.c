@@ -86,7 +86,7 @@ bool stf_attack_hit_special_apply_model2(
         const float x20=to_float(rd32(attacker+0x20u));
         if (tgp==NULL) return false;
         query.opcode=UINT32_C(0x2D805B5B);
-        query.heading_26=rd16(attacker+0x26u);
+        query.heading_26=(int32_t)(int16_t)rd16(attacker+0x26u);
         query.vector_80=rd32(attacker+0x80u);
         query.vector_88=rd32(attacker+0x88u);
         if (!tgp(tgp_user_data,&query,response)) return false;
