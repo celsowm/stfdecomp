@@ -95,3 +95,30 @@ bool stf_collision_frame_dispatch(
     }
     return true;
 }
+
+
+bool stf_collision_frame_check_computed_model2(
+    const stf_collision_frame_model2 *frame,
+    stf_collision_frame_result *result
+)
+{
+    stf_collision_frame_model2 copied;
+    unsigned i;
+
+    if (frame == NULL || result == NULL) {
+        return false;
+    }
+    copied = *frame;
+    for (i = 0u; i < 2u; ++i) {
+        const uint8_t *fighter = frame->fighters[i];
+        if (fighter == NULL || frame->fighter_sizes[i] < 0xACCu) {
+            return false;
+        }
+        copied.attack_profile_bits[i] =
+            (uint32_t)fighter[0xAC8u] |
+            ((uint32_t)fighter[0xAC9u] << 8u) |
+            ((uint32_t)fighter[0xACAu] << 16u) |
+            ((uint32_t)fighter[0xACBu] << 24u);
+    }
+    return stf_collision_frame_check_model2(&copied, result);
+}

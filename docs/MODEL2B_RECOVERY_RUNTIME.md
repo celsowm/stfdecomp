@@ -550,3 +550,29 @@ Tests cover simultaneous mutual impacts into separate fighter damage arrays,
 special-opponent/bit-0 skips, per-hit continuation gating, order prevalidation
 and partial-completion reporting. No ROM bytes or hidden device assumptions
 are embedded.
+
+
+### calc_attack_flag recovered from coli_cont_cop (0x2DC4x)
+
+The caller-owned, addressable Model 2 view now resolves the original
+\`dword_CE020[+0x820]\` 32-bit profile and the 32 per-ball selectors pointed
+to by fighter +0x1D18. The reconstructed \`calc_attack_flag\` checks motion
+kind bit 8, current frame +0x1AA >= threshold +0x808 and special kind 41,
+then writes the source profile into fighter +0xAC8 and the 32-bit selection
+mask into +0x768. The i960 bit-test index uses the low five bits of each
+selector (0..31). On a disabled profile both fields become zero.
+
+\`stf_collision_copro_attack_prepare_model2\` composes both fighter
+\`calc_attack_flag\` calls followed by the previously recovered
+\`coli_ram_init\`; it validates both profiles and selector tables before
+mutating the frame. This stage must run *after* the original coprocessor's
+initial 0x1F003E3E response and *before* area_coli and decide_coli_kind.
+Those Model 2 commands are not silently synthesized.
+
+\`stf_collision_frame_check_computed_model2\` now consumes the actual stored
++0xAC8 profiles to run the prior hit checks and arbitration, removing manual
+attack_profile_bits injection from that flow. The integration tests run
+addressable profile lookup -> two fighter masks -> RAM reset -> two
+attack checks -> dual-hit ordering, along with inactive modes and bounds.
+The TGP collision outputs, suppressions, r5 impact vector and remaining
+attack_hit body still need native execution/differential replay.

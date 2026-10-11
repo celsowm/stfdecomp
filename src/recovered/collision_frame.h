@@ -64,4 +64,16 @@ bool stf_collision_frame_dispatch(
     size_t *completed
 );
 
+
+/*
+ * Use profile masks already computed by calc_attack_flag at fighter +0xAC8,
+ * rather than manually injecting the dword_CE020 lookup result. Caller must
+ * first run the coprocessor prepass and supply later collision suppressions.
+ * As with check_model2, the TGP and the attack_hit continuation remain external.
+ */
+bool stf_collision_frame_check_computed_model2(
+    const stf_collision_frame_model2 *frame,
+    stf_collision_frame_result *result
+);
+
 #endif
