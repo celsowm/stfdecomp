@@ -7,6 +7,7 @@
 
 #include "collision_copro_attack.h"
 #include "collision_area_distance.h"
+#include "collision_area_side.h"
 
 enum {
     STF_COLLISION_AREA_QUERY_WORDS = 6u,
@@ -94,6 +95,9 @@ typedef struct stf_collision_copro_area_model2 {
     /* Optional measured 0x15802B2B FIFO query after each area. */
     stf_collision_area_distance_fn distance;
     void *distance_user_data;
+    /* Optional 16-byte ROM byte_2E260 table for the side selection tail. */
+    const uint8_t *angle_lut;
+    size_t angle_lut_size;
 } stf_collision_copro_area_model2;
 
 typedef struct stf_collision_copro_area_result {
@@ -102,6 +106,8 @@ typedef struct stf_collision_copro_area_result {
     uint8_t completed_areas;
     uint8_t completed_distances;
     stf_collision_area_plane plane[2];
+    uint8_t completed_sides;
+    stf_collision_area_side_result side[2];
 } stf_collision_copro_area_result;
 
 /*
@@ -112,6 +118,8 @@ typedef struct stf_collision_copro_area_result {
  *
  * When a distance provider is given, the recovered +0x680 scalar query
  * follows each area response before the next fighter is processed.
+ * An optional angle LUT adds the selected X/Z orientation and minimum
+ * collision-plane scan after the scalar distance. No device data is invented.
  * Static buffers and ROM lookups are validated before any writes.
  * Callback failure is fail-closed but *not* transactional; completed_areas
  * records observable partial progress.

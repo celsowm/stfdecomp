@@ -73,16 +73,16 @@ static int test_query_and_distance_semantics(void)
     put32(fighter+0x64Cu,fb(2.0f));
     if (!stf_collision_area_plane_choose_model2(
             fighter,sizeof(fighter),&side) ||
-        side!=STF_COLLISION_AREA_PLANE_X) return 8;
+        side!=STF_COLLISION_AREA_PLANE_Z) return 8;
     put32(fighter+0x644u,fb(-2.0f));
     put32(fighter+0x64Cu,fb(-1.0f));
     if (!stf_collision_area_plane_choose_model2(
             fighter,sizeof(fighter),&side) ||
-        side!=STF_COLLISION_AREA_PLANE_Z) return 9;
+        side!=STF_COLLISION_AREA_PLANE_X) return 9;
     put32(fighter+0x644u,0u);put32(fighter+0x64Cu,fb(2.0f));
     if (!stf_collision_area_plane_choose_model2(
             fighter,sizeof(fighter),&side) ||
-        side!=STF_COLLISION_AREA_PLANE_NONE) return 10;
+        side!=STF_COLLISION_AREA_PLANE_Z) return 10;
     put32(fighter+0x644u,fb(2.0f));put32(fighter+0x64Cu,0u);
     if (!stf_collision_area_plane_choose_model2(
             fighter,sizeof(fighter),&side) ||
@@ -177,8 +177,8 @@ static int test_two_fighter_integration(void)
         ctx.order[2]!=11u || ctx.order[3]!=21u ||
         get32(f0+0x680u)!=fb(5.0f) ||
         get32(f1+0x680u)!=fb(5.0f) ||
-        result.plane[0]!=STF_COLLISION_AREA_PLANE_X ||
-        result.plane[1]!=STF_COLLISION_AREA_PLANE_Z) return 1;
+        result.plane[0]!=STF_COLLISION_AREA_PLANE_Z ||
+        result.plane[1]!=STF_COLLISION_AREA_PLANE_X) return 1;
 
     /* If second scalar query fails, first area+distance and second
        area remain visible; the failing scalar reply is NOT committed. */

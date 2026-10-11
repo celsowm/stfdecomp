@@ -640,3 +640,33 @@ must represent a real or controlled geometry result. An absent callback
 retains the existing prefix-only behavior without guessing hardware.
 The integration test covers both ordered paths, 3-4-5 distance,
 branch classification, buffer guards and second-query failures.
+
+
+### area_coli 0x2DF18..0x2E074 signed-angle quadrant lookup and minimum-plane scan
+
+\`src/recovered/collision_area_side.[ch]\` now covers the ROM-grounded
+X/Z side path after the area scalar 0x15802B2B query. A correction to the
+older \`stf_collision_area_plane_choose_model2\` restores the actual
+\`cmpr / bl\` branch direction: among two nonzero absolute plane values,
+**the larger one takes precedence**, ties choosing X; X=0/Z!=0 chooses
+Z. This behavior is covered by changed differential-oriented host tests.
+
+For an X plane the routine uses the signed +0x26 fighter heading and
+sign of (+0x644 XOR heading), extracting an index from bits 12..14 and
+sign bit 3; the Z plane uses 0x4000 minus heading, XORed against the
+high halfword of +0x64C. The 16-byte \`byte_2E260\` lookup is
+**caller supplied** and bounds checked, not embedded in the portable code.
+It updates the exact CPU-observable +0xA08 orientation flag,
++0xAE2 low direction, task +0x1F0/+0x1F4/+0x23C halfwords for the fighter,
+and the encoded minimum of four candidate +0x650..+0x65C plane floats
+at task +0x1F8. The minimum scan uses the actual \`cmpr/bl\` tie behavior:
+equal values select the later record. NaN/infinite candidate floats fail
+closed without partial writes; the absent-plane path explicitly reports
+no orientation instead of inventing a heading.
+
+The existing two-fighter stage now optionally takes the table and runs
+area0 -> distance0 -> side0 -> area1 -> distance1 -> side1 in order,
+recording completed side stages. Requests lacking the table preserve the
+previous area/distance-only API. The later opponent minimum scan at
+0x2E074..0x2E0F4 and its \`word_2E230 / word_2E250\` lookups remain
+separate pending a matched trace; their output is not fabricated.

@@ -104,13 +104,14 @@ bool stf_collision_area_plane_choose_model2(
     x = read_u32(fighter + 0x644u) & UINT32_C(0x7FFFFFFF);
     z = read_u32(fighter + 0x64Cu) & UINT32_C(0x7FFFFFFF);
     /*
-     * The i960 branches explicitly test zero before comparing unsigned
-     * sign-stripped IEEE-754 words. Preserve that control flow rather
-     * than extrapolating a continuous numerical selector.
+     * 0x2DF18 compares positive float magnitudes with cmpr/bl:
+     * if X is nonzero and (Z is zero or X >= Z), take X;
+     * otherwise take Z if it is nonzero and Z >= X.
+     * When both are zero, no side is chosen. Equal magnitudes favor X.
      */
-    if (x != 0u && (z == 0u || z >= x)) {
+    if (x != 0u && (z == 0u || x >= z)) {
         *plane = STF_COLLISION_AREA_PLANE_X;
-    } else if (z != 0u && x >= z) {
+    } else if (z != 0u && z >= x) {
         *plane = STF_COLLISION_AREA_PLANE_Z;
     } else {
         *plane = STF_COLLISION_AREA_PLANE_NONE;

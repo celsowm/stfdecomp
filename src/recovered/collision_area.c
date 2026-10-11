@@ -184,7 +184,11 @@ bool stf_collision_copro_area_stage_model2(
         model->fighter_size[0] < STF_COPRO_ATTACK_FLAG_FIGHTER_MIN_SIZE ||
         model->fighter_size[1] < STF_COPRO_ATTACK_FLAG_FIGHTER_MIN_SIZE ||
         model->fighter[0][4u] != 0u || model->fighter[1][4u] != 1u ||
-        model->workspace_size < STF_COLLISION_RAM_INIT_WORKSPACE_MIN_SIZE) {
+        model->workspace_size < STF_COLLISION_RAM_INIT_WORKSPACE_MIN_SIZE ||
+        (model->angle_lut != NULL &&
+         (model->distance == NULL ||
+          model->angle_lut_size < STF_COLLISION_AREA_ANGLE_LUT_COUNT ||
+          model->workspace_size < STF_COLLISION_AREA_SIDE_WORKSPACE_MIN_SIZE))) {
         return false;
     }
     memset(&local, 0, sizeof(local));
@@ -242,6 +246,17 @@ bool stf_collision_copro_area_stage_model2(
                 return false;
             }
             ++local.completed_distances;
+            if (model->angle_lut != NULL) {
+                if (!stf_collision_area_side_apply_model2(
+                        model->fighter[i], model->fighter_size[i],
+                        model->workspace, model->workspace_size,
+                        model->angle_lut, model->angle_lut_size,
+                        &local.side[i])) {
+                    *result = local;
+                    return false;
+                }
+                ++local.completed_sides;
+            }
         }
     }
     *result = local;
