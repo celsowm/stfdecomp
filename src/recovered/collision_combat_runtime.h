@@ -214,6 +214,12 @@ typedef struct stf_collision_combat_model2 {
     const stf_motion_hit_rom_view *normal_knockback_rom;
     stf_motion_prefix_inputs normal_knockback_context[2];
     int32_t normal_knockback_heading[2];
+    /* When non-NULL, replay hardware-derived sqrt, sin and cos replies
+     * instead of portable sqrtf/trigonometry. The caller supplies the true
+     * Model 2 TGP or a validated command/reply capture, not a success stub.
+     * Only valid when recover_normal_knockback is enabled. */
+    stf_attack_hit_guard_vector_tgp_fn normal_knockback_tgp;
+    void *normal_knockback_tgp_user_data;
 
     /* Opt-in real damage_calculation after the normal exit tail has
      * performed all PRE-damage audio/TGP/reaction work. The normal tail
@@ -267,6 +273,7 @@ typedef struct stf_collision_combat_pair_result {
     bool normal_knockback_started;
     bool normal_knockback_motion_resolved;
     bool normal_knockback_vector_applied;
+    uint8_t normal_knockback_tgp_completed;
     stf_attack_hit_motion_runtime_result normal_knockback_motion;
     stf_motion_vector_result normal_knockback_vector;
     bool normal_damage_applied;

@@ -16,6 +16,35 @@ static void write_le32(uint8_t *p, uint32_t value)
     p[3] = (uint8_t)(value >> 24u);
 }
 
+typedef struct stf_normal_sqrt_tgp_context {
+    stf_attack_hit_guard_vector_tgp_fn handler;
+    void *handler_user_data;
+    uint8_t *completed;
+} stf_normal_sqrt_tgp_context;
+
+static bool query_normal_sqrt_tgp(
+    uint32_t input_bits, uint32_t *reply_bits, void *user_data
+)
+{
+    stf_normal_sqrt_tgp_context *ctx =
+        (stf_normal_sqrt_tgp_context *)user_data;
+    stf_attack_hit_guard_vector_query query;
+
+    if (ctx == NULL || ctx->handler == NULL ||
+        ctx->completed == NULL || reply_bits == NULL) {
+        return false;
+    }
+    memset(&query, 0, sizeof(query));
+    query.opcode = UINT32_C(0x0D001A1A);
+    query.argument_count = 1u;
+    query.words[0] = input_bits;
+    if (!ctx->handler(ctx->handler_user_data, &query, reply_bits)) {
+        return false;
+    }
+    ++*ctx->completed;
+    return true;
+}
+
 static bool valid_order(const stf_collision_hit_order *order)
 {
     uint8_t i;
@@ -67,6 +96,8 @@ bool stf_collision_combat_apply_model2(
           model->normal_knockback_rom->animation_count == 0u ||
           model->normal_knockback_rom->animation_related_address <
               model->normal_knockback_rom->base_address)) ||
+        (model->normal_knockback_tgp != NULL &&
+         !model->recover_normal_knockback) ||
         (model->recover_normal_damage &&
          (!model->recover_normal_hit ||
           model->normal_damage_event == NULL)) ||
@@ -399,7 +430,23 @@ bool stf_collision_combat_apply_model2(
                         motion_inputs.defender_5d8_bits =
                             read_le32(defender + 0x5D8u);
 
-                        if (!stf_attack_hit_motion_prefix_resolve_rom(
+                        if (model->normal_knockback_tgp != NULL) {
+                            stf_normal_sqrt_tgp_context sqrt_context;
+                            sqrt_context.handler = model->normal_knockback_tgp;
+                            sqrt_context.handler_user_data =
+                                model->normal_knockback_tgp_user_data;
+                            sqrt_context.completed =
+                                &pair->normal_knockback_tgp_completed;
+                            if (!stf_attack_hit_motion_prefix_resolve_rom_with_sqrt(
+                                    selected_motion, &motion_inputs,
+                                    model->normal_knockback_rom,
+                                    &pair->normal_entry.profile.fallback,
+                                    query_normal_sqrt_tgp, &sqrt_context,
+                                    &pair->normal_knockback_motion)) {
+                                *result = local;
+                                return false;
+                            }
+                        } else if (!stf_attack_hit_motion_prefix_resolve_rom(
                                 selected_motion, &motion_inputs,
                                 model->normal_knockback_rom,
                                 &pair->normal_entry.profile.fallback,
@@ -426,7 +473,24 @@ bool stf_collision_combat_apply_model2(
                         vector_inputs.attacker_843 =
                             (uint8_t)pair->prefix.hit_kind_843;
 
-                        if (!stf_attack_hit_motion_vector_compute(
+                        if (model->normal_knockback_tgp != NULL) {
+                            uint8_t completed = 0u;
+                            const bool computed =
+                                stf_attack_hit_motion_vector_compute_with_tgp(
+                                    &pair->normal_knockback_motion.prefix,
+                                    &vector_inputs,
+                                    model->normal_knockback_tgp,
+                                    model->normal_knockback_tgp_user_data,
+                                    &completed,
+                                    &pair->normal_knockback_vector);
+                            pair->normal_knockback_tgp_completed =
+                                (uint8_t)(pair->normal_knockback_tgp_completed +
+                                          completed);
+                            if (!computed) {
+                                *result = local;
+                                return false;
+                            }
+                        } else if (!stf_attack_hit_motion_vector_compute(
                                 &pair->normal_knockback_motion.prefix,
                                 &vector_inputs,
                                 &pair->normal_knockback_vector)) {
