@@ -8,12 +8,14 @@ on:
       - "src/recovered/**"
       - ".github/workflows/recovery-i960.yml"
       - "docs/MODEL2B_RECOVERY_RUNTIME.md"
+      - "docs/RECOVERY_TRACE_CONTRACT.md"
   pull_request:
     paths:
       - "tools/recovery/**"
       - "src/recovered/**"
       - ".github/workflows/recovery-i960.yml"
       - "docs/MODEL2B_RECOVERY_RUNTIME.md"
+      - "docs/RECOVERY_TRACE_CONTRACT.md"
 
 jobs:
   build-and-test:
