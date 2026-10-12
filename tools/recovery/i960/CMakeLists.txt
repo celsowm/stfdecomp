@@ -56,6 +56,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/attack_hit.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_special.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_normal_entry.c"
+    "${STF_REPO_ROOT}/src/recovered/attack_hit_normal_followthrough.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_strength.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_profile.c"
     "${STF_REPO_ROOT}/src/recovered/copro_scalar.c"
