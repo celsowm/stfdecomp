@@ -116,3 +116,53 @@ criterion remains bit equality on all three axes, on matching inputs.
 The TGP capture callback uses caller-provided actual device outputs;
 synthetic unit-test values must never be mislabeled as Model 2 reference
 capture evidence. Do not commit proprietary ROM bytes or raw captures.
+
+
+## Strict impact-vector oracle in ordered combat
+
+The recovered Model 2 combat runtime supports **opt-in fail-closed final
+vector verification**, after the ROM-backed `calc_mht_adr` continuation and
+hardware TGP replies, but **before** writing the defender's impact fields.
+
+To enable it, set `recover_normal_hit = true`,
+`recover_normal_knockback = true`, provide the normal ROM view and
+`normal_knockback_tgp` callback (an actual TGP device, or a strictly
+validated command/reply replay), then set
+`verify_normal_knockback_vectors = true`. Supply
+`normal_knockback_expected_xyz[defender_index][0..2]` as three raw
+IEEE-754 **X/Y/Z words** captured independently from the original
+execution **after** its CPU multipliers. A reference from the same
+recovered implementation is useful as a unit-test fixture but **does
+not establish** original hardware fidelity.
+
+The opt-in checks both defender slots for finite reference values
+before the first combat state mutation and rejects configurations
+without the actual TGP callback; approximate host trigonometry cannot
+validate a bit-exact reference. On generic/down routes requiring the
+shared motion vector, the recovered runtime computes the complete
+candidate in temporary storage and compares it with the independent
+reference using `stf_tgp_command_trace_compare_vectors`. If every
+word matches, it sets `normal_knockback_vectors_checked` and commits
+X/Y/Z as usual.
+
+A mismatch reports `normal_knockback_vector_difference.mismatch_mask`
+and `ulp_distance[3]` in the pair result, sets
+`normal_knockback_vectors_checked = true`, and returns failure
+**without overwriting any fighter vector component**, calling the
+remaining attack tail, or running `damage_unit`. Combo, reaction and
+other earlier writes are explicitly **not** rolled back. Hardware
+reply failures or invalid computations abort before comparison and
+leave `normal_knockback_vectors_checked = false`.
+
+The option only checks those generic/down routes that actually emit
+the recovered vector; normal/KO/special branches leave the flag
+unset rather than manufacturing proof of equivalence. The caller
+still needs to check the strict command transcript's
+`stf_tgp_command_trace_fully_consumed` on replay to detect trailing
+unconsumed recorded commands. A successful oracle check proves
+equality for the supplied references and inputs, not global 1:1
+game fidelity.
+
+Regression scenarios cover an exact three-axis match, a 1-ULP
+divergence, NaN reference rejection before side effects, missing
+TGP provider, route skip and interrupted replay.
