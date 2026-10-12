@@ -79,6 +79,64 @@ def check() -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             assert main([str(reference), str(candidate)]) == 2
 
+        # Independent post-CPU-multiplier snapshots are compared only when
+        # explicitly supplied. Synthetic test values are NOT hardware proof.
+        ref_vec, cand_vec = folder / "ref_vector.json", folder / "cand_vector.json"
+        vector = {"x": "0x3FA00000", "y": "0xBF800000", "z": "0x80000000"}
+        write(candidate, sample)
+        ref_vec.write_text(json.dumps(vector), encoding="utf-8")
+        cand_vec.write_text(json.dumps(vector), encoding="utf-8")
+        args = [str(reference), str(candidate),
+                "--reference-vector", str(ref_vec),
+                "--candidate-vector", str(cand_vec),
+                "--json", str(report)]
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert main(args) == 0
+        outcome = json.loads(report.read_text())
+        assert outcome["identical"] and outcome["transcript_identical"]
+        assert outcome["vector_comparison"]["mismatch_mask"] == 0
+
+        vector_changed = dict(vector)
+        vector_changed["x"] = "0x3FA00001"  # one ULP
+        vector_changed["z"] = "0x00000000"  # signed zero, also one ULP
+        cand_vec.write_text(json.dumps(vector_changed), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert main(args) == 1
+        outcome = json.loads(report.read_text())
+        assert outcome["transcript_identical"] and not outcome["identical"]
+        assert outcome["vector_comparison"]["mismatch_mask"] == 5
+        assert outcome["vector_comparison"]["ulp_distance"]["x"] == 1
+        assert outcome["vector_comparison"]["ulp_distance"]["y"] == 0
+        assert outcome["vector_comparison"]["ulp_distance"]["z"] == 1
+
+        # A command divergence must still be reported even with snapshots.
+        altered = [dict(entry) for entry in sample]
+        altered[0]["reply"] = "0x40000001"
+        write(candidate, altered)
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert main(args) == 1
+        outcome = json.loads(report.read_text())
+        assert outcome["kind"] == "reply"
+        assert not outcome["transcript_identical"]
+        assert outcome["vector_comparison"]["mismatch_mask"] == 5
+
+        write(candidate, sample)
+        vector_changed["x"] = "0x7FC00000"  # NaN cannot be a valid oracle
+        cand_vec.write_text(json.dumps(vector_changed), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert main(args) == 2
+        vector_changed["x"] = "0x7F800000"  # nor infinity
+        cand_vec.write_text(json.dumps(vector_changed), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert main(args) == 2
+        cand_vec.write_text(json.dumps({"x": 0, "z": 0}), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert main(args) == 2
+        cand_vec.write_text(json.dumps(vector), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert main([str(reference), str(candidate),
+                         "--reference-vector", str(ref_vec)]) == 2
+
 
 if __name__ == "__main__":
     check()
