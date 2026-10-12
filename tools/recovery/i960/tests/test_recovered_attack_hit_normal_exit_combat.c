@@ -33,6 +33,7 @@ typedef struct hooks {
     bool fail_tail;
     bool fail_motion;
     bool verify_normal_hit;
+    bool verify_knockback;
     bool verify_pre_damage;
     bool fail_damage_event;
     unsigned damage_event_calls;
@@ -147,6 +148,11 @@ static bool normal_tail(
         side->path != STF_ATTACK_SIDE_EXIT_CONTINUE ||
         rd32(attacker + 0x1234u) != 1u) return false;
     ++h->normal_calls;
+    if (h->verify_knockback &&
+        (rd32(defender + 0x198u) != UINT32_C(0x08000177) ||
+         rd32(defender + 0x5E8u) == 0u ||
+         rd32(defender + 0x5E0u) != 0u))
+        return false;
     if (h->verify_pre_damage &&
         (rd16(defender + 0x1ACu) != 100u ||
          rd16(attacker + 0x1F70u) != 0u))
@@ -181,6 +187,8 @@ typedef struct scene {
     uint8_t enemies[2][ENEMY_SIZE];
     uint8_t workspace[W_SIZE];
     uint8_t profiles[PROFILE_SIZE];
+    uint8_t knockback_rom_bytes[4096];
+    stf_motion_hit_rom_view knockback_rom;
     uint8_t selector_blocks[2][STF_SET_KAMAE_FULL_SELECTOR_MIN_SIZE];
     uint8_t stances[2][2048];
     stf_ring_pool ring_pool;
@@ -200,6 +208,10 @@ static void init(scene *s)
     s->fighters[1][0x843u] = 1u;
     s->fighters[1][0x828u + 1u] = 2u; /* hit flag bit9 */
     wr32(s->profiles + 40u + 8u, UINT32_C(0x3F800000));
+    wr32(s->profiles + 40u + 0u, UINT32_C(0x3F800000));
+    wr32(s->profiles + 40u + 4u, UINT32_C(0x3F800000));
+    wr32(s->profiles + 40u + 0x10u, UINT32_C(0x3F800000));
+    wr32(s->profiles + 40u + 0x18u, UINT32_C(0x3F800000));
     wr32(s->profiles + 4u * 40u + 8u, UINT32_C(0x3F800000));
     s->model.fighters[0] = s->fighters[0];
     s->model.fighters[1] = s->fighters[1];
@@ -236,6 +248,21 @@ static void init(scene *s)
     s->model.normal_initial_damage[1] = UINT32_C(20);
     s->model.normal_energy_max = INT16_C(200);
     s->model.normal_disable_energy_scaling = true;
+    s->knockback_rom.image = s->knockback_rom_bytes;
+    s->knockback_rom.image_size = sizeof(s->knockback_rom_bytes);
+    s->knockback_rom.base_address = UINT32_C(0x00100000);
+    s->knockback_rom.animation_related_address = UINT32_C(0x00100020);
+    s->knockback_rom.animation_count = 512u;
+    s->model.normal_knockback_rom = &s->knockback_rom;
+    s->model.normal_knockback_context[1].initial_r9_bits =
+        UINT32_C(0x3F800000); /* caller-supplied 1.0 */
+    s->model.normal_knockback_context[1].limit_xang = INT16_C(100);
+    wr32(s->knockback_rom_bytes + 0x20u + 0x177u * 4u,
+         UINT32_C(0x00100800));
+    s->knockback_rom_bytes[0x800u + 0x0Du] = UINT8_C(0x11);
+    wr16(s->knockback_rom_bytes + 0x800u + 0x0Eu, UINT16_C(0));
+    wr32(s->knockback_rom_bytes + 0x800u + 0x10u,
+         UINT32_C(0x3F800000)); /* motion strength scale 1.0 */
     wr16(s->fighters[0] + 0x1ACu, UINT16_C(100));
     wr16(s->fighters[1] + 0x1ACu, UINT16_C(100));
     for (size_t i = 0u; i < 4u; ++i) {
@@ -761,6 +788,125 @@ int main(void)
         s.output.pairs[0].normal_rings.spawned_count != 0u ||
         s.ring_pool.occupied_mask != 0u)
         { fprintf(stderr, "normal damage metal scenario 38 failed\n"); return 38; }
+
+    /* Opt-in ROM-backed down-hit knockback resolves calc_mht_adr
+     * with tag 0x11, uses caller-provided r9 + heading, and commits
+     * all three axes before the remaining normal combat tail. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.callbacks.verify_knockback = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_knockback_started ||
+        !s.output.pairs[0].normal_knockback_motion_resolved ||
+        !s.output.pairs[0].normal_knockback_vector_applied ||
+        s.output.pairs[0].normal_knockback_motion.lookup_status !=
+            STF_MOTION_HIT_FOUND ||
+        s.output.pairs[0].normal_knockback_motion.record_offset !=
+            UINT32_C(0x80D) ||
+        s.output.pairs[0].normal_knockback_motion.prefix.source !=
+            STF_MOTION_PREFIX_RECORD ||
+        rd32(s.fighters[0] + 0x5E8u) == 0u ||
+        s.callbacks.normal_calls != 1u ||
+        s.callbacks.motion_queries != 1u)
+        { fprintf(stderr, "normal knockback ROM scenario 39 failed\n"); return 39; }
+
+    /* NOT_FOUND tag 8 selects the genuine per-hit-kind profile fallback,
+     * and the caller's magnitude still reaches the resulting vector. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    s.knockback_rom_bytes[0x800u + 0x0Du] = UINT8_C(8);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_knockback_vector_applied ||
+        s.output.pairs[0].normal_knockback_motion.lookup_status !=
+            STF_MOTION_HIT_NOT_FOUND ||
+        s.output.pairs[0].normal_knockback_motion.used_mht_record ||
+        s.output.pairs[0].normal_knockback_motion.prefix.source !=
+            STF_MOTION_PREFIX_PROFILE ||
+        rd32(s.fighters[0] + 0x5E8u) == 0u)
+        { fprintf(stderr, "normal knockback fallback scenario 40 failed\n"); return 40; }
+
+    /* Bad motion tag is an INVALID ROM record, not a silent fallback.
+     * The already-committed reaction remains, vector is untouched,
+     * tail/damage_unit must not execute. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    s.knockback_rom_bytes[0x800u + 0x0Du] = UINT8_C(0xFF);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_knockback_started ||
+        s.output.pairs[0].normal_knockback_motion_resolved ||
+        s.output.pairs[0].normal_knockback_vector_applied ||
+        s.output.pairs[0].damage_completed ||
+        rd32(s.fighters[0] + 0x198u) != UINT32_C(0x08000177) ||
+        rd32(s.fighters[0] + 0x5E8u) != 0u ||
+        s.callbacks.normal_calls != 0u)
+        { fprintf(stderr, "normal knockback invalid ROM scenario 41 failed\n"); return 41; }
+
+    /* A normal reaction does not enter the generic/down calc_mht corridor. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.knockback_rom_bytes[0x800u + 0x0Du] = UINT8_C(0xFF);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_knockback_started ||
+        s.output.pairs[0].normal_knockback_vector_applied ||
+        s.callbacks.normal_calls != 1u)
+        { fprintf(stderr, "normal knockback skipped-normal scenario 42 failed\n"); return 42; }
+
+    /* Explicit special-bit16 uses a different reaction path; do not
+     * duplicate the generic/down shared vector. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 16u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_hit.down_reaction_applied ||
+        s.output.pairs[0].normal_knockback_started ||
+        s.output.pairs[0].normal_knockback_vector_applied)
+        { fprintf(stderr, "normal knockback skipped-special scenario 43 failed\n"); return 43; }
+
+    /* Missing ROM view (or disabled parent mode) must fail preflight
+     * without incrementing attacker lifecycle counters. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_rom = NULL;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u)
+        { fprintf(stderr, "normal knockback preflight scenario 44 failed\n"); return 44; }
+
+    init(&s);
+    s.model.recover_normal_knockback = true;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u)
+        { fprintf(stderr, "normal knockback parent-gate scenario 45 failed\n"); return 45; }
+
+    /* Opted-out knockback preserves earlier behavior and leaves axes alone. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_knockback_started ||
+        rd32(s.fighters[0] + 0x5E8u) != 0u ||
+        s.callbacks.normal_calls != 1u)
+        { fprintf(stderr, "normal knockback opt-out scenario 46 failed\n"); return 46; }
+
+    /* Normal side-exit abort must not even attempt ROM resolution. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    wr32(s.fighters[1] + 0x5B8u, 1u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_exit_aborted ||
+        s.output.pairs[0].normal_knockback_started ||
+        rd32(s.fighters[0] + 0x5E8u) != 0u ||
+        s.callbacks.normal_calls != 0u)
+        { fprintf(stderr, "normal knockback abort scenario 47 failed\n"); return 47; }
 
     return 0;
 }
