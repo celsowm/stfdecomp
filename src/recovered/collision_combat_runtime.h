@@ -13,6 +13,7 @@
 #include "attack_hit_guard_common_runtime.h"
 #include "attack_hit_side_exit.h"
 #include "attack_hit_stance.h"
+#include "attack_hit_normal_followthrough.h"
 #include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
@@ -172,6 +173,17 @@ typedef struct stf_collision_combat_model2 {
     uint16_t skill_rank_mode;
     uint32_t skill_select_flags[2];
     uint32_t *total_skill;
+
+    /* Opt-in recovered normal-hit CPU corridor after 0x2AE40.
+     * Initial damage is caller-provided, never guessed from ROM.
+     * The remaining tail must not repeat these operations and must
+     * still implement audio, TGP, remaining reaction and damage. */
+    bool recover_normal_hit;
+    uint32_t normal_initial_damage[2];
+    int16_t normal_energy_max;
+    bool normal_disable_energy_scaling;
+    stf_hit_motion_table_resolver normal_hit_motion_resolver;
+    void *normal_hit_motion_resolver_user_data;
 } stf_collision_combat_model2;
 
 typedef struct stf_collision_combat_pair_result {
@@ -202,6 +214,8 @@ typedef struct stf_collision_combat_pair_result {
     stf_attack_abort_cleanup_result normal_exit_cleanup;
     bool normal_stance_applied;
     stf_attack_hit_stance_result normal_stance;
+    bool normal_hit_started;
+    stf_attack_hit_normal_followthrough_result normal_hit;
     stf_attack_hit_special_result special;
     bool body_completed;
     bool damage_completed;
@@ -239,6 +253,9 @@ typedef struct stf_collision_combat_result {
  * event before normal_exit_tail, using caller-supplied motion records.
  * The optional recover_guard_skill writes a caller-owned total_skill via
  * rank/select-gated, recovered arithmetic before guard_common_tail.
+ * Optional recover_normal_hit composes the already recovered normal combo,
+ * state prelude, damage transform, finish test, reaction classifier and
+ * ROM-backed normal hit motion/stun before the mandatory tail.
  * Host float math is semantic,
  * not claimed bit-for-bit accurate to the original sqrt coprocessor.
  *

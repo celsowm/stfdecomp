@@ -48,6 +48,10 @@ bool stf_collision_combat_apply_model2(
          model->normal_profile_table == NULL) ||
         (model->recover_normal_stance &&
          model->normal_exit_tail == NULL) ||
+        (model->recover_normal_hit &&
+         (model->normal_exit_tail == NULL ||
+          model->normal_profile_table == NULL ||
+          model->normal_hit_motion_resolver == NULL)) ||
         (model->recover_guard_skill &&
          (model->guard_common_tail == NULL || model->total_skill == NULL)) ||
         (model->guard_vector_tgp != NULL && model->guard_tail == NULL) ||
@@ -327,9 +331,28 @@ bool stf_collision_combat_apply_model2(
                         pair->normal_stance_applied =
                             pair->normal_stance.executed;
                     }
-                    /* With recovered stance disabled, the callback must
-                     * handle request_set_kamae itself. In either mode the
-                     * callback retains the other unported attack-hit work. */
+                    if (model->recover_normal_hit) {
+                        pair->normal_hit_started = true;
+                        if (!stf_attack_hit_normal_followthrough_apply_model2(
+                                attacker, attacker_size,
+                                defender, defender_size,
+                                model->workspace, model->workspace_size,
+                                &pair->normal_exit,
+                                (uint8_t)pair->prefix.hit_kind_843,
+                                (uint16_t)pair->prefix.hit_flags_828,
+                                (uint8_t)pair->prefix.hit_kind_83e,
+                                model->normal_initial_damage[attacker_index],
+                                model->normal_energy_max,
+                                model->normal_disable_energy_scaling,
+                                model->normal_hit_motion_resolver,
+                                model->normal_hit_motion_resolver_user_data,
+                                &pair->normal_hit)) {
+                            *result = local;
+                            return false;
+                        }
+                    }
+                    /* Remaining tail still handles sound/TGP, actual
+                     * damage application and non-normal branches. */
                     if (!model->normal_exit_tail(
                             model->normal_exit_tail_user_data,
                             attacker_index, defender_index,
