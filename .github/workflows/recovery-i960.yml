@@ -46,5 +46,8 @@ jobs:
       - name: Test scenario validation
         run: python tools/recovery/test_run_scenario.py
 
+      - name: Test TGP command trace differential comparator
+        run: python tools/recovery/test_compare_tgp_command_traces.py
+
       - name: Test TGP trace classification
         run: python tools/recovery/test_classify_tgp_trace.py
