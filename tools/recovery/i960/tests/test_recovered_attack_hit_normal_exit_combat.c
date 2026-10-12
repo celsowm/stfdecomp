@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "collision_combat_runtime.h"
+#include "tgp_command_trace.h"
 
 enum { F_SIZE = 0x2200u, W_SIZE = 0x2B0u,
        ENEMY_SIZE = 0x10Au, PROFILE_SIZE = 5u * 40u };
@@ -1069,6 +1070,77 @@ int main(void)
         s.callbacks.tgp_calls != 0u ||
         s.output.pairs[0].normal_knockback_tgp_completed != 0u)
         { fprintf(stderr, "TGP unused branch scenario 53 failed\n"); return 53; }
+
+
+    /* Capture the full five-command TGP sequence through the integrated
+     * combat path; then replay on a fresh frame. All fake hardware data
+     * is test-only, NEVER embedded in the recovered production backend. */
+    {
+        stf_tgp_command_record commands[5], altered[5];
+        stf_tgp_command_trace transcript;
+
+        init(&s);
+        s.model.recover_normal_hit = true;
+        s.model.recover_normal_knockback = true;
+        s.model.normal_knockback_tgp = stf_tgp_command_trace_callback;
+        s.model.normal_knockback_tgp_user_data = &transcript;
+        s.callbacks.verify_tgp_knockback = true;
+        wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+        if (!stf_tgp_command_trace_begin_capture(
+                &transcript, commands, 5u, replay_tgp_motion, &s.callbacks) ||
+            !stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+            transcript.count != 5u ||
+            transcript.error != STF_TGP_TRACE_OK ||
+            s.callbacks.tgp_calls != 5u ||
+            s.output.pairs[0].normal_knockback_tgp_completed != 5u ||
+            !s.output.pairs[0].normal_knockback_vector_applied ||
+            s.callbacks.normal_calls != 1u)
+            { fprintf(stderr, "integrated TGP capture scenario 55 failed\n"); return 55; }
+
+        init(&s);
+        s.model.recover_normal_hit = true;
+        s.model.recover_normal_knockback = true;
+        s.model.normal_knockback_tgp = stf_tgp_command_trace_callback;
+        s.model.normal_knockback_tgp_user_data = &transcript;
+        s.callbacks.verify_tgp_knockback = true;
+        wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+        if (!stf_tgp_command_trace_begin_replay(&transcript, commands, 5u) ||
+            !stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+            !stf_tgp_command_trace_fully_consumed(&transcript) ||
+            s.callbacks.tgp_calls != 0u ||
+            s.output.pairs[0].normal_knockback_tgp_completed != 5u ||
+            rd32(s.fighters[0] + 0x5E0u) != UINT32_C(0x3FA00000) ||
+            rd32(s.fighters[0] + 0x5E4u) != UINT32_C(0x3F800000) ||
+            rd32(s.fighters[0] + 0x5E8u) != UINT32_C(0x3FC00000) ||
+            s.callbacks.normal_calls != 1u)
+            { fprintf(stderr, "integrated TGP replay scenario 56 failed\n"); return 56; }
+
+        /* A modified third reply changes the dependent fourth query.
+         * Strict replay must reject it before storing any impact axis,
+         * and neither normal_tail nor damage_unit may run. */
+        memcpy(altered, commands, sizeof(altered));
+        altered[2].response_bits = UINT32_C(0x3F800000);
+        init(&s);
+        s.model.recover_normal_hit = true;
+        s.model.recover_normal_knockback = true;
+        s.model.normal_knockback_tgp = stf_tgp_command_trace_callback;
+        s.model.normal_knockback_tgp_user_data = &transcript;
+        wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+        if (!stf_tgp_command_trace_begin_replay(&transcript, altered, 5u) ||
+            stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+            transcript.error != STF_TGP_TRACE_MISMATCH ||
+            transcript.error_position != 3u ||
+            transcript.position != 3u ||
+            s.output.pairs[0].normal_knockback_tgp_completed != 3u ||
+            !s.output.pairs[0].normal_knockback_motion_resolved ||
+            s.output.pairs[0].normal_knockback_vector_applied ||
+            s.output.pairs[0].damage_completed ||
+            rd32(s.fighters[0] + 0x5E0u) != 0u ||
+            rd32(s.fighters[0] + 0x5E4u) != 0u ||
+            rd32(s.fighters[0] + 0x5E8u) != 0u ||
+            s.callbacks.normal_calls != 0u)
+            { fprintf(stderr, "integrated TGP dependent-command scenario 57 failed\n"); return 57; }
+    }
 
     return 0;
 }
