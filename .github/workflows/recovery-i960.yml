@@ -1,16 +1,19 @@
 name: recovery-i960
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - "tools/recovery/**"
       - "src/recovered/**"
       - ".github/workflows/recovery-i960.yml"
+      - "docs/MODEL2B_RECOVERY_RUNTIME.md"
   pull_request:
     paths:
       - "tools/recovery/**"
       - "src/recovered/**"
       - ".github/workflows/recovery-i960.yml"
+      - "docs/MODEL2B_RECOVERY_RUNTIME.md"
 
 jobs:
   build-and-test:
