@@ -147,6 +147,55 @@ static int direct(void)
             a,sizeof(a),d,sizeof(d),32,fb(-1.0f),1u,
             NULL,0u,fake_tgp,&fx,&out) ||
        fx.calls!=0u) return 6;
+
+    /* Guard output comparison must use the FINAL post-scale words. */
+    {
+        uint32_t expected[3]={fb(5.0f),fb(3.0f),fb(6.0f)};
+        a[0x7D2u]=0u;
+        memset(&fx,0,sizeof(fx));
+        if(!stf_attack_hit_guard_vector_apply_verified_model2(
+                a,sizeof(a),d,sizeof(d),32,fb(16.0f),1u,
+                NULL,0u,fake_tgp,&fx,expected,&out) ||
+           !out.vectors_checked || out.mismatch_mask!=0u ||
+           out.completed_commands!=5u ||
+           out.ulp_distance[0]!=0u || fx.calls!=5u ||
+           r32(d+0x5E0u)!=expected[0] ||
+           r32(d+0x5E4u)!=expected[1] ||
+           r32(d+0x5E8u)!=expected[2]) return 7;
+
+        expected[0]=fb(5.0f)+UINT32_C(1);
+        w32(d+0x5E0u,fb(91.0f));
+        w32(d+0x5E4u,fb(92.0f));
+        w32(d+0x5E8u,fb(93.0f));
+        memset(&fx,0,sizeof(fx));
+        if(stf_attack_hit_guard_vector_apply_verified_model2(
+                a,sizeof(a),d,sizeof(d),32,fb(16.0f),1u,
+                NULL,0u,fake_tgp,&fx,expected,&out) ||
+           !out.vectors_checked || out.mismatch_mask!=1u ||
+           out.ulp_distance[0]!=1u ||
+           out.ulp_distance[1]!=0u ||out.ulp_distance[2]!=0u ||
+           out.completed_commands!=5u || fx.calls!=5u ||
+           r32(d+0x5E0u)!=fb(91.0f) ||
+           r32(d+0x5E4u)!=fb(92.0f) ||
+           r32(d+0x5E8u)!=fb(93.0f)) return 8;
+
+        /* Original API still operates without external oracle. */
+        memset(&fx,0,sizeof(fx));
+        if(!stf_attack_hit_guard_vector_apply_model2(
+                a,sizeof(a),d,sizeof(d),32,fb(16.0f),1u,
+                NULL,0u,fake_tgp,&fx,&out) ||
+           out.vectors_checked ||out.mismatch_mask!=0u ||
+           r32(d+0x5E0u)!=fb(5.0f)) return 9;
+
+        /* A reference NaN cannot authorize any vector overwrite. */
+        expected[0]=UINT32_C(0x7FC00000);
+        memset(&fx,0,sizeof(fx));
+        if(stf_attack_hit_guard_vector_apply_verified_model2(
+                a,sizeof(a),d,sizeof(d),32,fb(16.0f),1u,
+                NULL,0u,fake_tgp,&fx,expected,&out) ||
+           out.vectors_checked ||fx.calls!=5u ||
+           r32(d+0x5E0u)!=fb(5.0f)) return 10;
+    }
     return 0;
 }
 static bool resolve(
@@ -268,6 +317,60 @@ static int integrated(void)
     model.guard_tail=NULL;
     if(stf_collision_combat_apply_model2(&model,&order,&result) ||
        fx.calls!=0u ||r32(f1+0x1234u)!=2u) return 3;
+
+    /* The ordered BLOCK_A/B integration checks X/Y/Z before modifying any
+     * axis. A one-ULP error must skip both the tail and damage_unit. */
+    model.guard_tail=tail;
+    model.verify_guard_vectors=true;
+    model.guard_vector_expected_xyz[0][0]=fb(5.0f)+UINT32_C(1);
+    model.guard_vector_expected_xyz[0][1]=fb(3.0f);
+    model.guard_vector_expected_xyz[0][2]=fb(6.0f);
+    memset(&fx,0,sizeof(fx));fx.defender=f0;
+    w32(f0+0x5E0u,fb(31.0f));
+    w32(f0+0x5E4u,fb(32.0f));
+    w32(f0+0x5E8u,fb(33.0f));
+    if(stf_collision_combat_apply_model2(&model,&order,&result) ||
+       !result.pairs[0].guard_applied ||
+       result.pairs[0].guard_vector_applied ||
+       result.pairs[0].guard_tail_completed ||
+       result.pairs[0].damage_completed ||
+       !result.pairs[0].guard_vector.vectors_checked ||
+       result.pairs[0].guard_vector.mismatch_mask!=1u ||
+       result.pairs[0].guard_vector.ulp_distance[0]!=1u ||
+       result.pairs[0].guard_vector.completed_commands!=5u ||
+       fx.calls!=5u ||fx.guard_tail_seen ||
+       r32(f0+0x5E0u)!=fb(31.0f) ||
+       r32(f0+0x5E4u)!=fb(32.0f) ||
+       r32(f0+0x5E8u)!=fb(33.0f)) return 4;
+
+    model.guard_vector_expected_xyz[0][0]=fb(5.0f);
+    memset(&fx,0,sizeof(fx));fx.defender=f0;
+    if(!stf_collision_combat_apply_model2(&model,&order,&result) ||
+       !result.pairs[0].guard_vector_applied ||
+       !result.pairs[0].guard_tail_completed ||
+       !result.pairs[0].guard_vector.vectors_checked ||
+       result.pairs[0].guard_vector.mismatch_mask!=0u ||
+       result.pairs[0].guard_vector.completed_commands!=5u ||
+       fx.calls!=5u ||!fx.guard_tail_seen ||
+       r32(f0+0x5E0u)!=fb(5.0f)) return 5;
+
+    /* Invalid oracle words are rejected BEFORE the attacker prefix. */
+    model.guard_vector_expected_xyz[1][1]=UINT32_C(0x7F800000);
+    memset(&fx,0,sizeof(fx));fx.defender=f0;
+    {
+        uint32_t counter=r32(f1+0x1234u);
+        if(stf_collision_combat_apply_model2(&model,&order,&result) ||
+           r32(f1+0x1234u)!=counter ||
+           fx.calls!=0u ||fx.guard_tail_seen) return 6;
+    }
+
+    model.guard_vector_expected_xyz[1][1]=0u;
+    model.guard_vector_tgp=NULL;
+    {
+        uint32_t counter=r32(f1+0x1234u);
+        if(stf_collision_combat_apply_model2(&model,&order,&result) ||
+           r32(f1+0x1234u)!=counter ||fx.calls!=0u) return 7;
+    }
     return 0;
 }
 int main(void)
