@@ -920,3 +920,26 @@ post-attack \`damage_unit\` stage, which retains its own workspace
 gate. The composed result explicitly distinguishes a completed
 common-guard state, early aborted event and completed tail.
 Other guard and non-guard continuations remain unchanged.
+
+
+### Normal 0x2AE40 side exits integrated into ordered combat
+
+`collision_combat_runtime` now has an **opt-in**
+`normal_exit_tail` continuation for `STF_ATTACK_GUARD_EXIT`.
+After the ROM-backed profile/strength prelude, it executes the already
+recovered `STF_ATTACK_SIDE_EXIT_NORMAL_2AE40` predicates before the
+tail: early `loc_2B8C8` abort restores the prefix lifecycle counter
+and clears both enemy +0x108 bytes without calling any tail. A continuing
+path exposes the defender bit29 clear and `request_set_kamae`
+event to the mandatory supplied continuation. Other branch routes
+retain their existing callbacks; without opt-in, the legacy
+`attack_body` path is unchanged. This is **not** full combat recovery:
+the callback still owns stance refresh and other remaining operations.
+Integration tests cover ordered execution, abort, bit29 consumption,
+early guard, failure state, preflight and backwards compatibility.
+
+The resolved 0x2AC74 common-guard helper now checks the abort gate
+**before** attempting `sub_2B94C` motion lookup, including when invoked
+outside `collision_combat_runtime`. A skipped transaction never queries
+a ROM resolver or adds skill. Invalid buffers are rejected even on the
+skip route.

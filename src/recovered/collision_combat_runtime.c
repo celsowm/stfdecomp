@@ -38,6 +38,8 @@ bool stf_collision_combat_apply_model2(
         (model->guard_tail != NULL && model->normal_profile_table == NULL) ||
         (model->guard_common_tail != NULL &&
          model->normal_profile_table == NULL) ||
+        (model->normal_exit_tail != NULL &&
+         model->normal_profile_table == NULL) ||
         (model->guard_vector_tgp != NULL && model->guard_tail == NULL) ||
         (model->normal_profile_table != NULL &&
          model->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE) ||
@@ -228,6 +230,47 @@ bool stf_collision_combat_apply_model2(
                         }
                         pair->guard_common_tail_completed = true;
                     }
+                }
+            } else if (model->normal_exit_tail != NULL &&
+                       pair->normal_entry_applied &&
+                       pair->normal_entry.guard_branch ==
+                           STF_ATTACK_GUARD_EXIT) {
+                /* The former generic continuation now exposes the
+                 * 0x2AE40 -> 0x2B8C8 abort and defender bit29 handling. */
+                if (!stf_attack_hit_side_exit_apply_model2(
+                        STF_ATTACK_SIDE_EXIT_NORMAL_2AE40,
+                        attacker, attacker_size,
+                        defender, defender_size, &pair->normal_exit)) {
+                    *result = local;
+                    return false;
+                }
+                pair->normal_exit_applied = true;
+                if (pair->normal_exit.path ==
+                        STF_ATTACK_SIDE_EXIT_ABORT_2B8C8) {
+                    if (!stf_attack_hit_abort_cleanup_apply_model2(
+                            attacker, attacker_size,
+                            model->enemy_slots[0], model->enemy_slot_sizes[0],
+                            model->enemy_slots[1], model->enemy_slot_sizes[1],
+                            &pair->normal_exit_cleanup)) {
+                        *result = local;
+                        return false;
+                    }
+                    pair->normal_exit_aborted = true;
+                } else {
+                    /* The callback is responsible for set_kamae_ram when
+                     * normal_exit.request_set_kamae is true. */
+                    if (!model->normal_exit_tail(
+                            model->normal_exit_tail_user_data,
+                            attacker_index, defender_index,
+                            attacker, attacker_size,
+                            defender, defender_size,
+                            model->workspace, model->workspace_size,
+                            &pair->prefix, &pair->normal_entry,
+                            &pair->normal_exit)) {
+                        *result = local;
+                        return false;
+                    }
+                    pair->normal_exit_tail_completed = true;
                 }
             } else if (!model->attack_body(
                     model->attack_body_user_data,

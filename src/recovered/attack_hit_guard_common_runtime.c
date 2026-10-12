@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "attack_hit_side_exit.h"
+
 static uint16_t read_le16(const uint8_t *data)
 {
     return (uint16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
@@ -106,15 +108,35 @@ bool stf_attack_hit_guard_common_apply_resolved_model2(
     stf_guard_common_runtime_result local;
     stf_hit_motion_select_inputs in;
 
+    stf_attack_side_exit_result side;
+
     if (attacker == NULL || defender == NULL || workspace == NULL ||
-        enemy_slot == NULL || resolver == NULL || result == NULL ||
+        enemy_slot == NULL || result == NULL ||
         attacker_size < STF_GUARD_COMMON_ATTACKER_MIN_SIZE ||
-        defender_size < STF_GUARD_COMMON_DEFENDER_MIN_SIZE) {
+        defender_size < STF_GUARD_COMMON_DEFENDER_MIN_SIZE ||
+        workspace_size < STF_GUARD_COMMON_WORKSPACE_MIN_SIZE ||
+        enemy_slot_size < STF_GUARD_COMMON_ENEMY_MIN_SIZE) {
         return false;
     }
 
     memset(&local, 0, sizeof(local));
     memset(&in, 0, sizeof(in));
+
+    /* The ROM checks loc_2AC74 before calling sub_2B94C: an aborted
+     * guard must not resolve a motion table, even if the provider fails. */
+    if (!stf_attack_hit_side_exit_apply_model2(
+            STF_ATTACK_SIDE_EXIT_GUARD_2AC74,
+            attacker, attacker_size, defender, defender_size, &side)) {
+        return false;
+    }
+    if (side.path == STF_ATTACK_SIDE_EXIT_ABORT_2B8C8) {
+        local.guard.skipped = true;
+        *result = local;
+        return true;
+    }
+    if (resolver == NULL) {
+        return false;
+    }
 
     in.hit_flags_50fe00 = hit_flags_50fe00;
     in.motion_group = UINT32_C(0);

@@ -81,6 +81,27 @@ typedef bool (*stf_collision_attack_hit_guard_common_tail_fn)(
     const stf_guard_common_runtime_result *guard_common
 );
 
+/*
+ * Explicit opt-in continuation for non-guard attack_hit at loc_2AE40.
+ * Classify original abort/bit29 consumption first; this callback must
+ * consume request_set_kamae and implement the remaining original body.
+ * A successful callback alone is NOT a recovered full attack_hit.
+ */
+typedef bool (*stf_collision_attack_hit_normal_exit_tail_fn)(
+    void *user_data,
+    uint8_t attacker_index,
+    uint8_t defender_index,
+    uint8_t *attacker,
+    size_t attacker_size,
+    uint8_t *defender,
+    size_t defender_size,
+    uint8_t *workspace,
+    size_t workspace_size,
+    const stf_attack_hit_prefix_result *prefix,
+    const stf_attack_hit_normal_entry_result *normal_entry,
+    const stf_attack_side_exit_result *side_exit
+);
+
 typedef struct stf_collision_combat_model2 {
     uint8_t *fighters[2];
     size_t fighter_sizes[2];
@@ -120,6 +141,9 @@ typedef struct stf_collision_combat_model2 {
     stf_collision_attack_hit_guard_common_tail_fn guard_common_tail;
     void *guard_common_tail_user_data;
     uint8_t guard_common_limit;
+    /* Optional loc_2AE40 branch after STF_ATTACK_GUARD_EXIT. */
+    stf_collision_attack_hit_normal_exit_tail_fn normal_exit_tail;
+    void *normal_exit_tail_user_data;
 } stf_collision_combat_model2;
 
 typedef struct stf_collision_combat_pair_result {
@@ -141,6 +165,11 @@ typedef struct stf_collision_combat_pair_result {
     bool guard_common_tail_completed;
     stf_guard_common_runtime_result guard_common;
     stf_attack_abort_cleanup_result guard_common_cleanup;
+    bool normal_exit_applied;
+    bool normal_exit_aborted;
+    bool normal_exit_tail_completed;
+    stf_attack_side_exit_result normal_exit;
+    stf_attack_abort_cleanup_result normal_exit_cleanup;
     stf_attack_hit_special_result special;
     bool body_completed;
     bool damage_completed;
