@@ -105,6 +105,49 @@ bool stf_attack_hit_normal_followthrough_apply_model2(
                 return false;
             }
             local.normal_reaction_applied = true;
+        } else {
+            bool use_special = local.reaction_path ==
+                STF_ATTACK_REACTION_SPECIAL_BIT16;
+            bool increment_combo = local.reaction_path ==
+                STF_ATTACK_REACTION_DOWN_COMBO;
+
+            if (increment_combo) {
+                if (!stf_attack_hit_down_route(
+                        read32(attacker + 0x1A4u),
+                        read32(defender + 0x1A4u),
+                        &local.down_route)) {
+                    *result = local;
+                    return false;
+                }
+                use_special = local.down_route ==
+                    STF_DOWN_REACTION_SPECIAL_BIT16;
+            } else {
+                local.down_route = use_special
+                    ? STF_DOWN_REACTION_SPECIAL_BIT16
+                    : STF_DOWN_REACTION_GENERIC;
+            }
+
+            if (use_special) {
+                if (!stf_attack_hit_special_bit16_reaction_apply_resolved_model2(
+                        attacker, attacker_size, defender, defender_size,
+                        hit_flags_50fe00, local.damage.damage,
+                        motion_resolver, motion_resolver_user_data,
+                        &local.down_reaction)) {
+                    *result = local;
+                    return false;
+                }
+            } else {
+                if (!stf_attack_hit_generic_down_reaction_apply_resolved_model2(
+                        attacker, attacker_size, defender, defender_size,
+                        hit_flags_50fe00, hit_kind_50fe02,
+                        local.damage.damage, increment_combo,
+                        motion_resolver, motion_resolver_user_data,
+                        &local.down_reaction)) {
+                    *result = local;
+                    return false;
+                }
+            }
+            local.down_reaction_applied = true;
         }
     }
 
