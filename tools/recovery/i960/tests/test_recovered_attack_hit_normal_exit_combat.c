@@ -34,6 +34,7 @@ typedef struct hooks {
     bool fail_motion;
     bool verify_normal_hit;
     bool verify_knockback;
+    bool verify_tgp_knockback;
     bool verify_pre_damage;
     bool fail_damage_event;
     unsigned damage_event_calls;
@@ -41,6 +42,9 @@ typedef struct hooks {
     uint8_t *damage_defender;
     uint8_t *damage_attacker;
     unsigned motion_queries;
+    unsigned tgp_calls;
+    unsigned fail_tgp_at;
+    unsigned nan_tgp_at;
     uint32_t motion_table[64];
 } hooks;
 
@@ -91,6 +95,48 @@ static bool resolve_hit_motion(
         words == NULL || word_count == NULL) return false;
     *words = h->motion_table;
     *word_count = 64u;
+    return true;
+}
+
+/* Synthetic five-reply TGP transcript. The output words deliberately
+ * differ from host sin/cos, so the regression cannot accidentally
+ * pass by using portable math. The header/argument checks are strict;
+ * real traces can replace this fixture unchanged. */
+static bool replay_tgp_motion(
+    void *userdata,
+    const stf_attack_hit_guard_vector_query *query,
+    uint32_t *reply)
+{
+    hooks *h = (hooks *)userdata;
+    static const uint32_t opcodes[5] = {
+        UINT32_C(0x0D001A1A), UINT32_C(0x12002424),
+        UINT32_C(0x12802525), UINT32_C(0x12002424),
+        UINT32_C(0x12802525)
+    };
+    static const uint32_t replies[5] = {
+        UINT32_C(0x40000000), UINT32_C(0x3F800000),
+        UINT32_C(0x40000000), UINT32_C(0x3FA00000),
+        UINT32_C(0x3FC00000)
+    };
+    const unsigned index = h->tgp_calls;
+    if (query == NULL || reply == NULL || index >= 5u)
+        return false;
+    ++h->tgp_calls;
+    if (query->opcode != opcodes[index] ||
+        query->argument_count != (index == 0u ? 1u : 2u) ||
+        (index == 0u && query->words[0] == 0u) ||
+        (index == 1u && (query->words[0] != 0u ||
+                         query->words[1] != replies[0])) ||
+        (index == 2u && (query->words[0] != 0u ||
+                         query->words[1] != replies[0])) ||
+        (index == 3u && (query->words[0] != 0u ||
+                         query->words[1] != replies[2])) ||
+        (index == 4u && (query->words[0] != 0u ||
+                         query->words[1] != replies[2])))
+        return false;
+    if (h->fail_tgp_at == index + 1u) return false;
+    *reply = h->nan_tgp_at == index + 1u
+        ? UINT32_C(0x7FC00000) : replies[index];
     return true;
 }
 
@@ -152,6 +198,11 @@ static bool normal_tail(
         (rd32(defender + 0x198u) != UINT32_C(0x08000177) ||
          rd32(defender + 0x5E8u) == 0u ||
          rd32(defender + 0x5E0u) != 0u))
+        return false;
+    if (h->verify_tgp_knockback &&
+        (rd32(defender + 0x5E0u) != UINT32_C(0x3FA00000) ||
+         rd32(defender + 0x5E4u) != UINT32_C(0x3F800000) ||
+         rd32(defender + 0x5E8u) != UINT32_C(0x3FC00000)))
         return false;
     if (h->verify_pre_damage &&
         (rd16(defender + 0x1ACu) != 100u ||
@@ -907,6 +958,100 @@ int main(void)
         rd32(s.fighters[0] + 0x5E8u) != 0u ||
         s.callbacks.normal_calls != 0u)
         { fprintf(stderr, "normal knockback abort scenario 47 failed\n"); return 47; }
+
+    /* Five exact query/reply steps override the host trig values. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.callbacks.verify_tgp_knockback = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.callbacks.tgp_calls != 5u ||
+        s.output.pairs[0].normal_knockback_tgp_completed != 5u ||
+        !s.output.pairs[0].normal_knockback_vector_applied ||
+        rd32(s.fighters[0] + 0x5E0u) != UINT32_C(0x3FA00000) ||
+        rd32(s.fighters[0] + 0x5E4u) != UINT32_C(0x3F800000) ||
+        rd32(s.fighters[0] + 0x5E8u) != UINT32_C(0x3FC00000) ||
+        s.callbacks.normal_calls != 1u)
+        { fprintf(stderr, "TGP exact reply scenario 48 failed\n"); return 48; }
+
+    /* A rejected sqrt command leaves the defender vector untouched. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.callbacks.fail_tgp_at = 1u;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.callbacks.tgp_calls != 1u ||
+        s.output.pairs[0].normal_knockback_tgp_completed != 0u ||
+        s.output.pairs[0].normal_knockback_motion_resolved ||
+        rd32(s.fighters[0] + 0x5E8u) != 0u ||
+        s.callbacks.normal_calls != 0u)
+        { fprintf(stderr, "TGP sqrt failure scenario 49 failed\n"); return 49; }
+
+    /* Failure on the fourth command records the first three replies,
+     * but never writes partial X/Y/Z state or calls the remainder tail. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.callbacks.fail_tgp_at = 4u;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.callbacks.tgp_calls != 4u ||
+        s.output.pairs[0].normal_knockback_tgp_completed != 3u ||
+        !s.output.pairs[0].normal_knockback_motion_resolved ||
+        s.output.pairs[0].normal_knockback_vector_applied ||
+        rd32(s.fighters[0] + 0x5E0u) != 0u ||
+        rd32(s.fighters[0] + 0x5E4u) != 0u ||
+        rd32(s.fighters[0] + 0x5E8u) != 0u ||
+        s.callbacks.normal_calls != 0u ||
+        s.output.pairs[0].damage_completed)
+        { fprintf(stderr, "TGP partial trace scenario 50 failed\n"); return 50; }
+
+    /* An invalid (NaN) TGP reply is never committed. Earlier successful
+     * commands are counted for tracing even when the final reply is bad. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.callbacks.nan_tgp_at = 5u;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.callbacks.tgp_calls != 5u ||
+        s.output.pairs[0].normal_knockback_tgp_completed != 4u ||
+        s.output.pairs[0].normal_knockback_vector_applied ||
+        rd32(s.fighters[0] + 0x5E8u) != 0u)
+        { fprintf(stderr, "TGP NaN failure scenario 51 failed\n"); return 51; }
+
+    /* A configured TGP provider without the parent knockback opt-in is a
+     * preflight error, before attacker lifecycle state has changed. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u ||
+        s.callbacks.tgp_calls != 0u)
+        { fprintf(stderr, "TGP invalid opt-in scenario 52 failed\n"); return 52; }
+
+    /* Even with a TGP provider, normal hits never require the generic
+     * down-hit vector commands. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.callbacks.tgp_calls != 0u ||
+        s.output.pairs[0].normal_knockback_tgp_completed != 0u)
+        { fprintf(stderr, "TGP unused branch scenario 53 failed\n"); return 53; }
 
     return 0;
 }
