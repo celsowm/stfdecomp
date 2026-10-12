@@ -100,20 +100,70 @@ def compare(reference: list[dict], candidate: list[dict]) -> dict:
     return {"identical": True, "commands": len(reference)}
 
 
+def load_vector(path: Path) -> dict[str, int]:
+    """Read a post-CPU-multiplier X/Y/Z snapshot as raw finite binary32 words."""
+    try:
+        obj = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(obj, dict):
+            raise ValueError("expected JSON object with x, y, z")
+        vector = {axis: uint32(obj[axis]) for axis in ("x", "y", "z")}
+        for axis, raw in vector.items():
+            if not math.isfinite(f32(raw)):
+                raise ValueError(f"{axis} is nonfinite")
+    except (ValueError, TypeError, KeyError, json.JSONDecodeError, OSError) as exc:
+        raise ValueError(f"{path}: invalid post-multiplier vector: {exc}") from exc
+    return vector
+
+
+def compare_vectors(reference: dict[str, int], candidate: dict[str, int]) -> dict:
+    """Bit-exact final impact-vector comparison with axis and ULP diagnostics."""
+    axes = ("x", "y", "z")
+    mismatch_mask = 0
+    ulps = {}
+    for bit, axis in enumerate(axes):
+        before, after = reference[axis], candidate[axis]
+        if before != after:
+            mismatch_mask |= 1 << bit
+        ulps[axis] = abs(ordered_float(before) - ordered_float(after))
+    return {
+        "identical": mismatch_mask == 0,
+        "mismatch_mask": mismatch_mask,
+        "ulp_distance": ulps,
+        "reference": {axis: f"0x{reference[axis]:08X}" for axis in axes},
+        "candidate": {axis: f"0x{candidate[axis]:08X}" for axis in axes},
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("reference", type=Path)
     parser.add_argument("candidate", type=Path)
     parser.add_argument("--json", dest="json_path", type=Path)
+    parser.add_argument("--reference-vector", type=Path,
+                        help="JSON with captured post-multiplier x/y/z raw words")
+    parser.add_argument("--candidate-vector", type=Path,
+                        help="JSON with recovered post-multiplier x/y/z raw words")
     args = parser.parse_args(argv)
+
+    if (args.reference_vector is None) != (args.candidate_vector is None):
+        print("INVALID: --reference-vector and --candidate-vector must be used together")
+        return 2
 
     try:
         report = compare(load(args.reference), load(args.candidate))
+        if args.reference_vector is not None:
+            vectors = compare_vectors(
+                load_vector(args.reference_vector),
+                load_vector(args.candidate_vector),
+            )
+            report["vector_comparison"] = vectors
+            report["transcript_identical"] = report["identical"]
+            report["identical"] = report["identical"] and vectors["identical"]
     except (OSError, ValueError) as exc:
         print(f"INVALID: {exc}")
         return 2
 
-    if report["identical"]:
+    if report.get("transcript_identical", report["identical"]):
         print(f"MATCH: {report['commands']} ordered command/reply tuples match bit-for-bit")
     else:
         print(f"DIFFERENCE at command {report['index']}: {report['kind']}")
@@ -126,6 +176,16 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"  reference count: {report['reference_count']}")
             print(f"  candidate count: {report['candidate_count']}")
+
+    if "vector_comparison" in report:
+        v = report["vector_comparison"]
+        if v["identical"]:
+            print("VECTORS MATCH: all post-multiplier X/Y/Z words bit-identical")
+        else:
+            print(f"VECTOR DIFFERENCE: axis mask 0x{v['mismatch_mask']:X}")
+            print(f"  reference: {v['reference']}")
+            print(f"  candidate: {v['candidate']}")
+            print(f"  ULP distances: {v['ulp_distance']}")
 
     if args.json_path is not None:
         try:
