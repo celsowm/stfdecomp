@@ -92,3 +92,27 @@ Trace and state files used for local research may contain observations derived
 from a legally obtained ROM, but do not commit ROMs, reconstructed ROM regions,
 snapshots containing proprietary bulk data, extracted assets, or large raw
 traces to this repository.
+
+
+## Differential impact vectors after TGP replay
+
+The command transcript comparator answers whether the same requests and
+reply words were seen. To verify their **observable effect**, use
+`stf_tgp_command_trace_compare_vectors(reference_xyz_bits,
+candidate_xyz_bits, &difference)` from
+`src/recovered/tgp_command_trace.h` once both executions have finished
+the original CPU multipliers and stored the fighter's X/Y/Z impact at
+`+0x5E0/+0x5E4/+0x5E8`.
+
+The result's `mismatch_mask` marks X (bit 0), Y (bit 1), and Z (bit 2)
+that differ **bitwise**. The `ulp_distance[3]` members measure
+ordered IEEE-754 binary32 distance for finite values, including negative
+numbers; signed zeros have separate bit patterns and are one ordered
+ULP apart. A NaN or infinity is rejected, not treated as matching.
+This method supplies a numeric difference report, not permission to
+accept approximate results as hardware-equivalent: the strict 1:1
+criterion remains bit equality on all three axes, on matching inputs.
+
+The TGP capture callback uses caller-provided actual device outputs;
+synthetic unit-test values must never be mislabeled as Model 2 reference
+capture evidence. Do not commit proprietary ROM bytes or raw captures.
