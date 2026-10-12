@@ -12,6 +12,7 @@
 #include "attack_hit_guard_vector.h"
 #include "attack_hit_guard_common_runtime.h"
 #include "attack_hit_side_exit.h"
+#include "attack_hit_stance.h"
 #include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
@@ -102,6 +103,18 @@ typedef bool (*stf_collision_attack_hit_normal_exit_tail_fn)(
     const stf_attack_side_exit_result *side_exit
 );
 
+/* Caller-owned, ROM-backed stance data for one defender. The two entries in
+ * the combat model correspond to fighter slot 0 and fighter slot 1. */
+typedef struct stf_collision_stance_binding {
+    const uint8_t *selector_block;
+    size_t selector_block_size;
+    uint8_t *stance_ram;
+    size_t stance_ram_size;
+    uint32_t arithmetic_control;
+    stf_kamae_motion_resolver resolver;
+    void *resolver_user_data;
+} stf_collision_stance_binding;
+
 typedef struct stf_collision_combat_model2 {
     uint8_t *fighters[2];
     size_t fighter_sizes[2];
@@ -144,6 +157,21 @@ typedef struct stf_collision_combat_model2 {
     /* Optional loc_2AE40 branch after STF_ATTACK_GUARD_EXIT. */
     stf_collision_attack_hit_normal_exit_tail_fn normal_exit_tail;
     void *normal_exit_tail_user_data;
+
+    /* Opt in to set_kamae_ram on continuing 0x2AE40 bit29 paths.
+     * Both fighter bindings must be valid before the first prefix write.
+     * With this enabled, normal_exit_tail must NOT repeat the stance event.
+     * Other attack-hit work still belongs to normal_exit_tail. */
+    bool recover_normal_stance;
+    stf_collision_stance_binding normal_stance[2];
+
+    /* Optional real guard skill accounting for the 0x2AC74 route.
+     * The rank/select flags and counter are supplied by the caller.
+     * guard_common_tail must NOT add skill again when enabled. */
+    bool recover_guard_skill;
+    uint16_t skill_rank_mode;
+    uint32_t skill_select_flags[2];
+    uint32_t *total_skill;
 } stf_collision_combat_model2;
 
 typedef struct stf_collision_combat_pair_result {
@@ -165,11 +193,15 @@ typedef struct stf_collision_combat_pair_result {
     bool guard_common_tail_completed;
     stf_guard_common_runtime_result guard_common;
     stf_attack_abort_cleanup_result guard_common_cleanup;
+    bool guard_skill_processed;
+    stf_skill_accounting_result guard_skill;
     bool normal_exit_applied;
     bool normal_exit_aborted;
     bool normal_exit_tail_completed;
     stf_attack_side_exit_result normal_exit;
     stf_attack_abort_cleanup_result normal_exit_cleanup;
+    bool normal_stance_applied;
+    stf_attack_hit_stance_result normal_stance;
     stf_attack_hit_special_result special;
     bool body_completed;
     bool damage_completed;
@@ -203,6 +235,10 @@ typedef struct stf_collision_combat_result {
  * The optional guard_common_tail handles the distinct 0x2AC74 branch;
  * its early abort at 0x2B8C8 is handled in C without a motion lookup.
  * The tail must still perform the unrecovered events and device work.
+ * The optional recover_normal_stance handles the original set_kamae_ram
+ * event before normal_exit_tail, using caller-supplied motion records.
+ * The optional recover_guard_skill writes a caller-owned total_skill via
+ * rank/select-gated, recovered arithmetic before guard_common_tail.
  * Host float math is semantic,
  * not claimed bit-for-bit accurate to the original sqrt coprocessor.
  *

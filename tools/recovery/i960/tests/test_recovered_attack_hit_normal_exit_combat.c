@@ -23,8 +23,51 @@ typedef struct hooks {
     unsigned legacy_calls;
     unsigned normal_calls;
     unsigned stance_requests;
+    unsigned resolver_calls;
+    bool fail_stance;
+    bool verify_recovered_stance;
+    uint8_t *defender_stance;
+    uint16_t selectors[4];
+    uint8_t records[4][512];
     bool fail_tail;
 } hooks;
+
+static uint16_t rd16(const uint8_t *p)
+{
+    return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8u));
+}
+static void wr16(uint8_t *p, uint16_t value)
+{
+    p[0] = (uint8_t)value;
+    p[1] = (uint8_t)(value >> 8u);
+}
+static bool resolve_stance(
+    uint16_t selector, const uint8_t **record,
+    size_t *record_size, void *userdata)
+{
+    hooks *h = (hooks *)userdata;
+    size_t i;
+    ++h->resolver_calls;
+    if (h->fail_stance || record == NULL || record_size == NULL)
+        return false;
+    for (i = 0u; i < 4u; ++i) {
+        if (selector == h->selectors[i]) {
+            *record = h->records[i];
+            *record_size = sizeof(h->records[i]);
+            return true;
+        }
+    }
+    return false;
+}
+static void build_record(uint8_t *record, uint32_t float_bits)
+{
+    size_t i;
+    memset(record, 0, 512u);
+    for (i = 0u; i < STF_GET_KAMAE_ROW_COUNT; ++i)
+        record[STF_GET_KAMAE_DESCRIPTOR_OFFSET + i] = UINT8_C(0x15);
+    for (i = 0u; i < 60u; ++i)
+        wr32(record + 24u + i * 4u, float_bits);
+}
 
 static bool legacy_body(
     void *userdata, uint8_t attacker_index, uint8_t defender_index,
@@ -66,6 +109,13 @@ static bool normal_tail(
             (rd32(defender) & (UINT32_C(1) << 29u)) != 0u)
             return false;
         ++h->stance_requests;
+        if (h->verify_recovered_stance &&
+            (h->defender_stance == NULL ||
+             rd16(h->defender_stance + 0x1E0u) != 10u ||
+             rd16(h->defender_stance + 0x2D0u) != 20u ||
+             rd16(h->defender_stance + 0x3C0u) != 30u ||
+             rd16(h->defender_stance + 0x5A0u) != 40u))
+            return false;
     }
     return !h->fail_tail;
 }
@@ -75,6 +125,8 @@ typedef struct scene {
     uint8_t enemies[2][ENEMY_SIZE];
     uint8_t workspace[W_SIZE];
     uint8_t profiles[PROFILE_SIZE];
+    uint8_t selector_blocks[2][STF_SET_KAMAE_FULL_SELECTOR_MIN_SIZE];
+    uint8_t stances[2][2048];
     stf_damage_unit_effect_state effect;
     stf_collision_combat_model2 model;
     stf_collision_hit_order order;
@@ -108,6 +160,28 @@ static void init(scene *s)
     s->model.normal_profile_table_size = PROFILE_SIZE;
     s->model.normal_exit_tail = normal_tail;
     s->model.normal_exit_tail_user_data = &s->callbacks;
+    s->callbacks.defender_stance = s->stances[0];
+    for (size_t i = 0u; i < 4u; ++i) {
+        static const uint32_t values[] = {
+            UINT32_C(0x41200000), UINT32_C(0x41A00000),
+            UINT32_C(0x41F00000), UINT32_C(0x42200000)
+        };
+        s->callbacks.selectors[i] = (uint16_t)(i + 1u);
+        build_record(s->callbacks.records[i], values[i]);
+    }
+    for (size_t i = 0u; i < 2u; ++i) {
+        stf_collision_stance_binding *b = &s->model.normal_stance[i];
+        wr16(s->selector_blocks[i] + 0x00u, 1u);
+        wr16(s->selector_blocks[i] + 0x08u, 2u);
+        wr16(s->selector_blocks[i] + 0x0Au, 3u);
+        wr16(s->selector_blocks[i] + 0x50u, 4u);
+        b->selector_block = s->selector_blocks[i];
+        b->selector_block_size = sizeof(s->selector_blocks[i]);
+        b->stance_ram = s->stances[i];
+        b->stance_ram_size = sizeof(s->stances[i]);
+        b->resolver = resolve_stance;
+        b->resolver_user_data = &s->callbacks;
+    }
     s->order.count = 1u;
     s->order.attacker[0] = 1u;
 }
@@ -192,6 +266,83 @@ int main(void)
         s.output.pairs[0].normal_exit_applied ||
         s.callbacks.normal_calls != 0u ||
         s.callbacks.legacy_calls != 1u) return 7;
+
+    /* Opt in to recovered set_kamae before the remaining normal tail.
+     * All four motion selectors execute against supplied records. */
+    init(&s);
+    s.model.recover_normal_stance = true;
+    s.callbacks.verify_recovered_stance = true;
+    wr32(s.fighters[0], UINT32_C(1) << 29u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_stance_applied ||
+        !s.output.pairs[0].normal_stance.executed ||
+        s.output.pairs[0].normal_stance.kamae.request_count != 4u ||
+        s.callbacks.resolver_calls != 4u ||
+        s.callbacks.normal_calls != 1u ||
+        s.callbacks.stance_requests != 1u) return 8;
+
+    /* When no bit29 request is emitted, no motion lookup occurs. */
+    init(&s);
+    s.model.recover_normal_stance = true;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_stance_applied ||
+        s.callbacks.resolver_calls != 0u) return 9;
+
+    /* Early abort must NOT consume the defender flag or stance records. */
+    init(&s);
+    s.model.recover_normal_stance = true;
+    s.callbacks.fail_stance = true;
+    wr32(s.fighters[0], UINT32_C(1) << 29u);
+    wr32(s.fighters[1] + 0x860u, UINT32_C(1) << 19u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_exit_aborted ||
+        s.output.pairs[0].normal_stance_applied ||
+        s.callbacks.resolver_calls != 0u ||
+        s.callbacks.normal_calls != 0u ||
+        (rd32(s.fighters[0]) & (UINT32_C(1) << 29u)) == 0u)
+        return 10;
+
+    /* Preflight rejects missing stance memory before prefix mutations. */
+    init(&s);
+    s.model.recover_normal_stance = true;
+    s.model.normal_stance[0].stance_ram_size = 0x600u;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u) return 11;
+
+    /* A failed ROM lookup leaves an explicit partial state: bit29 cleared,
+     * prefix counter incremented, no tail and no damage execution. */
+    init(&s);
+    s.model.recover_normal_stance = true;
+    s.callbacks.fail_stance = true;
+    wr32(s.fighters[0], UINT32_C(1) << 29u);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_exit_applied ||
+        s.output.pairs[0].normal_stance_applied ||
+        s.output.pairs[0].damage_completed ||
+        s.callbacks.resolver_calls != 1u ||
+        s.callbacks.normal_calls != 0u ||
+        rd32(s.fighters[1] + 0x1234u) != 1u ||
+        (rd32(s.fighters[0]) & (UINT32_C(1) << 29u)) != 0u)
+        return 12;
+
+    /* Stance opt-in cannot run without the mandatory remainder callback. */
+    init(&s);
+    s.model.recover_normal_stance = true;
+    s.model.normal_exit_tail = NULL;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u) return 13;
+
+    /* Subsequent callback failure leaves already applied stance intact. */
+    init(&s);
+    s.model.recover_normal_stance = true;
+    s.callbacks.fail_tail = true;
+    wr32(s.fighters[0], UINT32_C(1) << 29u);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_stance_applied ||
+        s.output.pairs[0].normal_exit_tail_completed ||
+        s.output.pairs[0].damage_completed ||
+        rd16(s.stances[0] + 0x1E0u) != 10u)
+        return 14;
 
     return 0;
 }

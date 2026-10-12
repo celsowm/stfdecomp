@@ -2,6 +2,12 @@
 
 #include <string.h>
 
+static uint32_t read_le32(const uint8_t *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8u) |
+           ((uint32_t)p[2] << 16u) | ((uint32_t)p[3] << 24u);
+}
+
 static bool valid_order(const stf_collision_hit_order *order)
 {
     uint8_t i;
@@ -40,6 +46,10 @@ bool stf_collision_combat_apply_model2(
          model->normal_profile_table == NULL) ||
         (model->normal_exit_tail != NULL &&
          model->normal_profile_table == NULL) ||
+        (model->recover_normal_stance &&
+         model->normal_exit_tail == NULL) ||
+        (model->recover_guard_skill &&
+         (model->guard_common_tail == NULL || model->total_skill == NULL)) ||
         (model->guard_vector_tgp != NULL && model->guard_tail == NULL) ||
         (model->normal_profile_table != NULL &&
          model->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE) ||
@@ -53,6 +63,24 @@ bool stf_collision_combat_apply_model2(
           model->enemy_slot_sizes[1] < STF_GUARD_COMMON_ENEMY_MIN_SIZE)) ||
         model->fighters[0][4u] != 0u || model->fighters[1][4u] != 1u) {
         return false;
+    }
+
+    /* Validate both fighter bindings before the first non-rollback write.
+     * The normal cleared-bit29 path always selects four kamae motions. */
+    if (model->recover_normal_stance) {
+        for (i = 0u; i < 2u; ++i) {
+            const stf_collision_stance_binding *binding =
+                &model->normal_stance[i];
+            if (binding->selector_block == NULL ||
+                binding->selector_block_size <
+                    STF_SET_KAMAE_FULL_SELECTOR_MIN_SIZE ||
+                binding->stance_ram == NULL ||
+                binding->stance_ram_size <
+                    0x5A0u + STF_GET_KAMAE_OUTPUT_BYTES ||
+                binding->resolver == NULL) {
+                return false;
+            }
+        }
     }
 
     memset(&local, 0, sizeof(local));
@@ -204,6 +232,24 @@ bool stf_collision_combat_apply_model2(
                         return false;
                     }
                     pair->guard_common_applied = true;
+                    if (!pair->guard_common.guard.skipped &&
+                        model->recover_guard_skill) {
+                        if (!stf_total_skill_add(
+                                model->skill_rank_mode,
+                                model->skill_select_flags[0],
+                                model->skill_select_flags[1],
+                                attacker[4u],
+                                pair->guard_common.guard.skill_amount,
+                                *model->total_skill, &pair->guard_skill)) {
+                            *result = local;
+                            return false;
+                        }
+                        pair->guard_skill_processed = true;
+                        if (pair->guard_skill.applied) {
+                            *model->total_skill =
+                                pair->guard_skill.total_skill_after;
+                        }
+                    }
                     if (pair->guard_common.guard.skipped) {
                         if (!stf_attack_hit_abort_cleanup_apply_model2(
                                 attacker, attacker_size,
@@ -257,8 +303,33 @@ bool stf_collision_combat_apply_model2(
                     }
                     pair->normal_exit_aborted = true;
                 } else {
-                    /* The callback is responsible for set_kamae_ram when
-                     * normal_exit.request_set_kamae is true. */
+                    /* Consume bit29 stance refresh in recovered C when
+                     * explicitly enabled. An unsuccessful ROM resolver
+                     * leaves the earlier side effects visible but no damage. */
+                    if (model->recover_normal_stance &&
+                        pair->normal_exit.request_set_kamae) {
+                        const stf_collision_stance_binding *binding =
+                            &model->normal_stance[defender_index];
+                        if (!stf_attack_hit_apply_stance_event(
+                                &pair->normal_exit,
+                                read_le32(defender),
+                                binding->selector_block,
+                                binding->selector_block_size,
+                                binding->arithmetic_control,
+                                binding->stance_ram,
+                                binding->stance_ram_size,
+                                binding->resolver,
+                                binding->resolver_user_data,
+                                &pair->normal_stance)) {
+                            *result = local;
+                            return false;
+                        }
+                        pair->normal_stance_applied =
+                            pair->normal_stance.executed;
+                    }
+                    /* With recovered stance disabled, the callback must
+                     * handle request_set_kamae itself. In either mode the
+                     * callback retains the other unported attack-hit work. */
                     if (!model->normal_exit_tail(
                             model->normal_exit_tail_user_data,
                             attacker_index, defender_index,

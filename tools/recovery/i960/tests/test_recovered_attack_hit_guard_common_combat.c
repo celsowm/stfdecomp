@@ -226,5 +226,67 @@ int main(void)
        s.fx.resolver_calls!=0u||s.fx.tail_calls!=0u||
        s.fx.legacy_calls!=1u)
         return 7;
+    /* Opt-in rank/select-gated total skill is now executed between
+       recovered common-guard writes and its mandatory event tail. */
+    init(&s);
+    uint32_t total_skill = 100u;
+    s.combat.recover_guard_skill = true;
+    s.combat.total_skill = &total_skill;
+    s.combat.skill_rank_mode = 1u;
+    s.combat.skill_select_flags[1] = UINT32_C(1) << 2u;
+    if (!stf_collision_combat_apply_model2(&s.combat, &s.order, &s.output) ||
+        !s.output.pairs[0].guard_skill_processed ||
+        !s.output.pairs[0].guard_skill.applied ||
+        s.output.pairs[0].guard_skill.total_skill_after != 104u ||
+        total_skill != 104u || s.fx.tail_calls != 1u) return 8;
+
+    /* Disabled rank bit0 must preserve the original total. */
+    init(&s);
+    total_skill = 100u;
+    s.combat.recover_guard_skill = true;
+    s.combat.total_skill = &total_skill;
+    s.combat.skill_rank_mode = 0u;
+    s.combat.skill_select_flags[1] = UINT32_C(1) << 2u;
+    if (!stf_collision_combat_apply_model2(&s.combat, &s.order, &s.output) ||
+        !s.output.pairs[0].guard_skill_processed ||
+        s.output.pairs[0].guard_skill.applied ||
+        total_skill != 100u) return 9;
+
+    /* Early abort does not add skill or attempt motion resolution. */
+    init(&s);
+    total_skill = 100u;
+    s.combat.recover_guard_skill = true;
+    s.combat.total_skill = &total_skill;
+    s.combat.skill_rank_mode = 1u;
+    s.combat.skill_select_flags[1] = UINT32_C(1) << 2u;
+    w32(s.f1 + 0x860u, UINT32_C(1) << 19u);
+    s.f1[0x822u] = 0u;
+    s.fx.fail_resolver = true;
+    if (!stf_collision_combat_apply_model2(&s.combat, &s.order, &s.output) ||
+        !s.output.pairs[0].guard_common_aborted ||
+        s.output.pairs[0].guard_skill_processed ||
+        total_skill != 100u ||
+        s.fx.resolver_calls != 0u) return 10;
+
+    /* Callback errors do not roll back already-accounted skill. */
+    init(&s);
+    total_skill = 100u;
+    s.combat.recover_guard_skill = true;
+    s.combat.total_skill = &total_skill;
+    s.combat.skill_rank_mode = 1u;
+    s.combat.skill_select_flags[1] = UINT32_C(1) << 2u;
+    s.fx.fail_tail = true;
+    if (stf_collision_combat_apply_model2(&s.combat, &s.order, &s.output) ||
+        !s.output.pairs[0].guard_skill_processed ||
+        !s.output.pairs[0].guard_skill.applied ||
+        s.output.pairs[0].damage_completed ||
+        total_skill != 104u) return 11;
+
+    /* Missing scoreboard/guard callback fails without prefix writes. */
+    init(&s);
+    s.combat.recover_guard_skill = true;
+    if (stf_collision_combat_apply_model2(&s.combat, &s.order, &s.output) ||
+        r32(s.f1 + 0x1234u) != 0u) return 12;
+
     return 0;
 }

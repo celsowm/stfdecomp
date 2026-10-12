@@ -955,3 +955,30 @@ hashed i960 intervals recovered from the local `schamp` EPROM pair:
 These ranges are **Sonic Championship** evidence only; matching SHA-256
 digests do not establish that `sfight` has identical instruction bytes or
 that the still-callback-backed full attack body is 1:1.
+
+
+### Recovered stance refresh and guard skill in ordered combat
+
+`stf_collision_combat_apply_model2` now offers two separately opt-in
+continuations that replace more of the original event-tail responsibilities:
+
+- `recover_normal_stance` consumes `request_set_kamae` immediately after
+  the 0x2AE40 classifier, before the required normal tail. The recovered
+  `stf_attack_hit_apply_stance_event` composes `set_kamae_ram` and
+  `get_kamae_value` for the current defender using caller-owned
+  `normal_stance[slot]` selectors, stance RAM and ROM resolver. Both slots
+  are prevalidated, including full selector and output capacity, before
+  combat side effects. Skipped and abort paths never resolve ROM motions.
+  Resolution failures preserve partial prefix/bit29 state and do not
+  proceed into the tail or `damage_unit`.
+- `recover_guard_skill` applies existing recovered
+  `stf_total_skill_add` rank/select gating on completed common-guard
+  paths, updating the caller-owned `total_skill` before the remaining
+  mandatory guard tail. Aborts do not add skill; failed tails do not roll
+  back previously committed accounting.
+
+The flags are **opt-in** to preserve existing caller semantics. When
+enabled, corresponding callbacks must not repeat the stance or skill
+operation. Both still require the caller-supplied ROM data and the
+unrecovered gameplay/audio/TGP continuation; neither constitutes 1:1
+restoration of `attack_hit`.
