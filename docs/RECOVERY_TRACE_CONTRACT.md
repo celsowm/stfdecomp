@@ -166,3 +166,62 @@ game fidelity.
 Regression scenarios cover an exact three-axis match, a 1-ULP
 divergence, NaN reference rejection before side effects, missing
 TGP provider, route skip and interrupted replay.
+
+
+## Compare the command transcript and the final impact in one command
+
+The JSONL comparator can now validate **both** the exact ordered TGP
+command/reply tuples and the fighter's observable X/Y/Z output **after**
+original CPU multipliers. Provide two independent JSON snapshots with
+three finite raw IEEE-754 binary32 words under `x`, `y` and `z`:
+
+```json
+{"x":"0x3FA00000","y":"0xBF800000","z":"0x80000000"}
+```
+
+```bash
+python tools/recovery/compare_tgp_command_traces.py original.jsonl recovered.jsonl \
+  --reference-vector original_xyz.json --candidate-vector recovered_xyz.json \
+  --json tgp_diff.json
+```
+
+A zero exit status requires that **both** the command trace and final
+fighter impact vectors match bit-for-bit. Exit 1 reports either kind
+of divergence; exit 2 identifies invalid input (including a missing
+second vector, non-finite float or malformed JSON). A command trace may
+match while a different final CPU multiplier makes the vectors differ:
+the JSON report then includes `transcript_identical: true` but overall
+`identical: false`, plus `vector_comparison.mismatch_mask` and per-axis
+ordered `ulp_distance`. Sign-distinct +0/-0 compare as a one-ULP
+bitwise mismatch rather than being treated as identical. If no
+`--reference-vector`/`--candidate-vector` flags are given, the
+original command-only output and schema are unchanged.
+
+Both snapshots must be collected independently after the same
+combat step and CPU multipliers. Test fixtures and replayed synthetic
+values are NOT proof of original Sega Model 2 equivalence; only
+controlled hardware/emulator reference captures can provide that.
+Neither reference ROM bytes nor raw proprietary captures should be
+committed to the repository.
+
+## Guard BLOCK_A/B verification
+
+The same optional strict **post-CPU-multiplier** oracle used by the
+generic/down-hit shared vector is now available for the recovered
+guard BLOCK_A/B `0x2B738..0x2B898` path. Set
+`verify_guard_vectors = true` in `stf_collision_combat_model2`,
+provide an authentic `guard_vector_tgp` callback, a `guard_tail`,
+and supply three original raw X/Y/Z words per **defender slot**
+in `guard_vector_expected_xyz[2][3]`. Invalid or infinite oracle
+words fail preflight before any combat writes.
+
+The new `stf_attack_hit_guard_vector_apply_verified_model2` computes
+all five TGP replies and the original CPU/ROM boost multipliers
+before comparing the resulting X/Y/Z. On a 1-ULP or larger mismatch
+it returns false, preserves **all three previous defender vector
+values**, and exposes the comparison in the pair's
+`guard_vector.vectors_checked`, `mismatch_mask`, and
+`ulp_distance[3]`. The combat tail and damage unit do not execute
+after an oracle mismatch, although earlier state changes are not
+rolled back. A null oracle preserves the original
+`stf_attack_hit_guard_vector_apply_model2` behavior.
