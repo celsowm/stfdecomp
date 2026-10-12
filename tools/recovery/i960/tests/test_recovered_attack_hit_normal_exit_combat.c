@@ -1142,5 +1142,114 @@ int main(void)
             { fprintf(stderr, "integrated TGP dependent-command scenario 57 failed\n"); return 57; }
     }
 
+    /* Strict hardware-vector oracle: all three post-multiplier IEEE754
+     * words must match before the fighter axes are written. Synthetic
+     * replies here exercise the verifier, not real Model 2 evidence. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.model.verify_normal_knockback_vectors = true;
+    s.model.normal_knockback_expected_xyz[0][0] = UINT32_C(0x3FA00000);
+    s.model.normal_knockback_expected_xyz[0][1] = UINT32_C(0x3F800000);
+    s.model.normal_knockback_expected_xyz[0][2] = UINT32_C(0x3FC00000);
+    s.callbacks.verify_tgp_knockback = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_knockback_vectors_checked ||
+        s.output.pairs[0].normal_knockback_vector_difference.mismatch_mask != 0u ||
+        !s.output.pairs[0].normal_knockback_vector_applied ||
+        s.output.pairs[0].normal_knockback_tgp_completed != 5u ||
+        !s.output.pairs[0].damage_completed || s.callbacks.normal_calls != 1u)
+        { fprintf(stderr, "TGP strict vector equality scenario 58 failed\n"); return 58; }
+
+    /* A single-ULP discrepancy in X is a HARD failure. The five TGP
+     * replies and CPU multipliers may finish, but no axis may change,
+     * and no pre-damage tail or downstream damage_unit runs. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.model.verify_normal_knockback_vectors = true;
+    s.model.normal_knockback_expected_xyz[0][0] = UINT32_C(0x3FA00001);
+    s.model.normal_knockback_expected_xyz[0][1] = UINT32_C(0x3F800000);
+    s.model.normal_knockback_expected_xyz[0][2] = UINT32_C(0x3FC00000);
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    wr32(s.fighters[0] + 0x5E0u, UINT32_C(0x42B60000));
+    wr32(s.fighters[0] + 0x5E4u, UINT32_C(0x42B80000));
+    wr32(s.fighters[0] + 0x5E8u, UINT32_C(0x42BA0000));
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_knockback_vectors_checked ||
+        s.output.pairs[0].normal_knockback_vector_difference.mismatch_mask != 1u ||
+        s.output.pairs[0].normal_knockback_vector_difference.ulp_distance[0] != 1u ||
+        s.output.pairs[0].normal_knockback_vector_difference.ulp_distance[1] != 0u ||
+        s.output.pairs[0].normal_knockback_vector_difference.ulp_distance[2] != 0u ||
+        s.output.pairs[0].normal_knockback_tgp_completed != 5u ||
+        s.output.pairs[0].normal_knockback_vector_applied ||
+        s.output.pairs[0].normal_exit_tail_completed ||
+        s.output.pairs[0].damage_completed ||
+        rd32(s.fighters[0] + 0x5E0u) != UINT32_C(0x42B60000) ||
+        rd32(s.fighters[0] + 0x5E4u) != UINT32_C(0x42B80000) ||
+        rd32(s.fighters[0] + 0x5E8u) != UINT32_C(0x42BA0000) ||
+        s.callbacks.normal_calls != 0u)
+        { fprintf(stderr, "TGP vector 1-ULP fail-closed scenario 59 failed\n"); return 59; }
+
+    /* An invalid independent reference is rejected before side effects. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.model.verify_normal_knockback_vectors = true;
+    s.model.normal_knockback_expected_xyz[0][1] = UINT32_C(0x7FC00000);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u ||
+        s.callbacks.tgp_calls != 0u || s.callbacks.normal_calls != 0u)
+        { fprintf(stderr, "TGP oracle nonfinite preflight scenario 60 failed\n"); return 60; }
+
+    /* Verification without an external hardware TGP source is invalid:
+     * approximate host trig can never certify bit-exact replay. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.verify_normal_knockback_vectors = true;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u)
+        { fprintf(stderr, "TGP oracle missing-device scenario 61 failed\n"); return 61; }
+
+    /* The verifier is route-specific, not an unconditional requirement
+     * for normal motion reactions that do not emit a knockback vector. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.model.verify_normal_knockback_vectors = true;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_knockback_vectors_checked ||
+        s.output.pairs[0].normal_knockback_vector_applied ||
+        s.callbacks.tgp_calls != 0u || s.callbacks.normal_calls != 1u)
+        { fprintf(stderr, "TGP oracle non-applicable route scenario 62 failed\n"); return 62; }
+
+    /* Incomplete device replay does not claim an oracle comparison; the
+     * original stored axes remain unchanged as before. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.model.verify_normal_knockback_vectors = true;
+    s.callbacks.fail_tgp_at = 3u;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_knockback_vectors_checked ||
+        s.output.pairs[0].normal_knockback_vector_applied ||
+        s.output.pairs[0].normal_knockback_tgp_completed != 2u ||
+        rd32(s.fighters[0] + 0x5E0u) != 0u ||
+        s.callbacks.normal_calls != 0u)
+        { fprintf(stderr, "TGP oracle incomplete replay scenario 63 failed\n"); return 63; }
+
     return 0;
 }
