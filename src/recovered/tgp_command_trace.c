@@ -188,3 +188,46 @@ stf_tgp_trace_difference stf_tgp_command_trace_compare(
     if (first_difference != NULL) *first_difference = common;
     return STF_TGP_TRACE_IDENTICAL;
 }
+
+static uint32_t float_word_ordered(uint32_t bits)
+{
+    /* Sort binary32 values by signed numerical order, with -0/+0 adjacent. */
+    return (bits & UINT32_C(0x80000000))
+        ? ~bits
+        : (bits ^ UINT32_C(0x80000000));
+}
+
+bool stf_tgp_command_trace_compare_vectors(
+    const uint32_t reference_xyz_bits[3],
+    const uint32_t candidate_xyz_bits[3],
+    stf_tgp_vector_difference *difference
+)
+{
+    stf_tgp_vector_difference local;
+    unsigned axis;
+
+    if (reference_xyz_bits == NULL || candidate_xyz_bits == NULL ||
+        difference == NULL) {
+        return false;
+    }
+
+    memset(&local, 0, sizeof(local));
+    for (axis = 0u; axis < 3u; ++axis) {
+        uint32_t reference;
+        uint32_t candidate;
+        if (!valid_reply(reference_xyz_bits[axis]) ||
+            !valid_reply(candidate_xyz_bits[axis])) {
+            return false;
+        }
+        if (reference_xyz_bits[axis] != candidate_xyz_bits[axis]) {
+            local.mismatch_mask =
+                (uint8_t)(local.mismatch_mask | (UINT8_C(1) << axis));
+        }
+        reference = float_word_ordered(reference_xyz_bits[axis]);
+        candidate = float_word_ordered(candidate_xyz_bits[axis]);
+        local.ulp_distance[axis] = reference >= candidate
+            ? reference - candidate : candidate - reference;
+    }
+    *difference = local;
+    return true;
+}

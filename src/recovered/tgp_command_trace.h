@@ -87,4 +87,20 @@ stf_tgp_trace_difference stf_tgp_command_trace_compare(
     size_t *first_difference
 );
 
+/* Compare the FINAL fighter impact vectors, after any CPU multipliers.
+ * Unlike trace_compare this checks the visible X/Y/Z bit patterns.
+ * mismatch_mask bits 0/1/2 indicate X/Y/Z bitwise differences; the
+ * corresponding ordered-float ULP distances quantify the divergence.
+ * Finite inputs only; the function never modifies source arrays. */
+typedef struct stf_tgp_vector_difference {
+    uint8_t mismatch_mask;
+    uint32_t ulp_distance[3];
+} stf_tgp_vector_difference;
+
+bool stf_tgp_command_trace_compare_vectors(
+    const uint32_t reference_xyz_bits[3],
+    const uint32_t candidate_xyz_bits[3],
+    stf_tgp_vector_difference *difference
+);
+
 #endif
