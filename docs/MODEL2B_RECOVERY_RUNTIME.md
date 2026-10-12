@@ -1022,3 +1022,51 @@ mode 3, KO bypass, generic branch, resolver failure, early abort,
 missing resolver, failing continuation, and opt-out compatibility.
 This is semantic CPU recovery, **not** proof of binary-matching or
 complete 1:1 Model 2 gameplay.
+
+
+### Non-guard damage, KO and ring-scatter in ordered combat
+
+After the optional normal-hit CPU followthrough, the combat adapter can
+also execute the original energy-application stage. Set
+`recover_normal_damage = true`, supply `normal_game_timer`, and provide
+a **real** `normal_damage_event` callback. This mode requires
+`recover_normal_hit = true` and its existing ROM-backed motion resolver.
+
+The `normal_exit_tail` becomes the **pre-damage** continuation: it must
+finish every original sound, SHARC/TGP/vector or other operation that
+occurs **before** `damage_calculation`, but MUST NOT itself subtract
+energy or repeat the damage stage. After that tail succeeds:
+
+1. `stf_damage_calculation_apply_model2` records the scaled damage in
+   attacker +0x1F70, conditionally subtracts defender +0x1AC, updates
+   defender +0xC54, clamps a knockout to zero and sets fighter bit5.
+   The caller-supplied game timer and character-16 exception are observed.
+2. When `recover_normal_ring_scatter = true`, the original ring
+   request is immediately passed to the existing recovered
+   `stf_ring_scatter_apply_damage_event_model2`. The caller supplies
+   a live 24-slot `normal_ring_pool`/`normal_ring_slots` pair and
+   the stage plus 16 deterministic random words per **defender** slot.
+   The stage handles character-dependent suppression, ring counts,
+   trajectories and recycled slots; animation/sound output remains external.
+3. The mandatory `normal_damage_event` receives the damage and ring
+   results before `damage_unit`. When ring recovery is disabled, this
+   callback must itself handle `request_ring_scatter` through the real
+   engine. When enabled, it still must service `request_ring_sound`
+   and any other post-damage external events. Returning false terminates
+   the hit with earlier mutations intentionally visible.
+
+`recover_normal_ring_scatter` requires `recover_normal_damage` and
+live pool/slot pointers. Missing callbacks or other required dependencies
+are rejected before prefix mutation. Normal early-abort and special-hit
+paths do not invoke these stages. With both flags disabled, the previous
+callback-owned behavior is untouched.
+
+In addition, the recovered CPU followthrough now implements generic
+down, down-combo, and special-bit16 reaction branches, using the original
+hit-motion group 4/5 resolver and the down-combo route predicate. The
+remaining `calc_mht_adr`/SHARC/vector work for these branches stays in
+the pre-damage tail; the recovered CPU-only reaction does **not** make
+the full game path 1:1. The tests cover group selection, fixed-motion
+overrides, damage-reduced stun, early abort and resolver errors, plus
+active/inactive timer energy, KO, character 16, ring spawning and
+suppression, and event-failure boundaries.
