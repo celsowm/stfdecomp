@@ -1,6 +1,7 @@
 #include "attack_hit_motion_prefix.h"
 #include "copro_scalar.h"
 
+#include <math.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -36,11 +37,13 @@ static bool bit32(uint32_t value, unsigned bit)
     return (value & (UINT32_C(1) << bit)) != 0u;
 }
 
-bool stf_attack_hit_motion_prefix_compute(
+bool stf_attack_hit_motion_prefix_compute_with_sqrt(
     const stf_motion_prefix_inputs *inputs,
     const uint8_t *mht_record,
     size_t mht_record_size,
     const stf_motion_fallback_profile *fallback_profile,
+    stf_motion_sqrt_resolver sqrt_resolver,
+    void *sqrt_user_data,
     stf_motion_prefix_result *result
 )
 {
@@ -132,11 +135,35 @@ bool stf_attack_hit_motion_prefix_compute(
     }
 
     sqrt_input = (r9 / adjusted) * 4.0f;
-    if (!stf_copro_scalar_sqrt_bits(float_to_bits(sqrt_input), &sqrt_bits)) {
+    if (!isfinite(sqrt_input) || sqrt_input < 0.0f) {
+        return false;
+    }
+    if (sqrt_resolver != NULL) {
+        if (!sqrt_resolver(float_to_bits(sqrt_input),
+                           &sqrt_bits, sqrt_user_data) ||
+            !isfinite(bits_to_float(sqrt_bits)) ||
+            bits_to_float(sqrt_bits) < 0.0f) {
+            return false;
+        }
+    } else if (!stf_copro_scalar_sqrt_bits(float_to_bits(sqrt_input), &sqrt_bits)) {
         return false;
     }
 
     local.sqrt_r4_bits = sqrt_bits;
     *result = local;
     return true;
+}
+
+bool stf_attack_hit_motion_prefix_compute(
+    const stf_motion_prefix_inputs *inputs,
+    const uint8_t *mht_record,
+    size_t mht_record_size,
+    const stf_motion_fallback_profile *fallback_profile,
+    stf_motion_prefix_result *result
+)
+{
+    return stf_attack_hit_motion_prefix_compute_with_sqrt(
+        inputs, mht_record, mht_record_size, fallback_profile,
+        NULL, NULL, result
+    );
 }

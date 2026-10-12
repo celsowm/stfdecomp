@@ -3,11 +3,13 @@
 #include <string.h>
 
 
-bool stf_attack_hit_motion_prefix_resolve_rom(
+bool stf_attack_hit_motion_prefix_resolve_rom_with_sqrt(
     uint32_t selected_motion,
     const stf_motion_prefix_inputs *prefix_inputs,
     const stf_motion_hit_rom_view *rom_view,
     const stf_motion_fallback_profile *fallback_profile,
+    stf_motion_sqrt_resolver sqrt_resolver,
+    void *sqrt_user_data,
     stf_attack_hit_motion_runtime_result *result
 )
 {
@@ -46,23 +48,23 @@ bool stf_attack_hit_motion_prefix_resolve_rom(
         local.record_offset = (uint32_t)record_offset;
         local.used_mht_record = true;
 
-        if (!stf_attack_hit_motion_prefix_compute(
+        if (!stf_attack_hit_motion_prefix_compute_with_sqrt(
                 prefix_inputs,
                 rom_view->image + record_offset,
                 rom_view->image_size - record_offset,
                 NULL,
-                &local.prefix
+                sqrt_resolver, sqrt_user_data, &local.prefix
             )) {
             return false;
         }
     } else {
         if (fallback_profile == NULL ||
-            !stf_attack_hit_motion_prefix_compute(
+            !stf_attack_hit_motion_prefix_compute_with_sqrt(
                 prefix_inputs,
                 NULL,
                 0u,
                 fallback_profile,
-                &local.prefix
+                sqrt_resolver, sqrt_user_data, &local.prefix
             )) {
             return false;
         }
@@ -70,6 +72,20 @@ bool stf_attack_hit_motion_prefix_resolve_rom(
 
     *result = local;
     return true;
+}
+
+bool stf_attack_hit_motion_prefix_resolve_rom(
+    uint32_t selected_motion,
+    const stf_motion_prefix_inputs *prefix_inputs,
+    const stf_motion_hit_rom_view *rom_view,
+    const stf_motion_fallback_profile *fallback_profile,
+    stf_attack_hit_motion_runtime_result *result
+)
+{
+    return stf_attack_hit_motion_prefix_resolve_rom_with_sqrt(
+        selected_motion, prefix_inputs, rom_view, fallback_profile,
+        NULL, NULL, result
+    );
 }
 
 bool stf_attack_hit_motion_prefix_resolve(

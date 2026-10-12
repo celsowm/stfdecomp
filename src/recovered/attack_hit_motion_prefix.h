@@ -5,6 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Replace the portable sqrt approximation with a Model 2 TGP reply. */
+typedef bool (*stf_motion_sqrt_resolver)(
+    uint32_t operand_bits, uint32_t *response_bits, void *user_data
+);
+
 typedef enum stf_motion_prefix_source {
     STF_MOTION_PREFIX_RECORD = 0,
     STF_MOTION_PREFIX_PROFILE
@@ -47,6 +52,16 @@ typedef struct stf_motion_prefix_result {
  * calc_mht_adr and contain at least 7 bytes. Otherwise fallback_profile is
  * used, matching the original r7 table selection.
  */
+bool stf_attack_hit_motion_prefix_compute_with_sqrt(
+    const stf_motion_prefix_inputs *inputs,
+    const uint8_t *mht_record,
+    size_t mht_record_size,
+    const stf_motion_fallback_profile *fallback_profile,
+    stf_motion_sqrt_resolver sqrt_resolver,
+    void *sqrt_user_data,
+    stf_motion_prefix_result *result
+);
+
 bool stf_attack_hit_motion_prefix_compute(
     const stf_motion_prefix_inputs *inputs,
     const uint8_t *mht_record,
