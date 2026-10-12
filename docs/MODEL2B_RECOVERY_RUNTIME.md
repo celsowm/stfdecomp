@@ -1130,3 +1130,51 @@ not re-execute the completed motion/vector writes.
 The combat regression includes ROM tag found, tag not found (fallback),
 malformed ROM, branch non-entry (normal/special), preflight errors,
 legacy opt-out and early side-exit abort.
+
+
+### Exact reply injection for the five Model 2 TGP knockback commands
+
+The generic/down-hit knockback corridor can now operate in two modes:
+
+- The existing default path calls the portable `copro_scalar` sqrt/sin/cos
+  approximations. This is useful for cross-platform semantic testing and
+  **does not** establish hardware bit-exactness.
+- When `recover_normal_knockback = true` and the optional
+  `normal_knockback_tgp` callback is set, both the scalar-sqrt stage
+  within the ROM-backed `calc_mht_adr` motion prefix and all four
+  subsequent scaled sin/cos requests use replies **supplied by the caller**.
+  The provider is responsible for the real Model 2 TGP transport, or an
+  authentic pre-recorded trace. The portable runtime does not silently
+  substitute host trigonometry on callback failure.
+
+The recovered command sequence is:
+
+| Index | Opcode | Argument words | One reply |
+|---|---|---|---|
+| 1 | `0x0D001A1A` | computed sqrt operand | magnitude |
+| 2 | `0x12002424` | reaction vertical angle, magnitude | Y sin |
+| 3 | `0x12802525` | reaction vertical angle, magnitude | horizontal cos |
+| 4 | `0x12002424` | -horizontal heading, horizontal cos reply | X sin |
+| 5 | `0x12802525` | -horizontal heading, horizontal cos reply | Z cos |
+
+The callback contract remains the established
+`stf_attack_hit_guard_vector_tgp_fn` query/reply interface.
+`normal_knockback_tgp_completed` reports successful command replies
+(0..5); a rejection or non-finite reply stops the continuation.
+No partial X/Y/Z vector is committed. The earlier attack-hit and
+reaction writes are intentionally **not rolled back**. The final three
+vector outputs still pass through recovered CPU multipliers and state
+flags. The pre-damage callback, damage calculation and damage_unit are
+not reached on an unsuccessful query.
+
+The existing motion prefix and vector APIs remain backward compatible:
+`stf_attack_hit_motion_prefix_resolve_rom_with_sqrt` and
+`stf_attack_hit_motion_vector_compute_with_tgp` add dependency
+injection without changing the old portable entry points. Regressions
+use an explicitly **synthetic** five-response transcript to assert
+opcode order, argument forwarding, atomic vector writes, error
+boundaries and lack of TGP calls on irrelevant branches. Synthetic
+responses are not ROM/hardware reference values. Establishing actual
+bit-for-bit equivalence requires capturing the same command/reply
+sequence on the original Model 2 hardware or a validated SHARC
+emulator and comparing each 32-bit reply and end-of-hit state.
