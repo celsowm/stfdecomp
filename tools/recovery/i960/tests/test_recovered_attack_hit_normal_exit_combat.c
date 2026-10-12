@@ -1030,6 +1030,23 @@ int main(void)
         rd32(s.fighters[0] + 0x5E8u) != 0u)
         { fprintf(stderr, "TGP NaN failure scenario 51 failed\n"); return 51; }
 
+    /* The sqrt reply itself can be invalid even when the device call
+     * succeeded. It is not a completed command and never reaches trig. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_knockback = true;
+    s.model.normal_knockback_tgp = replay_tgp_motion;
+    s.model.normal_knockback_tgp_user_data = &s.callbacks;
+    s.callbacks.nan_tgp_at = 1u;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.callbacks.tgp_calls != 1u ||
+        s.output.pairs[0].normal_knockback_tgp_completed != 0u ||
+        s.output.pairs[0].normal_knockback_motion_resolved ||
+        rd32(s.fighters[0] + 0x5E8u) != 0u ||
+        s.callbacks.normal_calls != 0u)
+        { fprintf(stderr, "TGP invalid sqrt scenario 54 failed\n"); return 54; }
+
     /* A configured TGP provider without the parent knockback opt-in is a
      * preflight error, before attacker lifecycle state has changed. */
     init(&s);

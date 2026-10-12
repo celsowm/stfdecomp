@@ -1,5 +1,6 @@
 #include "collision_combat_runtime.h"
 
+#include <math.h>
 #include <string.h>
 
 static uint32_t read_le32(const uint8_t *p)
@@ -40,6 +41,15 @@ static bool query_normal_sqrt_tgp(
     query.words[0] = input_bits;
     if (!ctx->handler(ctx->handler_user_data, &query, reply_bits)) {
         return false;
+    }
+    /* Count only validated replies. In particular a NaN/Inf or negative
+     * sqrt response is not a completed Model 2 command result. */
+    {
+        float value = 0.0f;
+        memcpy(&value, reply_bits, sizeof(value));
+        if (!isfinite(value) || value < 0.0f) {
+            return false;
+        }
     }
     ++*ctx->completed;
     return true;
