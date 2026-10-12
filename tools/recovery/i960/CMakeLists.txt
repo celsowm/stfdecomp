@@ -64,6 +64,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_state.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_state_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_vector.c"
+    "${STF_REPO_ROOT}/src/recovered/tgp_command_trace.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_common.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_guard_common_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/attack_hit_combo.c"
@@ -562,6 +563,11 @@ add_executable(stf_recovered_attack_hit_guard_combat_tests
 )
 target_link_libraries(stf_recovered_attack_hit_guard_combat_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_tgp_command_trace_tests
+    tests/test_recovered_tgp_command_trace.c
+)
+target_link_libraries(stf_recovered_tgp_command_trace_tests PRIVATE stf_recovered_game)
+
 add_executable(stf_recovered_attack_hit_guard_vector_tests
     tests/test_recovered_attack_hit_guard_vector.c
 )
@@ -608,6 +614,7 @@ add_test(NAME stf_recovered_attack_hit_special_tests COMMAND stf_recovered_attac
 add_test(NAME stf_recovered_attack_hit_normal_entry_tests COMMAND stf_recovered_attack_hit_normal_entry_tests)
 add_test(NAME stf_recovered_attack_hit_guard_combat_tests COMMAND stf_recovered_attack_hit_guard_combat_tests)
 add_test(NAME stf_recovered_attack_hit_guard_vector_tests COMMAND stf_recovered_attack_hit_guard_vector_tests)
+add_test(NAME stf_recovered_tgp_command_trace_tests COMMAND stf_recovered_tgp_command_trace_tests)
 add_test(NAME stf_recovered_attack_hit_guard_common_combat_tests COMMAND stf_recovered_attack_hit_guard_common_combat_tests)
 add_test(NAME stf_recovered_attack_hit_normal_exit_combat_tests COMMAND stf_recovered_attack_hit_normal_exit_combat_tests)
 add_test(NAME stf_recovered_collision_combat_runtime_tests COMMAND stf_recovered_collision_combat_runtime_tests)
