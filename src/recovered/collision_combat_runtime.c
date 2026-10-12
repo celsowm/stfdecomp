@@ -8,6 +8,14 @@ static uint32_t read_le32(const uint8_t *p)
            ((uint32_t)p[2] << 16u) | ((uint32_t)p[3] << 24u);
 }
 
+static void write_le32(uint8_t *p, uint32_t value)
+{
+    p[0] = (uint8_t)value;
+    p[1] = (uint8_t)(value >> 8u);
+    p[2] = (uint8_t)(value >> 16u);
+    p[3] = (uint8_t)(value >> 24u);
+}
+
 static bool valid_order(const stf_collision_hit_order *order)
 {
     uint8_t i;
@@ -52,6 +60,13 @@ bool stf_collision_combat_apply_model2(
          (model->normal_exit_tail == NULL ||
           model->normal_profile_table == NULL ||
           model->normal_hit_motion_resolver == NULL)) ||
+        (model->recover_normal_knockback &&
+         (!model->recover_normal_hit ||
+          model->normal_knockback_rom == NULL ||
+          model->normal_knockback_rom->image == NULL ||
+          model->normal_knockback_rom->animation_count == 0u ||
+          model->normal_knockback_rom->animation_related_address <
+              model->normal_knockback_rom->base_address)) ||
         (model->recover_normal_damage &&
          (!model->recover_normal_hit ||
           model->normal_damage_event == NULL)) ||
@@ -358,8 +373,80 @@ bool stf_collision_combat_apply_model2(
                             return false;
                         }
                     }
-                    /* Remaining tail still handles sound/TGP, actual
-                     * damage application and non-normal branches. */
+                    /* The normal followthrough already selected the
+                     * down motion and updated defender reaction state.
+                     * Do NOT replay that reaction: only resolve tag 0x11
+                     * and apply the remaining shared knockback corridor.
+                     * Other branches retain their existing tail behavior. */
+                    if (model->recover_normal_knockback &&
+                        pair->normal_hit.down_reaction_applied &&
+                        pair->normal_hit.down_route ==
+                            STF_DOWN_REACTION_GENERIC &&
+                        pair->normal_hit.down_reaction.reaction.requires_calc_mht) {
+                        stf_motion_prefix_inputs motion_inputs =
+                            model->normal_knockback_context[attacker_index];
+                        stf_motion_vector_inputs vector_inputs;
+                        uint32_t selected_motion =
+                            pair->normal_hit.down_reaction.reaction.selected_motion;
+
+                        pair->normal_knockback_started = true;
+                        motion_inputs.defender_flags_1a4 =
+                            read_le32(defender + 0x1A4u);
+                        motion_inputs.hit_mode =
+                            pair->normal_hit.damage.hit_mode;
+                        motion_inputs.defender_combo_6f5 =
+                            defender[0x6F5u];
+                        motion_inputs.defender_5d8_bits =
+                            read_le32(defender + 0x5D8u);
+
+                        if (!stf_attack_hit_motion_prefix_resolve_rom(
+                                selected_motion, &motion_inputs,
+                                model->normal_knockback_rom,
+                                &pair->normal_entry.profile.fallback,
+                                &pair->normal_knockback_motion)) {
+                            *result = local;
+                            return false;
+                        }
+                        pair->normal_knockback_motion_resolved = true;
+
+                        memset(&vector_inputs, 0, sizeof(vector_inputs));
+                        vector_inputs.hit_mode = pair->normal_hit.damage.hit_mode;
+                        vector_inputs.horizontal_angle_r10 =
+                            model->normal_knockback_heading[attacker_index];
+                        vector_inputs.attacker_flags_0 = read_le32(attacker);
+                        vector_inputs.attacker_7d2 = attacker[0x7D2u];
+                        vector_inputs.attacker_70c =
+                            read_le32(attacker + 0x70Cu);
+                        vector_inputs.defender_flags_1a4 =
+                            read_le32(defender + 0x1A4u);
+                        vector_inputs.profile_horizontal_scale_bits =
+                            pair->normal_entry.profile.horizontal_scale_bits;
+                        vector_inputs.profile_vertical_scale_bits =
+                            pair->normal_entry.profile.vertical_scale_bits;
+                        vector_inputs.attacker_843 =
+                            (uint8_t)pair->prefix.hit_kind_843;
+
+                        if (!stf_attack_hit_motion_vector_compute(
+                                &pair->normal_knockback_motion.prefix,
+                                &vector_inputs,
+                                &pair->normal_knockback_vector)) {
+                            *result = local;
+                            return false;
+                        }
+                        /* Atomic vector commit: a failed ROM lookup or
+                         * invalid float must not partially overwrite axes. */
+                        write_le32(defender + 0x5E0u,
+                            pair->normal_knockback_vector.x_5e0_bits);
+                        write_le32(defender + 0x5E4u,
+                            pair->normal_knockback_vector.y_5e4_bits);
+                        write_le32(defender + 0x5E8u,
+                            pair->normal_knockback_vector.z_5e8_bits);
+                        pair->normal_knockback_vector_applied = true;
+                    }
+
+                    /* The callback retains unrecovered sound, hardware
+                     * events and KO work, but must not repeat an opted-in
+                     * vector application or its down-reaction dispatch. */
                     if (!model->normal_exit_tail(
                             model->normal_exit_tail_user_data,
                             attacker_index, defender_index,

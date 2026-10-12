@@ -14,6 +14,8 @@
 #include "attack_hit_side_exit.h"
 #include "attack_hit_stance.h"
 #include "attack_hit_normal_followthrough.h"
+#include "attack_hit_motion_runtime.h"
+#include "attack_hit_motion_vector.h"
 #include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
@@ -201,6 +203,18 @@ typedef struct stf_collision_combat_model2 {
     stf_hit_motion_table_resolver normal_hit_motion_resolver;
     void *normal_hit_motion_resolver_user_data;
 
+    /* Opt-in post-reaction calc_mht_adr + impact vector for generic/down
+     * hits requiring calc_mht_adr.  Caller supplies ROM and the hardware-
+     * derived initial magnitude + horizontal heading, plus combo clamp.
+     * Fighter state and ROM profile scales are populated by the runtime.
+     * Does not re-run a completed reaction. Requires recover_normal_hit;
+     * tail must not repeat the shared knockback computation when enabled.
+     * CPU trig is approximate: only original TGP replay is bit-exact. */
+    bool recover_normal_knockback;
+    const stf_motion_hit_rom_view *normal_knockback_rom;
+    stf_motion_prefix_inputs normal_knockback_context[2];
+    int32_t normal_knockback_heading[2];
+
     /* Opt-in real damage_calculation after the normal exit tail has
      * performed all PRE-damage audio/TGP/reaction work. The normal tail
      * MUST NOT already subtract energy or call damage_calculation.
@@ -250,6 +264,11 @@ typedef struct stf_collision_combat_pair_result {
     stf_attack_hit_stance_result normal_stance;
     bool normal_hit_started;
     stf_attack_hit_normal_followthrough_result normal_hit;
+    bool normal_knockback_started;
+    bool normal_knockback_motion_resolved;
+    bool normal_knockback_vector_applied;
+    stf_attack_hit_motion_runtime_result normal_knockback_motion;
+    stf_motion_vector_result normal_knockback_vector;
     bool normal_damage_applied;
     stf_damage_calculation_result normal_damage;
     bool normal_rings_processed;
@@ -295,6 +314,9 @@ typedef struct stf_collision_combat_result {
  * Optional recover_normal_hit composes the already recovered normal combo,
  * state prelude, damage transform, finish test, reaction classifier and
  * ROM-backed normal hit motion/stun before the mandatory tail.
+ * Optional recover_normal_knockback resolves calc_mht_adr and computes the
+ * shared X/Y/Z impact vector once for generic/down reactions before tail.
+ * It requires caller-originating magnitude/heading context and a ROM view.
  * Optional recover_normal_damage applies energy/KO and dealer hit damage
  * only after pre-damage normal_exit_tail, then delivers the recovered ring
  * event to either the ring pool or the required post-damage callback.
