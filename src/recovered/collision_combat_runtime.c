@@ -108,6 +108,9 @@ bool stf_collision_combat_apply_model2(
               model->normal_knockback_rom->base_address)) ||
         (model->normal_knockback_tgp != NULL &&
          !model->recover_normal_knockback) ||
+        (model->verify_normal_knockback_vectors &&
+         (!model->recover_normal_knockback ||
+          model->normal_knockback_tgp == NULL)) ||
         (model->recover_normal_damage &&
          (!model->recover_normal_hit ||
           model->normal_damage_event == NULL)) ||
@@ -130,6 +133,20 @@ bool stf_collision_combat_apply_model2(
           model->enemy_slot_sizes[1] < STF_GUARD_COMMON_ENEMY_MIN_SIZE)) ||
         model->fighters[0][4u] != 0u || model->fighters[1][4u] != 1u) {
         return false;
+    }
+
+    /* Reject a malformed independent oracle BEFORE any fighter mutation.
+     * Comparing the reference to itself checks all IEEE-754 words. */
+    if (model->verify_normal_knockback_vectors) {
+        for (i = 0u; i < 2u; ++i) {
+            stf_tgp_vector_difference sanity;
+            if (!stf_tgp_command_trace_compare_vectors(
+                    model->normal_knockback_expected_xyz[i],
+                    model->normal_knockback_expected_xyz[i],
+                    &sanity)) {
+                return false;
+            }
+        }
     }
 
     /* Validate both fighter bindings before the first non-rollback write.
@@ -507,8 +524,32 @@ bool stf_collision_combat_apply_model2(
                             *result = local;
                             return false;
                         }
-                        /* Atomic vector commit: a failed ROM lookup or
-                         * invalid float must not partially overwrite axes. */
+                        /* Verify all three final CPU-scaled words against an
+                         * independent reference before changing memory.
+                         * Expose the mismatch mask and ULP distances even
+                         * on a fail-closed replay. */
+                        if (model->verify_normal_knockback_vectors) {
+                            const uint32_t candidate[3] = {
+                                pair->normal_knockback_vector.x_5e0_bits,
+                                pair->normal_knockback_vector.y_5e4_bits,
+                                pair->normal_knockback_vector.z_5e8_bits
+                            };
+                            if (!stf_tgp_command_trace_compare_vectors(
+                                    model->normal_knockback_expected_xyz[defender_index],
+                                    candidate,
+                                    &pair->normal_knockback_vector_difference)) {
+                                *result = local;
+                                return false;
+                            }
+                            pair->normal_knockback_vectors_checked = true;
+                            if (pair->normal_knockback_vector_difference.mismatch_mask != 0u) {
+                                *result = local;
+                                return false;
+                            }
+                        }
+                        /* Atomic vector commit: a failed ROM lookup,
+                         * invalid float or mismatched oracle leaves all
+                         * three defender axes untouched. */
                         write_le32(defender + 0x5E0u,
                             pair->normal_knockback_vector.x_5e0_bits);
                         write_le32(defender + 0x5E4u,

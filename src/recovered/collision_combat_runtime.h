@@ -21,6 +21,7 @@
 #include "damage_unit_runtime.h"
 #include "damage_calculation.h"
 #include "ring_scatter_damage_flow.h"
+#include "tgp_command_trace.h"
 
 /*
  * Portable seam between collision's selected attack_hit/damage_unit pairs.
@@ -221,6 +222,15 @@ typedef struct stf_collision_combat_model2 {
     stf_attack_hit_guard_vector_tgp_fn normal_knockback_tgp;
     void *normal_knockback_tgp_user_data;
 
+    /* Strict final-vector oracle. The caller supplies three raw IEEE-754
+     * words from an INDEPENDENT original Model 2 capture per defender slot.
+     * Only meaningful alongside original TGP reply/capture replay, not the
+     * approximate host trig fallback. Reject a differing X/Y/Z BEFORE the
+     * shared vector is written. A non-matching route does not get verified.
+     * All supplied expected values must be finite. */
+    bool verify_normal_knockback_vectors;
+    uint32_t normal_knockback_expected_xyz[2][3];
+
     /* Opt-in real damage_calculation after the normal exit tail has
      * performed all PRE-damage audio/TGP/reaction work. The normal tail
      * MUST NOT already subtract energy or call damage_calculation.
@@ -273,6 +283,8 @@ typedef struct stf_collision_combat_pair_result {
     bool normal_knockback_started;
     bool normal_knockback_motion_resolved;
     bool normal_knockback_vector_applied;
+    bool normal_knockback_vectors_checked;
+    stf_tgp_vector_difference normal_knockback_vector_difference;
     uint8_t normal_knockback_tgp_completed;
     stf_attack_hit_motion_runtime_result normal_knockback_motion;
     stf_motion_vector_result normal_knockback_vector;
@@ -324,6 +336,8 @@ typedef struct stf_collision_combat_result {
  * Optional recover_normal_knockback resolves calc_mht_adr and computes the
  * shared X/Y/Z impact vector once for generic/down reactions before tail.
  * It requires caller-originating magnitude/heading context and a ROM view.
+ * Strict final-vector verification can reject any bitwise divergence from an
+ * external original-capture oracle before mutating the defender vector.
  * Optional recover_normal_damage applies energy/KO and dealer hit damage
  * only after pre-damage normal_exit_tail, then delivers the recovered ring
  * event to either the ring pool or the required post-damage callback.
