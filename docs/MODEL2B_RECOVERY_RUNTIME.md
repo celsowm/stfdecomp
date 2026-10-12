@@ -982,3 +982,43 @@ enabled, corresponding callbacks must not repeat the stance or skill
 operation. Both still require the caller-supplied ROM data and the
 unrecovered gameplay/audio/TGP continuation; neither constitutes 1:1
 restoration of `attack_hit`.
+
+
+### Integrated normal hit CPU followthrough (after 0x2AE40)
+
+The opt-in `recover_normal_hit` switch in
+`stf_collision_combat_apply_model2` now executes the recovered
+`stf_attack_hit_normal_followthrough_apply_model2` contract before the
+mandatory `normal_exit_tail`. Its order is:
+
+1. Consume the already-classified normal side exit once and perform the
+   original combo/workspace mutations without re-evaluating the bit29 gate.
+2. Apply 0x2B0D0 state prelude, including +0x194 and 0x122x/0x124x copies.
+3. Transform caller-supplied raw damage according to recovered
+   0x2B0F8 context (combo/down, counter, air, ukemi, etc).
+4. Run the recovered finish-blow test, including attacker +0x7D2 bit0.
+5. Only for non-finish hits, classify reaction branch; for the
+   normal reaction, resolve original hit-motion data via a mandatory
+   caller-supplied ROM motion resolver and write defender +0x198/+0x5DE.
+
+Other reaction branches (generic/down/special), finish-specific effects,
+actual damage_calculation, ring-scatter, TGP knockback, sound and animation
+backend events remain the responsibility of `normal_exit_tail` and the
+rest of the host runtime. The callback **must not repeat** completed CPU
+operations when `recover_normal_hit` is enabled. It still must execute
+the remaining original continuation before reporting success.
+
+The caller must provide `normal_initial_damage[attacker_index]`,
+`normal_energy_max`, `normal_disable_energy_scaling`, and
+`normal_hit_motion_resolver`; a missing resolver or incompatible
+configuration fails preflight without side effects. On a later motion
+resolution failure, `normal_hit` records which earlier CPU stages
+completed; state is intentionally not rolled back, and neither the
+remainder callback nor `damage_unit` is executed. The legacy path
+remains unchanged when opt-in is off.
+
+The integrated combat regression now covers the ordinary hit, counter
+mode 3, KO bypass, generic branch, resolver failure, early abort,
+missing resolver, failing continuation, and opt-out compatibility.
+This is semantic CPU recovery, **not** proof of binary-matching or
+complete 1:1 Model 2 gameplay.
