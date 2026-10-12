@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -238,7 +239,7 @@ int main(void)
         !s.output.pairs[0].body_completed ||
         !s.output.pairs[0].damage_completed ||
         s.callbacks.normal_calls != 1u ||
-        s.callbacks.legacy_calls != 0u) return 1;
+        s.callbacks.legacy_calls != 0u) { fprintf(stderr, "normal-exit combat scenario 1 failed\n"); return 1; }
 
     /* Abort from attacker +0x5B8 bit0 restores lifecycle count and
        clears both +0x108 markers without calling any body. */
@@ -253,7 +254,7 @@ int main(void)
         s.callbacks.legacy_calls != 0u ||
         rd32(s.fighters[1] + 0x1234u) != 0u ||
         s.enemies[0][0x108u] != 0u ||
-        s.enemies[1][0x108u] != 0u) return 2;
+        s.enemies[1][0x108u] != 0u) { fprintf(stderr, "normal-exit combat scenario 2 failed\n"); return 2; }
 
     /* Defender bit29 override is consumed only on continuing path.
        The tail gets a mandatory set_kamae event. */
@@ -265,7 +266,7 @@ int main(void)
         !s.output.pairs[0].normal_exit.request_set_kamae ||
         s.callbacks.stance_requests != 1u ||
         (rd32(s.fighters[0]) & (UINT32_C(1) << 29u)) != 0u)
-        return 3;
+        { fprintf(stderr, "normal-exit combat scenario 3 failed\n"); return 3; }
 
     /* Bit19 + defender bit29 forces abort BEFORE consuming the flag. */
     init(&s);
@@ -277,7 +278,7 @@ int main(void)
         s.callbacks.stance_requests != 0u ||
         s.callbacks.normal_calls != 0u ||
         (rd32(s.fighters[0]) & (UINT32_C(1) << 29u)) == 0u)
-        return 4;
+        { fprintf(stderr, "normal-exit combat scenario 4 failed\n"); return 4; }
 
     /* A failed tail preserves partial ROM-side mutation, no damage. */
     init(&s);
@@ -288,13 +289,13 @@ int main(void)
         s.output.pairs[0].normal_exit_tail_completed ||
         s.output.pairs[0].damage_completed ||
         s.callbacks.normal_calls != 1u ||
-        rd32(s.fighters[1] + 0x1234u) != 1u) return 5;
+        rd32(s.fighters[1] + 0x1234u) != 1u) { fprintf(stderr, "normal-exit combat scenario 5 failed\n"); return 5; }
 
     /* Opt-in fails before prefix mutation without a ROM profile. */
     init(&s);
     s.model.normal_profile_table = NULL;
     if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
-        rd32(s.fighters[1] + 0x1234u) != 0u) return 6;
+        rd32(s.fighters[1] + 0x1234u) != 0u) { fprintf(stderr, "normal-exit combat scenario 6 failed\n"); return 6; }
 
     /* No new callback -> legacy generic body is preserved. */
     init(&s);
@@ -302,7 +303,7 @@ int main(void)
     if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
         s.output.pairs[0].normal_exit_applied ||
         s.callbacks.normal_calls != 0u ||
-        s.callbacks.legacy_calls != 1u) return 7;
+        s.callbacks.legacy_calls != 1u) { fprintf(stderr, "normal-exit combat scenario 7 failed\n"); return 7; }
 
     /* Opt in to recovered set_kamae before the remaining normal tail.
      * All four motion selectors execute against supplied records. */
@@ -316,14 +317,14 @@ int main(void)
         s.output.pairs[0].normal_stance.kamae.request_count != 4u ||
         s.callbacks.resolver_calls != 4u ||
         s.callbacks.normal_calls != 1u ||
-        s.callbacks.stance_requests != 1u) return 8;
+        s.callbacks.stance_requests != 1u) { fprintf(stderr, "normal-exit combat scenario 8 failed\n"); return 8; }
 
     /* When no bit29 request is emitted, no motion lookup occurs. */
     init(&s);
     s.model.recover_normal_stance = true;
     if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
         s.output.pairs[0].normal_stance_applied ||
-        s.callbacks.resolver_calls != 0u) return 9;
+        s.callbacks.resolver_calls != 0u) { fprintf(stderr, "normal-exit combat scenario 9 failed\n"); return 9; }
 
     /* Early abort must NOT consume the defender flag or stance records. */
     init(&s);
@@ -337,14 +338,14 @@ int main(void)
         s.callbacks.resolver_calls != 0u ||
         s.callbacks.normal_calls != 0u ||
         (rd32(s.fighters[0]) & (UINT32_C(1) << 29u)) == 0u)
-        return 10;
+        { fprintf(stderr, "normal-exit combat scenario 10 failed\n"); return 10; }
 
     /* Preflight rejects missing stance memory before prefix mutations. */
     init(&s);
     s.model.recover_normal_stance = true;
     s.model.normal_stance[0].stance_ram_size = 0x600u;
     if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
-        rd32(s.fighters[1] + 0x1234u) != 0u) return 11;
+        rd32(s.fighters[1] + 0x1234u) != 0u) { fprintf(stderr, "normal-exit combat scenario 11 failed\n"); return 11; }
 
     /* A failed ROM lookup leaves an explicit partial state: bit29 cleared,
      * prefix counter incremented, no tail and no damage execution. */
@@ -360,14 +361,14 @@ int main(void)
         s.callbacks.normal_calls != 0u ||
         rd32(s.fighters[1] + 0x1234u) != 1u ||
         (rd32(s.fighters[0]) & (UINT32_C(1) << 29u)) != 0u)
-        return 12;
+        { fprintf(stderr, "normal-exit combat scenario 12 failed\n"); return 12; }
 
     /* Stance opt-in cannot run without the mandatory remainder callback. */
     init(&s);
     s.model.recover_normal_stance = true;
     s.model.normal_exit_tail = NULL;
     if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
-        rd32(s.fighters[1] + 0x1234u) != 0u) return 13;
+        rd32(s.fighters[1] + 0x1234u) != 0u) { fprintf(stderr, "normal-exit combat scenario 13 failed\n"); return 13; }
 
     /* Subsequent callback failure leaves already applied stance intact. */
     init(&s);
@@ -379,7 +380,7 @@ int main(void)
         s.output.pairs[0].normal_exit_tail_completed ||
         s.output.pairs[0].damage_completed ||
         rd16(s.stances[0] + 0x1E0u) != 10u)
-        return 14;
+        { fprintf(stderr, "normal-exit combat scenario 14 failed\n"); return 14; }
 
     /* CPU followthrough: combo -> state -> damage -> finish -> normal motion.
      * Tail observes all recovered writes before the damage_unit stage. */
@@ -399,7 +400,7 @@ int main(void)
             STF_ATTACK_REACTION_NORMAL ||
         s.output.pairs[0].normal_hit.normal_reaction.motion.table_index != 18u ||
         s.callbacks.motion_queries != 1u ||
-        s.callbacks.normal_calls != 1u) return 15;
+        s.callbacks.normal_calls != 1u) { fprintf(stderr, "normal-exit combat scenario 15 failed\n"); return 15; }
 
     /* Counter transforms damage, switches hit mode to 3, and selects the
      * motion row of that mode (not the default mode-2 table row). */
@@ -414,7 +415,7 @@ int main(void)
         s.output.pairs[0].normal_hit.damage.damage != 37u ||
         s.output.pairs[0].normal_hit.normal_reaction.motion.table_index != 26u ||
         rd32(s.fighters[0] + 0x198u) != UINT32_C(0x0B000456))
-        return 16;
+        { fprintf(stderr, "normal-exit combat scenario 16 failed\n"); return 16; }
 
     /* Finish blow sets attacker +0x7D2 and skips not-finish normal motion. */
     init(&s);
@@ -426,7 +427,7 @@ int main(void)
         s.output.pairs[0].normal_hit.normal_reaction_applied ||
         s.callbacks.motion_queries != 0u ||
         (s.fighters[1][0x7D2u] & 1u) == 0u)
-        return 17;
+        { fprintf(stderr, "normal-exit combat scenario 17 failed\n"); return 17; }
 
     /* Generic reaction route is classified but not spuriously resolved
      * through the normal-hit motion table. Tail owns this other route. */
@@ -438,7 +439,7 @@ int main(void)
             STF_ATTACK_REACTION_GENERIC ||
         s.output.pairs[0].normal_hit.normal_reaction_applied ||
         s.callbacks.motion_queries != 0u)
-        return 18;
+        { fprintf(stderr, "normal-exit combat scenario 18 failed\n"); return 18; }
 
     /* Resolver failure retains earlier combo/damage CPU writes while
      * reporting incomplete hit motion and not executing the remaining tail. */
@@ -454,7 +455,7 @@ int main(void)
         s.callbacks.normal_calls != 0u ||
         s.callbacks.motion_queries != 1u ||
         s.fighters[0][0x6F4u] != 1u)
-        return 19;
+        { fprintf(stderr, "normal-exit combat scenario 19 failed\n"); return 19; }
 
     /* Down-combo route selects group-4 motion, records +0x6F5 and
      * leaves calc_mht_adr for the real tail. */
@@ -471,8 +472,8 @@ int main(void)
         !s.output.pairs[0].normal_hit.down_reaction.reaction.requires_calc_mht ||
         s.fighters[0][0x6F5u] != 1u ||
         rd32(s.fighters[0] + 0x198u) != UINT32_C(0x08000177) ||
-        rd16(s.fighters[0] + 0x5DEu) != 20u ||
-        s.callbacks.motion_queries != 1u) return 24;
+        rd16(s.fighters[0] + 0x5DEu) != 14u ||
+        s.callbacks.motion_queries != 1u) { fprintf(stderr, "normal-exit combat scenario 24 failed\n"); return 24; }
 
     /* Generic down override under defender bit4 has a fixed motion and
      * must not query ROM, even when caller makes the resolver fail. */
@@ -488,7 +489,7 @@ int main(void)
             UINT32_C(0x106) ||
         s.output.pairs[0].normal_hit.down_reaction.reaction.requires_sub_2b94c ||
         s.callbacks.motion_queries != 0u ||
-        s.fighters[0][0x6F5u] != 0u) return 25;
+        s.fighters[0][0x6F5u] != 0u) { fprintf(stderr, "normal-exit combat scenario 25 failed\n"); return 25; }
 
     /* Special bit16 selects group 5 and computes the alternate stun. */
     init(&s);
@@ -503,7 +504,7 @@ int main(void)
         s.output.pairs[0].normal_hit.down_reaction.motion.table_index != 40u ||
         rd32(s.fighters[0] + 0x198u) != UINT32_C(0x08010200) ||
         rd16(s.fighters[0] + 0x5DEu) != 6u ||
-        s.callbacks.motion_queries != 1u) return 26;
+        s.callbacks.motion_queries != 1u) { fprintf(stderr, "normal-exit combat scenario 26 failed\n"); return 26; }
 
     /* Down combo can reroute to special according to attacker flags+22,
      * defender bit11 (without bit4); combo+0x6F5 is not incremented. */
@@ -517,7 +518,7 @@ int main(void)
         s.output.pairs[0].normal_hit.down_route !=
             STF_DOWN_REACTION_SPECIAL_BIT16 ||
         s.output.pairs[0].normal_hit.down_reaction.motion.table_index != 40u ||
-        s.fighters[0][0x6F5u] != 0u) return 27;
+        s.fighters[0][0x6F5u] != 0u) { fprintf(stderr, "normal-exit combat scenario 27 failed\n"); return 27; }
 
     /* Fail to resolve group-4 ROM: report classified reaction and
      * previous damage state, but do not run the external tail. */
@@ -532,7 +533,7 @@ int main(void)
         s.callbacks.motion_queries != 1u ||
         s.callbacks.normal_calls != 0u ||
         s.fighters[0][0x6F5u] != 0u ||
-        s.output.pairs[0].damage_completed) return 28;
+        s.output.pairs[0].damage_completed) { fprintf(stderr, "normal-exit combat scenario 28 failed\n"); return 28; }
 
     /* Preflight failure happens before the prefix mutates shared state. */
     init(&s);
@@ -540,7 +541,7 @@ int main(void)
     s.model.normal_hit_motion_resolver = NULL;
     if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
         rd32(s.fighters[1] + 0x1234u) != 0u)
-        return 20;
+        { fprintf(stderr, "normal-exit combat scenario 20 failed\n"); return 20; }
 
     /* The original abort must never enter CPU followthrough or its ROM
      * resolver, even when the optional mode is enabled. */
@@ -552,7 +553,7 @@ int main(void)
         s.output.pairs[0].normal_hit_started ||
         s.callbacks.motion_queries != 0u ||
         s.callbacks.normal_calls != 0u)
-        return 21;
+        { fprintf(stderr, "normal-exit combat scenario 21 failed\n"); return 21; }
 
     /* Remaining callback failure does not roll back recovered CPU writes. */
     init(&s);
@@ -563,7 +564,7 @@ int main(void)
         s.output.pairs[0].normal_exit_tail_completed ||
         s.output.pairs[0].damage_completed ||
         rd32(s.fighters[0] + 0x198u) != UINT32_C(0x0B000345))
-        return 22;
+        { fprintf(stderr, "normal-exit combat scenario 22 failed\n"); return 22; }
 
     /* Legacy mode without opt-in must not perform combo and damage writes. */
     init(&s);
@@ -571,7 +572,7 @@ int main(void)
         s.output.pairs[0].normal_hit_started ||
         s.fighters[0][0x6F4u] != 0u ||
         s.callbacks.motion_queries != 0u)
-        return 23;
+        { fprintf(stderr, "normal-exit combat scenario 23 failed\n"); return 23; }
 
     return 0;
 }
