@@ -1,7 +1,5 @@
 #include "attack_hit_combo.h"
 
-#include "attack_hit_side_exit.h"
-
 #include <stddef.h>
 #include <string.h>
 
@@ -37,24 +35,26 @@ static bool bit32(uint32_t value, unsigned bit)
     return (value & (UINT32_C(1) << bit)) != 0u;
 }
 
-bool stf_attack_hit_combo_apply_model2(
+bool stf_attack_hit_combo_after_side_exit_apply_model2(
     const uint8_t *attacker,
     size_t attacker_size,
     uint8_t *defender,
     size_t defender_size,
     uint8_t *workspace,
     size_t workspace_size,
+    const stf_attack_side_exit_result *side_exit,
     uint8_t hit_kind_50fe02,
     stf_attack_hit_combo_result *result
 )
 {
     stf_attack_hit_combo_result local;
-    stf_attack_side_exit_result side_exit;
     uint32_t workspace_flags = 0u;
     uint32_t attacker_1a4 = 0u;
     uint8_t combo = 0u;
 
     if (attacker == NULL || defender == NULL || workspace == NULL ||
+        side_exit == NULL ||
+        side_exit->path != STF_ATTACK_SIDE_EXIT_CONTINUE ||
         attacker_size < STF_ATTACK_HIT_COMBO_ATTACKER_MIN_SIZE ||
         defender_size < STF_ATTACK_HIT_COMBO_DEFENDER_MIN_SIZE ||
         workspace_size < STF_ATTACK_HIT_COMBO_WORKSPACE_MIN_SIZE) {
@@ -62,27 +62,7 @@ bool stf_attack_hit_combo_apply_model2(
     }
 
     memset(&local, 0, sizeof(local));
-
-    if (!stf_attack_hit_side_exit_apply_model2(
-            STF_ATTACK_SIDE_EXIT_NORMAL_2AE40,
-            attacker,
-            attacker_size,
-            defender,
-            defender_size,
-            &side_exit
-        )) {
-        return false;
-    }
-
-    if (side_exit.path == STF_ATTACK_SIDE_EXIT_ABORT_2B8C8) {
-        local.skipped = true;
-        if (result != NULL) {
-            *result = local;
-        }
-        return true;
-    }
-
-    local.requires_set_kamae = side_exit.request_set_kamae;
+    local.requires_set_kamae = side_exit->request_set_kamae;
 
     if (read_le16(defender + 0xA0Eu) >= UINT16_C(1000)) {
         local.bonus_skill = UINT32_C(2000);
@@ -112,4 +92,39 @@ bool stf_attack_hit_combo_apply_model2(
         *result = local;
     }
     return true;
+}
+
+bool stf_attack_hit_combo_apply_model2(
+    const uint8_t *attacker,
+    size_t attacker_size,
+    uint8_t *defender,
+    size_t defender_size,
+    uint8_t *workspace,
+    size_t workspace_size,
+    uint8_t hit_kind_50fe02,
+    stf_attack_hit_combo_result *result
+)
+{
+    stf_attack_side_exit_result side_exit;
+    stf_attack_hit_combo_result skipped;
+    if (attacker == NULL || defender == NULL || workspace == NULL ||
+        attacker_size < STF_ATTACK_HIT_COMBO_ATTACKER_MIN_SIZE ||
+        defender_size < STF_ATTACK_HIT_COMBO_DEFENDER_MIN_SIZE ||
+        workspace_size < STF_ATTACK_HIT_COMBO_WORKSPACE_MIN_SIZE) {
+        return false;
+    }
+    if (!stf_attack_hit_side_exit_apply_model2(
+            STF_ATTACK_SIDE_EXIT_NORMAL_2AE40,
+            attacker, attacker_size, defender, defender_size, &side_exit)) {
+        return false;
+    }
+    if (side_exit.path == STF_ATTACK_SIDE_EXIT_ABORT_2B8C8) {
+        memset(&skipped, 0, sizeof(skipped));
+        skipped.skipped = true;
+        if (result != NULL) *result = skipped;
+        return true;
+    }
+    return stf_attack_hit_combo_after_side_exit_apply_model2(
+        attacker, attacker_size, defender, defender_size,
+        workspace, workspace_size, &side_exit, hit_kind_50fe02, result);
 }

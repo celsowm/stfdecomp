@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "attack_hit_side_exit.h"
+
 enum {
     STF_ATTACK_HIT_COMBO_ATTACKER_MIN_SIZE = 0x864u,
     STF_ATTACK_HIT_COMBO_DEFENDER_MIN_SIZE = 0xA10u,
@@ -26,6 +28,16 @@ typedef struct stf_attack_hit_combo_result {
  * set_kamae_ram and total_skill_adder_g7 are reported as events/amounts rather
  * than invoked. Debug hit-combo printing is intentionally omitted.
  */
+/* Continue after a previously classified 0x2AE40 exit: do not
+ * reconsume defender bit29 or reevaluate the abort gate. */
+bool stf_attack_hit_combo_after_side_exit_apply_model2(
+    const uint8_t *attacker, size_t attacker_size,
+    uint8_t *defender, size_t defender_size,
+    uint8_t *workspace, size_t workspace_size,
+    const stf_attack_side_exit_result *side_exit,
+    uint8_t hit_kind_50fe02, stf_attack_hit_combo_result *result
+);
+
 bool stf_attack_hit_combo_apply_model2(
     const uint8_t *attacker,
     size_t attacker_size,
