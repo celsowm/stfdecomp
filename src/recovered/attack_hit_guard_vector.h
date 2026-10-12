@@ -30,6 +30,9 @@ typedef struct stf_attack_hit_guard_vector_result {
     uint32_t initial_magnitude_bits;
     uint32_t unboosted[3]; /* defender +0x5E0 / +0x5E4 / +0x5E8 */
     uint32_t resulting[3];
+    bool vectors_checked;
+    uint8_t mismatch_mask; /* bit0=X, bit1=Y, bit2=Z */
+    uint32_t ulp_distance[3];
 } stf_attack_hit_guard_vector_result;
 
 /*
@@ -49,6 +52,28 @@ typedef struct stf_attack_hit_guard_vector_result {
  * Failures never overwrite the three defender vector fields. Completed
  * command count is returned even for callback failure after progress.
  */
+/* Opt-in bit-exact comparison against independent post-scale X/Y/Z.
+ * On a finite but differing vector, output reports axis/ULP divergence
+ * and no defender +0x5E0/+0x5E4/+0x5E8 word is written. NULL expected
+ * disables comparison; the existing apply_model2 API remains equivalent.
+ * The caller MUST obtain the reference from original hardware execution,
+ * not from the recovered implementation being verified. */
+bool stf_attack_hit_guard_vector_apply_verified_model2(
+    const uint8_t *attacker,
+    size_t attacker_size,
+    uint8_t *defender,
+    size_t defender_size,
+    int32_t combined_heading,
+    uint32_t strength_r9_bits,
+    uint8_t hit_kind,
+    const uint8_t *boost_table,
+    size_t boost_table_size,
+    stf_attack_hit_guard_vector_tgp_fn tgp,
+    void *tgp_user_data,
+    const uint32_t expected_xyz_bits[3],
+    stf_attack_hit_guard_vector_result *result
+);
+
 bool stf_attack_hit_guard_vector_apply_model2(
     const uint8_t *attacker,
     size_t attacker_size,

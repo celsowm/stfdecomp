@@ -1,4 +1,5 @@
 #include "attack_hit_guard_vector.h"
+#include "tgp_command_trace.h"
 
 #include <math.h>
 #include <string.h>
@@ -44,7 +45,7 @@ static bool device(
         isfinite(asfloat(*response));
 }
 
-bool stf_attack_hit_guard_vector_apply_model2(
+bool stf_attack_hit_guard_vector_apply_verified_model2(
     const uint8_t *attacker,
     size_t attacker_size,
     uint8_t *defender,
@@ -56,6 +57,7 @@ bool stf_attack_hit_guard_vector_apply_model2(
     size_t boost_table_size,
     stf_attack_hit_guard_vector_tgp_fn tgp,
     void *tgp_user_data,
+    const uint32_t expected_xyz_bits[3],
     stf_attack_hit_guard_vector_result *result
 )
 {
@@ -143,6 +145,21 @@ bool stf_attack_hit_guard_vector_apply_model2(
         local.resulting[i]=asbits(v);
     }
 
+    if (expected_xyz_bits != NULL) {
+        stf_tgp_vector_difference comparison;
+        if (!stf_tgp_command_trace_compare_vectors(
+                expected_xyz_bits, local.resulting, &comparison)) {
+            goto fail;
+        }
+        local.vectors_checked = true;
+        local.mismatch_mask = comparison.mismatch_mask;
+        memcpy(local.ulp_distance, comparison.ulp_distance,
+               sizeof(local.ulp_distance));
+        if (local.mismatch_mask != 0u) {
+            goto fail;
+        }
+    }
+
     wr32(defender+0x5E0u,local.resulting[0]);
     wr32(defender+0x5E4u,local.resulting[1]);
     wr32(defender+0x5E8u,local.resulting[2]);
@@ -152,4 +169,28 @@ bool stf_attack_hit_guard_vector_apply_model2(
 fail:
     *result=local;
     return false;
+}
+
+/* Preserve all prior opt-out semantics for existing consumers. */
+bool stf_attack_hit_guard_vector_apply_model2(
+    const uint8_t *attacker,
+    size_t attacker_size,
+    uint8_t *defender,
+    size_t defender_size,
+    int32_t combined_heading,
+    uint32_t strength_r9_bits,
+    uint8_t hit_kind,
+    const uint8_t *boost_table,
+    size_t boost_table_size,
+    stf_attack_hit_guard_vector_tgp_fn tgp,
+    void *tgp_user_data,
+    stf_attack_hit_guard_vector_result *result
+)
+{
+    return stf_attack_hit_guard_vector_apply_verified_model2(
+        attacker, attacker_size, defender, defender_size,
+        combined_heading, strength_r9_bits, hit_kind,
+        boost_table, boost_table_size, tgp, tgp_user_data,
+        NULL, result
+    );
 }
