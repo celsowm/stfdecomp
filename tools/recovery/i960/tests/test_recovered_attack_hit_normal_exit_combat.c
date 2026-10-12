@@ -189,6 +189,8 @@ static void init(scene *s)
     s->callbacks.defender_stance = s->stances[0];
     s->callbacks.motion_table[18u] = UINT32_C(0x345);
     s->callbacks.motion_table[26u] = UINT32_C(0x456);
+    s->callbacks.motion_table[34u] = UINT32_C(0x177);
+    s->callbacks.motion_table[40u] = UINT32_C(0x200);
     s->model.normal_hit_motion_resolver = resolve_hit_motion;
     s->model.normal_hit_motion_resolver_user_data = &s->callbacks;
     s->model.normal_initial_damage[1] = UINT32_C(20);
@@ -453,6 +455,84 @@ int main(void)
         s.callbacks.motion_queries != 1u ||
         s.fighters[0][0x6F4u] != 1u)
         return 19;
+
+    /* Down-combo route selects group-4 motion, records +0x6F5 and
+     * leaves calc_mht_adr for the real tail. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_hit.reaction_path !=
+            STF_ATTACK_REACTION_DOWN_COMBO ||
+        !s.output.pairs[0].normal_hit.down_reaction_applied ||
+        s.output.pairs[0].normal_hit.down_route !=
+            STF_DOWN_REACTION_GENERIC ||
+        s.output.pairs[0].normal_hit.down_reaction.motion.table_index != 34u ||
+        !s.output.pairs[0].normal_hit.down_reaction.reaction.requires_calc_mht ||
+        s.fighters[0][0x6F5u] != 1u ||
+        rd32(s.fighters[0] + 0x198u) != UINT32_C(0x08000177) ||
+        rd16(s.fighters[0] + 0x5DEu) != 20u ||
+        s.callbacks.motion_queries != 1u) return 24;
+
+    /* Generic down override under defender bit4 has a fixed motion and
+     * must not query ROM, even when caller makes the resolver fail. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 4u);
+    s.callbacks.fail_motion = true;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_hit.reaction_path !=
+            STF_ATTACK_REACTION_GENERIC ||
+        !s.output.pairs[0].normal_hit.down_reaction_applied ||
+        s.output.pairs[0].normal_hit.down_reaction.reaction.selected_motion !=
+            UINT32_C(0x106) ||
+        s.output.pairs[0].normal_hit.down_reaction.reaction.requires_sub_2b94c ||
+        s.callbacks.motion_queries != 0u ||
+        s.fighters[0][0x6F5u] != 0u) return 25;
+
+    /* Special bit16 selects group 5 and computes the alternate stun. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 16u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_hit.reaction_path !=
+            STF_ATTACK_REACTION_SPECIAL_BIT16 ||
+        !s.output.pairs[0].normal_hit.down_reaction_applied ||
+        s.output.pairs[0].normal_hit.down_route !=
+            STF_DOWN_REACTION_SPECIAL_BIT16 ||
+        s.output.pairs[0].normal_hit.down_reaction.motion.table_index != 40u ||
+        rd32(s.fighters[0] + 0x198u) != UINT32_C(0x08010200) ||
+        rd16(s.fighters[0] + 0x5DEu) != 6u ||
+        s.callbacks.motion_queries != 1u) return 26;
+
+    /* Down combo can reroute to special according to attacker flags+22,
+     * defender bit11 (without bit4); combo+0x6F5 is not incremented. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr32(s.fighters[1] + 0x1A4u, UINT32_C(1) << 22u);
+    wr32(s.fighters[0] + 0x1A4u,
+         (UINT32_C(1) << 14u) | (UINT32_C(1) << 11u));
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_hit.down_reaction_applied ||
+        s.output.pairs[0].normal_hit.down_route !=
+            STF_DOWN_REACTION_SPECIAL_BIT16 ||
+        s.output.pairs[0].normal_hit.down_reaction.motion.table_index != 40u ||
+        s.fighters[0][0x6F5u] != 0u) return 27;
+
+    /* Fail to resolve group-4 ROM: report classified reaction and
+     * previous damage state, but do not run the external tail. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 14u);
+    s.callbacks.fail_motion = true;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_hit.reaction_classified ||
+        s.output.pairs[0].normal_hit.down_reaction_applied ||
+        s.output.pairs[0].normal_hit.damage.damage != 15u ||
+        s.callbacks.motion_queries != 1u ||
+        s.callbacks.normal_calls != 0u ||
+        s.fighters[0][0x6F5u] != 0u ||
+        s.output.pairs[0].damage_completed) return 28;
 
     /* Preflight failure happens before the prefix mutates shared state. */
     init(&s);
