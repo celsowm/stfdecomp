@@ -68,6 +68,25 @@ ATTACK_HIT_PREFIX_SHA256 = (
     "75468d8e674e8b6b8c6334cdb1512f6f69fe2067c3ca2d9ac05a354c55ab671a"
 )
 
+# Verified directly against the secondary schamp i960 EPROM pair.
+# These ranges provide narrow reproducible evidence for the recovered
+# normal side exit and guard early-abort paths, not sfight binary parity.
+GUARD_COMMON_START = 0x0002AC74
+GUARD_COMMON_END = 0x0002AE40
+GUARD_COMMON_SHA256 = (
+    "87d07b4afdd50168c7675efb5ee266d6fed69b92656fc3ac59de080f65ffc4f9"
+)
+NORMAL_SIDE_EXIT_START = 0x0002AE40
+NORMAL_SIDE_EXIT_END = 0x0002AF24
+NORMAL_SIDE_EXIT_SHA256 = (
+    "d3a1459c6e9286193e1f822ee1814639b56b9cb86cc38cac5e781174b795fb36"
+)
+ATTACK_ABORT_CLEANUP_START = 0x0002B8C8
+ATTACK_ABORT_CLEANUP_END = 0x0002B8F8
+ATTACK_ABORT_CLEANUP_SHA256 = (
+    "9d780f41686a36de2db01ea5f92b7cc5c8fd324d1f2a0d2c3775c6dab5287de6"
+)
+
 ATTACK_HIT_KAMAE_GATE_START = 0x0002AE80
 ATTACK_HIT_KAMAE_GATE_END = 0x0002AF24
 ATTACK_HIT_KAMAE_GATE_SHA256 = (
@@ -346,6 +365,24 @@ def validate(path: Path) -> int:
 
 
     for label, start, end, expected_digest in (
+        (
+            "attack_hit common guard (secondary set)",
+            GUARD_COMMON_START,
+            GUARD_COMMON_END,
+            GUARD_COMMON_SHA256,
+        ),
+        (
+            "attack_hit normal side exit (secondary set)",
+            NORMAL_SIDE_EXIT_START,
+            NORMAL_SIDE_EXIT_END,
+            NORMAL_SIDE_EXIT_SHA256,
+        ),
+        (
+            "attack_hit abort cleanup (secondary set)",
+            ATTACK_ABORT_CLEANUP_START,
+            ATTACK_ABORT_CLEANUP_END,
+            ATTACK_ABORT_CLEANUP_SHA256,
+        ),
         (
             "attack_hit set_kamae gate",
             ATTACK_HIT_KAMAE_GATE_START,

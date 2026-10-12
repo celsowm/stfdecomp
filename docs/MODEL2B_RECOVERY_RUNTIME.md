@@ -943,3 +943,15 @@ The resolved 0x2AC74 common-guard helper now checks the abort gate
 outside `collision_combat_runtime`. A skipped transaction never queries
 a ROM resolver or adds skill. Invalid buffers are rejected even on the
 skip route.
+
+
+### Secondary Sonic Championship guard/exit ROM anchors
+
+`tools/recovery/validate_schamp_rom.py` now checks three independently
+hashed i960 intervals recovered from the local `schamp` EPROM pair:
+`0x2AC74..0x2AE40` (common guard),
+`0x2AE40..0x2AF24` (normal side exit), and
+`0x2B8C8..0x2B8F8` (abort cleanup).
+These ranges are **Sonic Championship** evidence only; matching SHA-256
+digests do not establish that `sfight` has identical instruction bytes or
+that the still-callback-backed full attack body is 1:1.
