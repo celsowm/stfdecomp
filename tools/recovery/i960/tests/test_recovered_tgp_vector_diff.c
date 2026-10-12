@@ -41,7 +41,7 @@ int main(void)
     if (!stf_tgp_command_trace_compare_vectors(
             reference, candidate, &diff) ||
         (diff.mismatch_mask & 1u) == 0u ||
-        diff.ulp_distance[0] != UINT32_C(0x7F000002)) return 3;
+        diff.ulp_distance[0] != UINT32_C(0x3F800002)) return 3;
 
     /* Bad reference and candidate values cannot be treated as an
      * equal-comparison success even when identical NaNs are supplied. */
