@@ -1064,9 +1064,69 @@ callback-owned behavior is untouched.
 In addition, the recovered CPU followthrough now implements generic
 down, down-combo, and special-bit16 reaction branches, using the original
 hit-motion group 4/5 resolver and the down-combo route predicate. The
-remaining `calc_mht_adr`/SHARC/vector work for these branches stays in
-the pre-damage tail; the recovered CPU-only reaction does **not** make
-the full game path 1:1. The tests cover group selection, fixed-motion
+original SHARC/device work remains in the pre-damage tail by default.
+The opt-in generic/down `calc_mht_adr` and host-derived impact-vector
+continuation described below can now replace that specific portion.
+This semantic CPU recovery does **not** make the full game path 1:1. The tests cover group selection, fixed-motion
 overrides, damage-reduced stun, early abort and resolver errors, plus
 active/inactive timer energy, KO, character 16, ring spawning and
 suppression, and event-failure boundaries.
+
+
+### ROM-backed `calc_mht_adr` and knockback continuation (opt-in)
+
+Set `recover_normal_knockback = true` to integrate the already
+recovered `stf_attack_hit_motion_prefix_resolve_rom` and
+`stf_attack_hit_motion_vector_compute` helpers into the normal
+attack-hit ordered executor. Requires `recover_normal_hit = true`,
+the normal profile table, the real remainder callback, and a valid
+`normal_knockback_rom` view.
+
+**Host-supplied runtime context:** Set
+`normal_knockback_context[attacker_index]` using the actual original
+horizontal/strength magnitude (`initial_r9_bits`), combo clamps
+(`combo_start`, `combo_sub`, `combo_limit`,
+`limit_xang`) and `normal_knockback_heading[attacker_index]` for
+the TGP-derived heading. These inputs are *not* inferred from placeholder
+constants. The runtime reads updated hit mode, defender flags,
+down-combo count and defender +0x5D8 from the actual fighter records;
+the impact vector's attacker state and horizontal/vertical scale
+come from the recovered fighter and the decoded hit-kind profile.
+
+**Dispatch:** Only generic/down reactions that already successfully
+applied their CPU state and returned `requires_calc_mht` enter the
+additional motion corridor. It takes the selected motion **from the
+completed reaction**, avoiding duplicate group-4 ROM lookup or double
+increment of defender +0x6F5. The ROM view follows the original
+`animation_related[selector & 0x1fff]` absolute pointers and
+searches the motion stream for tag `0x11` with recovered record
+strides. When the tag is not present, the original hit-kind fallback
+profile is used; malformed tables are an error rather than a fallback.
+
+When the input and ROM computation succeed, all three horizontal
+and vertical impact outputs are written to defender +0x5E0,
++0x5E4 and +0x5E8 together, before `normal_exit_tail`.
+The result preserves stage flags
+`normal_knockback_started`,
+`normal_knockback_motion_resolved` and
+`normal_knockback_vector_applied` for differential replay.
+
+A failed ROM lookup or non-finite computation never overwrites any
+of the three defender vectors and suppresses the remainder callback
+and downstream `damage_unit`; earlier combo/reaction mutations are
+not rolled back. Invalid opt-in configuration (including missing
+ROM view and disabled `recover_normal_hit`) fails before the first
+prefix mutation. Normal hits, special-bit16 paths, KO/finish
+branches and early side exits do not use this generic/down corridor.
+With the flag off, the legacy callback still handles this vector.
+
+**1:1 caveat:** The portable `copro_scalar` trigonometry and square
+root approximate the observable CPU/TGP behavior. They are not
+proof of bit-exact command ordering, hardware rounding or timing.
+The remaining callback must perform authentic sound, gameplay events
+and any other undisplaced device work; when this mode is on it must
+not re-execute the completed motion/vector writes.
+
+The combat regression includes ROM tag found, tag not found (fallback),
+malformed ROM, branch non-entry (normal/special), preflight errors,
+legacy opt-out and early side-exit abort.
