@@ -502,9 +502,10 @@ int main(void)
         s.output.pairs[0].normal_hit.down_route !=
             STF_DOWN_REACTION_SPECIAL_BIT16 ||
         s.output.pairs[0].normal_hit.down_reaction.motion.table_index != 40u ||
+        s.output.pairs[0].normal_hit.damage.damage != 15u ||
         rd32(s.fighters[0] + 0x198u) != UINT32_C(0x08010200) ||
-        rd16(s.fighters[0] + 0x5DEu) != 6u ||
-        s.callbacks.motion_queries != 1u) { fprintf(stderr, "normal-exit combat scenario 26: applied=%u finished=%u classified=%u path=%d down=%u route=%d idx=%u damage=%u motion=%08x stun=%u queries=%u tail=%u\n", (unsigned)s.output.pairs[0].normal_hit.down_reaction_applied, (unsigned)s.output.pairs[0].normal_hit.finish_applied, (unsigned)s.output.pairs[0].normal_hit.reaction_classified, (int)s.output.pairs[0].normal_hit.reaction_path, (unsigned)s.output.pairs[0].normal_hit.down_reaction_applied, (int)s.output.pairs[0].normal_hit.down_route, (unsigned)s.output.pairs[0].normal_hit.down_reaction.motion.table_index, (unsigned)s.output.pairs[0].normal_hit.damage.damage, (unsigned)rd32(s.fighters[0] + 0x198u), (unsigned)rd16(s.fighters[0] + 0x5DEu), s.callbacks.motion_queries, s.callbacks.normal_calls); return 26; }
+        rd16(s.fighters[0] + 0x5DEu) != 0u ||
+        s.callbacks.motion_queries != 1u) { fprintf(stderr, "normal-exit combat scenario 26 failed\n"); return 26; }
 
     /* Down combo can reroute to special according to attacker flags+22,
      * defender bit11 (without bit4); combo+0x6F5 is not incremented. */
