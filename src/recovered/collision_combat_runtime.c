@@ -52,6 +52,13 @@ bool stf_collision_combat_apply_model2(
          (model->normal_exit_tail == NULL ||
           model->normal_profile_table == NULL ||
           model->normal_hit_motion_resolver == NULL)) ||
+        (model->recover_normal_damage &&
+         (!model->recover_normal_hit ||
+          model->normal_damage_event == NULL)) ||
+        (model->recover_normal_ring_scatter &&
+         (!model->recover_normal_damage ||
+          model->normal_ring_pool == NULL ||
+          model->normal_ring_slots == NULL)) ||
         (model->recover_guard_skill &&
          (model->guard_common_tail == NULL || model->total_skill == NULL)) ||
         (model->guard_vector_tgp != NULL && model->guard_tail == NULL) ||
@@ -365,6 +372,51 @@ bool stf_collision_combat_apply_model2(
                         return false;
                     }
                     pair->normal_exit_tail_completed = true;
+
+                    /* damage_calculation belongs after the normal reaction
+                     * and external coprocessor/event work, but before
+                     * damage_unit and its post-hit bookkeeping. */
+                    if (model->recover_normal_damage) {
+                        if (!stf_damage_calculation_apply_model2(
+                                defender, defender_size,
+                                attacker, attacker_size,
+                                model->normal_energy_max,
+                                model->normal_disable_energy_scaling,
+                                model->normal_game_timer,
+                                pair->normal_hit.damage.damage,
+                                &pair->normal_damage)) {
+                            *result = local;
+                            return false;
+                        }
+                        pair->normal_damage_applied = true;
+
+                        if (model->recover_normal_ring_scatter) {
+                            if (!stf_ring_scatter_apply_damage_event_model2(
+                                    &pair->normal_damage,
+                                    defender, defender_size,
+                                    attacker, attacker_size,
+                                    &model->normal_ring_inputs[defender_index],
+                                    model->normal_ring_pool,
+                                    model->normal_ring_slots,
+                                    &pair->normal_rings)) {
+                                *result = local;
+                                return false;
+                            }
+                            pair->normal_rings_processed = true;
+                        }
+                        /* Do not fake audio or discard unhandled ring events:
+                         * the caller must finish the required event work. */
+                        if (!model->normal_damage_event(
+                                model->normal_damage_event_user_data,
+                                attacker_index, defender_index,
+                                &pair->normal_damage,
+                                pair->normal_rings_processed,
+                                &pair->normal_rings)) {
+                            *result = local;
+                            return false;
+                        }
+                        pair->normal_damage_event_completed = true;
+                    }
                 }
             } else if (!model->attack_body(
                     model->attack_body_user_data,

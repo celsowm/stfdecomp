@@ -17,6 +17,8 @@
 #include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
+#include "damage_calculation.h"
+#include "ring_scatter_damage_flow.h"
 
 /*
  * Portable seam between collision's selected attack_hit/damage_unit pairs.
@@ -104,6 +106,20 @@ typedef bool (*stf_collision_attack_hit_normal_exit_tail_fn)(
     const stf_attack_side_exit_result *side_exit
 );
 
+/* Explicit post-damage event sink: the caller must dispatch ring sound and
+ * any remaining damage event. If ring recovery is disabled, the callback
+ * must also execute the requested original ring scatter (rather than
+ * silently dropping the event).
+ * Returning false aborts downstream damage_unit without rollback. */
+typedef bool (*stf_collision_normal_damage_event_fn)(
+    void *user_data,
+    uint8_t attacker_index,
+    uint8_t defender_index,
+    const stf_damage_calculation_result *damage,
+    bool ring_scatter_recovered,
+    const stf_ring_damage_flow_result *rings
+);
+
 /* Caller-owned, ROM-backed stance data for one defender. The two entries in
  * the combat model correspond to fighter slot 0 and fighter slot 1. */
 typedef struct stf_collision_stance_binding {
@@ -184,6 +200,24 @@ typedef struct stf_collision_combat_model2 {
     bool normal_disable_energy_scaling;
     stf_hit_motion_table_resolver normal_hit_motion_resolver;
     void *normal_hit_motion_resolver_user_data;
+
+    /* Opt-in real damage_calculation after the normal exit tail has
+     * performed all PRE-damage audio/TGP/reaction work. The normal tail
+     * MUST NOT already subtract energy or call damage_calculation.
+     * The separate event sink handles POST-damage events and sound.
+     * Requires recover_normal_hit and a non-null event callback. */
+    bool recover_normal_damage;
+    int16_t normal_game_timer;
+    stf_collision_normal_damage_event_fn normal_damage_event;
+    void *normal_damage_event_user_data;
+
+    /* Optionally consume the ring-scatter event with recovered ring runtime
+     * and caller-owned deterministic random words (per defender slot).
+     * Requires recover_normal_damage, pool and 24-slot array. */
+    bool recover_normal_ring_scatter;
+    stf_ring_damage_flow_inputs normal_ring_inputs[2];
+    stf_ring_pool *normal_ring_pool;
+    stf_ring_slot *normal_ring_slots;
 } stf_collision_combat_model2;
 
 typedef struct stf_collision_combat_pair_result {
@@ -216,6 +250,11 @@ typedef struct stf_collision_combat_pair_result {
     stf_attack_hit_stance_result normal_stance;
     bool normal_hit_started;
     stf_attack_hit_normal_followthrough_result normal_hit;
+    bool normal_damage_applied;
+    stf_damage_calculation_result normal_damage;
+    bool normal_rings_processed;
+    stf_ring_damage_flow_result normal_rings;
+    bool normal_damage_event_completed;
     stf_attack_hit_special_result special;
     bool body_completed;
     bool damage_completed;
@@ -256,6 +295,9 @@ typedef struct stf_collision_combat_result {
  * Optional recover_normal_hit composes the already recovered normal combo,
  * state prelude, damage transform, finish test, reaction classifier and
  * ROM-backed normal hit motion/stun before the mandatory tail.
+ * Optional recover_normal_damage applies energy/KO and dealer hit damage
+ * only after pre-damage normal_exit_tail, then delivers the recovered ring
+ * event to either the ring pool or the required post-damage callback.
  * Host float math is semantic,
  * not claimed bit-for-bit accurate to the original sqrt coprocessor.
  *
