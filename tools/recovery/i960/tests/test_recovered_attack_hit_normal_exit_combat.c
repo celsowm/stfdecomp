@@ -30,6 +30,10 @@ typedef struct hooks {
     uint16_t selectors[4];
     uint8_t records[4][512];
     bool fail_tail;
+    bool fail_motion;
+    bool verify_normal_hit;
+    unsigned motion_queries;
+    uint32_t motion_table[64];
 } hooks;
 
 static uint16_t rd16(const uint8_t *p)
@@ -69,6 +73,19 @@ static void build_record(uint8_t *record, uint32_t float_bits)
         wr32(record + 24u + i * 4u, float_bits);
 }
 
+static bool resolve_hit_motion(
+    uint8_t selector, const uint32_t **words,
+    size_t *word_count, void *userdata)
+{
+    hooks *h = (hooks *)userdata;
+    ++h->motion_queries;
+    if (selector != 0u || h->fail_motion ||
+        words == NULL || word_count == NULL) return false;
+    *words = h->motion_table;
+    *word_count = 64u;
+    return true;
+}
+
 static bool legacy_body(
     void *userdata, uint8_t attacker_index, uint8_t defender_index,
     uint8_t *attacker, size_t attacker_size,
@@ -104,6 +121,15 @@ static bool normal_tail(
         side->path != STF_ATTACK_SIDE_EXIT_CONTINUE ||
         rd32(attacker + 0x1234u) != 1u) return false;
     ++h->normal_calls;
+    if (h->verify_normal_hit) {
+        if (rd32(attacker + 0x194u) != UINT32_C(0x10000001) ||
+            (rd32(attacker) & (UINT32_C(1) << 16u)) == 0u ||
+            defender[0x6F4u] != 1u ||
+            (rd32(workspace + 0x26Cu) & 3u) != 3u ||
+            rd32(defender + 0x198u) != UINT32_C(0x0B000345) ||
+            rd16(defender + 0x5DEu) != 6u)
+            return false;
+    }
     if (side->request_set_kamae) {
         if (!side->cleared_defender_bit29 ||
             (rd32(defender) & (UINT32_C(1) << 29u)) != 0u)
@@ -161,6 +187,15 @@ static void init(scene *s)
     s->model.normal_exit_tail = normal_tail;
     s->model.normal_exit_tail_user_data = &s->callbacks;
     s->callbacks.defender_stance = s->stances[0];
+    s->callbacks.motion_table[18u] = UINT32_C(0x345);
+    s->callbacks.motion_table[26u] = UINT32_C(0x456);
+    s->model.normal_hit_motion_resolver = resolve_hit_motion;
+    s->model.normal_hit_motion_resolver_user_data = &s->callbacks;
+    s->model.normal_initial_damage[1] = UINT32_C(20);
+    s->model.normal_energy_max = INT16_C(200);
+    s->model.normal_disable_energy_scaling = true;
+    wr16(s->fighters[0] + 0x1ACu, UINT16_C(100));
+    wr16(s->fighters[1] + 0x1ACu, UINT16_C(100));
     for (size_t i = 0u; i < 4u; ++i) {
         static const uint32_t values[] = {
             UINT32_C(0x41200000), UINT32_C(0x41A00000),
@@ -343,6 +378,120 @@ int main(void)
         s.output.pairs[0].damage_completed ||
         rd16(s.stances[0] + 0x1E0u) != 10u)
         return 14;
+
+    /* CPU followthrough: combo -> state -> damage -> finish -> normal motion.
+     * Tail observes all recovered writes before the damage_unit stage. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.callbacks.verify_normal_hit = true;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_hit_started ||
+        !s.output.pairs[0].normal_hit.combo_applied ||
+        !s.output.pairs[0].normal_hit.state_prelude_applied ||
+        !s.output.pairs[0].normal_hit.damage_transform_applied ||
+        !s.output.pairs[0].normal_hit.finish_applied ||
+        !s.output.pairs[0].normal_hit.reaction_classified ||
+        !s.output.pairs[0].normal_hit.normal_reaction_applied ||
+        s.output.pairs[0].normal_hit.damage.damage != UINT32_C(20) ||
+        s.output.pairs[0].normal_hit.reaction_path !=
+            STF_ATTACK_REACTION_NORMAL ||
+        s.output.pairs[0].normal_hit.normal_reaction.motion.table_index != 18u ||
+        s.callbacks.motion_queries != 1u ||
+        s.callbacks.normal_calls != 1u) return 15;
+
+    /* Counter transforms damage, switches hit mode to 3, and selects the
+     * motion row of that mode (not the default mode-2 table row). */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 8u);
+    s.fighters[0][0x822u] = 20u;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_hit.damage.reason !=
+            STF_ATTACK_DAMAGE_COUNTER ||
+        s.output.pairs[0].normal_hit.damage.hit_mode != 3u ||
+        s.output.pairs[0].normal_hit.damage.damage != 37u ||
+        s.output.pairs[0].normal_hit.normal_reaction.motion.table_index != 26u ||
+        rd32(s.fighters[0] + 0x198u) != UINT32_C(0x0B000456))
+        return 16;
+
+    /* Finish blow sets attacker +0x7D2 and skips not-finish normal motion. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr16(s.fighters[0] + 0x1ACu, UINT16_C(10));
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_hit.finish.finish_blow ||
+        s.output.pairs[0].normal_hit.reaction_classified ||
+        s.output.pairs[0].normal_hit.normal_reaction_applied ||
+        s.callbacks.motion_queries != 0u ||
+        (s.fighters[1][0x7D2u] & 1u) == 0u)
+        return 17;
+
+    /* Generic reaction route is classified but not spuriously resolved
+     * through the normal-hit motion table. Tail owns this other route. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr32(s.fighters[0] + 0x1A4u, UINT32_C(1) << 4u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_hit.reaction_path !=
+            STF_ATTACK_REACTION_GENERIC ||
+        s.output.pairs[0].normal_hit.normal_reaction_applied ||
+        s.callbacks.motion_queries != 0u)
+        return 18;
+
+    /* Resolver failure retains earlier combo/damage CPU writes while
+     * reporting incomplete hit motion and not executing the remaining tail. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.callbacks.fail_motion = true;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_hit_started ||
+        !s.output.pairs[0].normal_hit.damage_transform_applied ||
+        !s.output.pairs[0].normal_hit.reaction_classified ||
+        s.output.pairs[0].normal_hit.normal_reaction_applied ||
+        s.output.pairs[0].damage_completed ||
+        s.callbacks.normal_calls != 0u ||
+        s.callbacks.motion_queries != 1u ||
+        s.fighters[0][0x6F4u] != 1u)
+        return 19;
+
+    /* Preflight failure happens before the prefix mutates shared state. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.normal_hit_motion_resolver = NULL;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u)
+        return 20;
+
+    /* The original abort must never enter CPU followthrough or its ROM
+     * resolver, even when the optional mode is enabled. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    wr32(s.fighters[1] + 0x5B8u, 1u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_exit_aborted ||
+        s.output.pairs[0].normal_hit_started ||
+        s.callbacks.motion_queries != 0u ||
+        s.callbacks.normal_calls != 0u)
+        return 21;
+
+    /* Remaining callback failure does not roll back recovered CPU writes. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.callbacks.fail_tail = true;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_hit.normal_reaction_applied ||
+        s.output.pairs[0].normal_exit_tail_completed ||
+        s.output.pairs[0].damage_completed ||
+        rd32(s.fighters[0] + 0x198u) != UINT32_C(0x0B000345))
+        return 22;
+
+    /* Legacy mode without opt-in must not perform combo and damage writes. */
+    init(&s);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_hit_started ||
+        s.fighters[0][0x6F4u] != 0u ||
+        s.callbacks.motion_queries != 0u)
+        return 23;
 
     return 0;
 }
