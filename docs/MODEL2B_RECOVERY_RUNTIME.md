@@ -1178,3 +1178,68 @@ responses are not ROM/hardware reference values. Establishing actual
 bit-for-bit equivalence requires capturing the same command/reply
 sequence on the original Model 2 hardware or a validated SHARC
 emulator and comparing each 32-bit reply and end-of-hit state.
+
+
+### Strict TGP command capture, replay and differential comparison
+
+The recovered C library now exposes `tgp_command_trace.h`, a bounded
+adapter for the existing `stf_attack_hit_guard_vector_tgp_fn` callback.
+It works with both `guard_vector_tgp` (five-command guard vector) and
+`normal_knockback_tgp` (one sqrt plus four trigonometry commands).
+It does **not** synthesize hardware results.
+
+- **Capture:** initialize with
+  `stf_tgp_command_trace_begin_capture(trace, buffer, capacity,
+  real_tgp_callback, userdata)`. Point the combat model's TGP callback
+  to `stf_tgp_command_trace_callback` and its user data at `trace`.
+  Successful hardware queries append `{opcode, argument_count,
+  raw_words[2], reply_bits}` to caller-owned memory; rejected commands,
+  nonfinite replies and full buffers fail closed with an explicit error.
+  `real_tgp_callback` must be an actual emulator/device transport, **not**
+  a placeholder that invents replies.
+- **Replay:** initialize with
+  `stf_tgp_command_trace_begin_replay(trace, records, count)` and
+  bind the same callback. Before returning each recorded response it
+  compares the *entire* opcode/argument tuple. A mismatch, truncated
+  transcript or invalid reply aborts the path, latches a failure index
+  and leaves the reply output unchanged. The previously recovered
+  vector code preserves defender X/Y/Z atomically on failure. Check
+  `stf_tgp_command_trace_fully_consumed(trace)` to require all
+  commands in the captured frame to have been used.
+- **Differential:** `stf_tgp_command_trace_compare` returns the first
+  divergent tuple index and distinguishes **input**, **reply** and
+  **length** mismatches. Reply comparison uses **raw 32-bit equality**,
+  not epsilon tolerances. This detects rounding and signed-zero
+  regressions that host float approximations would conceal.
+
+Captured sequences can be exported as UTF-8 JSONL, one *observed*
+transaction per line. Example record **schema only; the two values
+below are illustrative, not extracted from hardware**:
+
+```json
+{"opcode":"0x12002424","arguments":["0x00000000","0x40000000"],"reply":"0x00000000"}
+```
+
+CLI comparison of captures from an actual STF emulator/device and a
+candidate backend:
+
+```sh
+python tools/recovery/compare_tgp_command_traces.py \
+    traces/reference_tgp.jsonl traces/candidate_tgp.jsonl \
+    --json build/tgp_differential.json
+```
+
+Exit status is `0` for exact match, `1` for the first differing tuple,
+and `2` for malformed/invalid traces. For different finite float reply
+words, the report includes **ULP distance** and absolute float delta,
+but the match decision remains strictly bitwise. The script refuses
+NaNs, infinities and malformed/arbitrary-arity records rather than
+silently skipping them. No ROM FIFO address is assumed: unlike a static
+code ROM, the TGP responses must be captured **during execution**.
+
+New regressions cover synthetic guard command capture/replay, 4-command
+normal-vector replay, command exhaustion, argument mismatches, capacity,
+provider failure, NaN responses, bitwise comparisons and the integrated
+five-command knockback path. The fixtures exercise the transport and
+dispatch contracts **only** and cannot establish 1:1 graphics or physics
+fidelity until real Model 2B reply traces are collected and compared.
