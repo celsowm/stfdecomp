@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "attack_hit_motion_prefix.h"
+#include "attack_hit_guard_vector.h"
 
 typedef struct stf_motion_vector_inputs {
     uint32_t hit_mode;
@@ -38,6 +39,19 @@ typedef struct stf_motion_vector_result {
  * It then applies the same hit/profile and attacker-state multipliers observed
  * in the i960 corridor before storing x/y/z at defender +0x5E0/+0x5E4/+0x5E8.
  */
+/* Four post-sqrt TGP requests in the original sin/cos order.
+ * Reply words come from the actual device or a captured trace. The
+ * output is only committed if all four replies and CPU multipliers pass.
+ * completed_commands reports 0..4 even on partial device failure. */
+bool stf_attack_hit_motion_vector_compute_with_tgp(
+    const stf_motion_prefix_result *prefix,
+    const stf_motion_vector_inputs *inputs,
+    stf_attack_hit_guard_vector_tgp_fn tgp,
+    void *tgp_user_data,
+    uint8_t *completed_commands,
+    stf_motion_vector_result *result
+);
+
 bool stf_attack_hit_motion_vector_compute(
     const stf_motion_prefix_result *prefix,
     const stf_motion_vector_inputs *inputs,
