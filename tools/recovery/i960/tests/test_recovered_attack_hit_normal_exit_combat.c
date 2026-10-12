@@ -33,6 +33,12 @@ typedef struct hooks {
     bool fail_tail;
     bool fail_motion;
     bool verify_normal_hit;
+    bool verify_pre_damage;
+    bool fail_damage_event;
+    unsigned damage_event_calls;
+    unsigned damage_ring_events;
+    uint8_t *damage_defender;
+    uint8_t *damage_attacker;
     unsigned motion_queries;
     uint32_t motion_table[64];
 } hooks;
@@ -87,6 +93,25 @@ static bool resolve_hit_motion(
     return true;
 }
 
+static bool consume_damage_event(
+    void *userdata, uint8_t attacker_index, uint8_t defender_index,
+    const stf_damage_calculation_result *damage,
+    bool rings_recovered,
+    const stf_ring_damage_flow_result *rings)
+{
+    hooks *h = (hooks *)userdata;
+    if (attacker_index != 1u || defender_index != 0u ||
+        damage == NULL || rings == NULL ||
+        h->damage_defender == NULL || h->damage_attacker == NULL)
+        return false;
+    ++h->damage_event_calls;
+    if (damage->request_ring_scatter) ++h->damage_ring_events;
+    if (rings_recovered && !damage->request_ring_scatter &&
+        (rings->requested || rings->spawned_count != 0u))
+        return false;
+    return !h->fail_damage_event;
+}
+
 static bool legacy_body(
     void *userdata, uint8_t attacker_index, uint8_t defender_index,
     uint8_t *attacker, size_t attacker_size,
@@ -122,6 +147,10 @@ static bool normal_tail(
         side->path != STF_ATTACK_SIDE_EXIT_CONTINUE ||
         rd32(attacker + 0x1234u) != 1u) return false;
     ++h->normal_calls;
+    if (h->verify_pre_damage &&
+        (rd16(defender + 0x1ACu) != 100u ||
+         rd16(attacker + 0x1F70u) != 0u))
+        return false;
     if (h->verify_normal_hit) {
         if (rd32(attacker + 0x194u) != UINT32_C(0x10000001) ||
             (rd32(attacker) & (UINT32_C(1) << 16u)) == 0u ||
@@ -154,6 +183,8 @@ typedef struct scene {
     uint8_t profiles[PROFILE_SIZE];
     uint8_t selector_blocks[2][STF_SET_KAMAE_FULL_SELECTOR_MIN_SIZE];
     uint8_t stances[2][2048];
+    stf_ring_pool ring_pool;
+    stf_ring_slot ring_slots[STF_RING_POOL_SLOT_COUNT];
     stf_damage_unit_effect_state effect;
     stf_collision_combat_model2 model;
     stf_collision_hit_order order;
@@ -188,6 +219,14 @@ static void init(scene *s)
     s->model.normal_exit_tail = normal_tail;
     s->model.normal_exit_tail_user_data = &s->callbacks;
     s->callbacks.defender_stance = s->stances[0];
+    s->callbacks.damage_defender = s->fighters[0];
+    s->callbacks.damage_attacker = s->fighters[1];
+    s->model.normal_damage_event = consume_damage_event;
+    s->model.normal_damage_event_user_data = &s->callbacks;
+    s->model.normal_game_timer = INT16_C(99);
+    s->model.normal_ring_pool = &s->ring_pool;
+    s->model.normal_ring_slots = s->ring_slots;
+    stf_ring_pool_init(&s->ring_pool);
     s->callbacks.motion_table[18u] = UINT32_C(0x345);
     s->callbacks.motion_table[26u] = UINT32_C(0x456);
     s->callbacks.motion_table[34u] = UINT32_C(0x177);
@@ -574,6 +613,154 @@ int main(void)
         s.fighters[0][0x6F4u] != 0u ||
         s.callbacks.motion_queries != 0u)
         { fprintf(stderr, "normal-exit combat scenario 23 failed\n"); return 23; }
+
+    /* Actual damage runs AFTER the tail's pre-damage effects and BEFORE
+     * damage_unit. Recovered ring flow consumes the caller's stage/RNG
+     * data and reports spawned ring slots to the post-damage event sink. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_damage = true;
+    s.model.recover_normal_ring_scatter = true;
+    s.callbacks.verify_pre_damage = true;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_damage_applied ||
+        !s.output.pairs[0].normal_damage_event_completed ||
+        !s.output.pairs[0].normal_rings_processed ||
+        s.output.pairs[0].normal_damage.scaled_damage != 20u ||
+        s.output.pairs[0].normal_damage.receiver_energy_after != 80 ||
+        !s.output.pairs[0].normal_damage.request_ring_scatter ||
+        !s.output.pairs[0].normal_rings.requested ||
+        !s.output.pairs[0].normal_rings.request_ring_sound ||
+        s.output.pairs[0].normal_rings.spawned_count != 2u ||
+        s.ring_pool.occupied_mask == 0u ||
+        rd16(s.fighters[0] + 0x1ACu) != 80u ||
+        rd16(s.fighters[0] + 0xC54u) != 20u ||
+        rd16(s.fighters[1] + 0x1F70u) != 20u ||
+        s.callbacks.damage_event_calls != 1u ||
+        s.callbacks.damage_ring_events != 1u ||
+        !s.output.pairs[0].damage_completed)
+        { fprintf(stderr, "normal damage+ring scenario 29 failed\n"); return 29; }
+
+    /* Timer at zero records dealer damage, but leaves fighter HP unchanged
+     * and suppresses the ring event. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_damage = true;
+    s.model.recover_normal_ring_scatter = true;
+    s.model.normal_game_timer = 0;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_damage_applied ||
+        s.output.pairs[0].normal_damage.energy_applied ||
+        s.output.pairs[0].normal_damage.request_ring_scatter ||
+        s.output.pairs[0].normal_rings.requested ||
+        s.output.pairs[0].normal_rings.spawned_count != 0u ||
+        s.ring_pool.occupied_mask != 0u ||
+        rd16(s.fighters[0] + 0x1ACu) != 100u ||
+        rd16(s.fighters[1] + 0x1F70u) != 20u ||
+        s.callbacks.damage_event_calls != 1u ||
+        s.callbacks.damage_ring_events != 0u)
+        { fprintf(stderr, "normal damage timer scenario 30 failed\n"); return 30; }
+
+    /* Character 16 bypasses energy loss in damage_calculation. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_damage = true;
+    s.model.recover_normal_ring_scatter = true;
+    s.fighters[0][0x1B1u] = 16u;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_damage.energy_applied ||
+        s.output.pairs[0].normal_damage.request_ring_scatter ||
+        rd16(s.fighters[0] + 0x1ACu) != 100u ||
+        rd16(s.fighters[1] + 0x1F70u) != 20u ||
+        s.callbacks.damage_ring_events != 0u)
+        { fprintf(stderr, "normal damage character-16 scenario 31 failed\n"); return 31; }
+
+    /* KO clamps remaining energy to zero and sets defender bit5. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_damage = true;
+    s.model.recover_normal_ring_scatter = true;
+    wr16(s.fighters[0] + 0x1ACu, 10u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_damage_applied ||
+        !s.output.pairs[0].normal_damage.receiver_knocked_out ||
+        rd16(s.fighters[0] + 0x1ACu) != 0u ||
+        (rd32(s.fighters[0]) & (UINT32_C(1) << 5u)) == 0u ||
+        !s.output.pairs[0].damage_completed)
+        { fprintf(stderr, "normal damage KO scenario 32 failed\n"); return 32; }
+
+    /* Event handler failure is not rolled back; no downstream damage_unit
+     * is executed after the callback returns false. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_damage = true;
+    s.model.recover_normal_ring_scatter = true;
+    s.callbacks.fail_damage_event = true;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_damage_applied ||
+        !s.output.pairs[0].normal_rings_processed ||
+        s.output.pairs[0].normal_damage_event_completed ||
+        s.output.pairs[0].damage_completed ||
+        s.callbacks.damage_event_calls != 1u ||
+        rd16(s.fighters[0] + 0x1ACu) != 80u ||
+        s.ring_pool.occupied_mask == 0u)
+        { fprintf(stderr, "normal damage event failure scenario 33 failed\n"); return 33; }
+
+    /* Reject invalid opt-ins before attacker prefix increments counters. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_damage = true;
+    s.model.normal_damage_event = NULL;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u)
+        { fprintf(stderr, "normal damage preflight scenario 34 failed\n"); return 34; }
+
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_damage = true;
+    s.model.recover_normal_ring_scatter = true;
+    s.model.normal_ring_pool = NULL;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u)
+        { fprintf(stderr, "normal ring preflight scenario 35 failed\n"); return 35; }
+
+    /* The early abort does not run energy, ring or sound events. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_damage = true;
+    s.model.recover_normal_ring_scatter = true;
+    wr32(s.fighters[1] + 0x5B8u, 1u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_exit_aborted ||
+        s.output.pairs[0].normal_damage_applied ||
+        s.callbacks.damage_event_calls != 0u ||
+        rd16(s.fighters[0] + 0x1ACu) != 100u ||
+        s.ring_pool.occupied_mask != 0u)
+        { fprintf(stderr, "normal damage abort scenario 36 failed\n"); return 36; }
+
+    /* Flag off: no damage writes, even when the host callback is installed. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_damage_applied ||
+        s.callbacks.damage_event_calls != 0u ||
+        rd16(s.fighters[0] + 0x1ACu) != 100u)
+        { fprintf(stderr, "normal damage opt-out scenario 37 failed\n"); return 37; }
+
+    /* Metal character: damage requests rings but the original ring planner
+     * suppresses the spawn and the ring sound event. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_damage = true;
+    s.model.recover_normal_ring_scatter = true;
+    s.fighters[0][0x1B1u] = 3u;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_damage.request_ring_scatter ||
+        !s.output.pairs[0].normal_rings.requested ||
+        !s.output.pairs[0].normal_rings.suppressed ||
+        s.output.pairs[0].normal_rings.spawned_count != 0u ||
+        s.ring_pool.occupied_mask != 0u)
+        { fprintf(stderr, "normal damage metal scenario 38 failed\n"); return 38; }
 
     return 0;
 }
