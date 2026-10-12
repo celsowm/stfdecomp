@@ -169,6 +169,13 @@ typedef struct stf_collision_combat_model2 {
     void *guard_vector_tgp_user_data;
     const uint8_t *guard_vector_boost_table;
     size_t guard_vector_boost_table_size;
+    /* Optional bit-exact guard X/Y/Z oracle, checked after the CPU
+     * multipliers and before any defender vector is written. Requires a
+     * real guard_vector_tgp backend and a guard_tail. Expected raw IEEE
+     * words are indexed by DEFENDER slot. A mismatch aborts the pair,
+     * leaves the old vector intact, and reports mask/ULPs in guard_vector. */
+    bool verify_guard_vectors;
+    uint32_t guard_vector_expected_xyz[2][3];
     /* Optional 0x2AC74 common-guard path, using guard_motion_resolver.
      * Strength/stun effects are computed in C; audio/skill/TGP need tail. */
     stf_collision_attack_hit_guard_common_tail_fn guard_common_tail;
@@ -338,6 +345,7 @@ typedef struct stf_collision_combat_result {
  * It requires caller-originating magnitude/heading context and a ROM view.
  * Strict final-vector verification can reject any bitwise divergence from an
  * external original-capture oracle before mutating the defender vector.
+ * The same optional protection applies to recovered guard BLOCK_A/B vectors.
  * Optional recover_normal_damage applies energy/KO and dealer hit damage
  * only after pre-damage normal_exit_tail, then delivers the recovered ring
  * event to either the ring pool or the required post-damage callback.

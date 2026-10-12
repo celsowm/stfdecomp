@@ -121,6 +121,7 @@ bool stf_collision_combat_apply_model2(
         (model->recover_guard_skill &&
          (model->guard_common_tail == NULL || model->total_skill == NULL)) ||
         (model->guard_vector_tgp != NULL && model->guard_tail == NULL) ||
+        (model->verify_guard_vectors && model->guard_vector_tgp == NULL) ||
         (model->normal_profile_table != NULL &&
          model->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE) ||
         model->workspace_size < STF_COLLISION_ATTACK_WORKSPACE_MODEL2_MIN_SIZE ||
@@ -133,6 +134,19 @@ bool stf_collision_combat_apply_model2(
           model->enemy_slot_sizes[1] < STF_GUARD_COMMON_ENEMY_MIN_SIZE)) ||
         model->fighters[0][4u] != 0u || model->fighters[1][4u] != 1u) {
         return false;
+    }
+
+    /* A bad guard reference must fail the whole dispatch before any prefix
+     * mutation, including when the requested hit might skip guard state. */
+    if (model->verify_guard_vectors) {
+        for (i = 0u; i < 2u; ++i) {
+            stf_tgp_vector_difference sanity;
+            if (!stf_tgp_command_trace_compare_vectors(
+                    model->guard_vector_expected_xyz[i],
+                    model->guard_vector_expected_xyz[i], &sanity)) {
+                return false;
+            }
+        }
     }
 
     /* Reject a malformed independent oracle BEFORE any fighter mutation.
@@ -247,7 +261,7 @@ bool stf_collision_combat_apply_model2(
                 }
                 pair->guard_applied = true;
                 if (model->guard_vector_tgp != NULL) {
-                    if (!stf_attack_hit_guard_vector_apply_model2(
+                    if (!stf_attack_hit_guard_vector_apply_verified_model2(
                             attacker, attacker_size,
                             defender, defender_size,
                             pair->normal_entry.strength.combined_82a_026,
@@ -257,6 +271,9 @@ bool stf_collision_combat_apply_model2(
                             model->guard_vector_boost_table_size,
                             model->guard_vector_tgp,
                             model->guard_vector_tgp_user_data,
+                            model->verify_guard_vectors
+                                ? model->guard_vector_expected_xyz[defender_index]
+                                : NULL,
                             &pair->guard_vector)) {
                         *result = local;
                         return false;
