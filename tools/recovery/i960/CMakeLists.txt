@@ -137,6 +137,23 @@ add_executable(stf_i960_corridor
 
 target_link_libraries(stf_i960_corridor PRIVATE stf_recovery_i960)
 
+add_library(stf_set_obj_i960_bridge STATIC
+    src/set_obj_i960_bridge.c
+)
+target_include_directories(stf_set_obj_i960_bridge PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(stf_set_obj_i960_bridge
+    PUBLIC stf_recovery_i960 stf_recovered_game
+)
+
+add_executable(stf_set_obj_i960_bridge_tests
+    tests/test_set_obj_i960_bridge.c
+)
+target_link_libraries(stf_set_obj_i960_bridge_tests PRIVATE
+    stf_set_obj_i960_bridge
+)
+
 add_executable(stf_recovery_i960_tests
     tests/test_i960_core.c
 )
@@ -618,6 +635,7 @@ add_executable(stf_recovered_set_obj_extended_runtime_tests
 target_link_libraries(stf_recovered_set_obj_extended_runtime_tests PRIVATE stf_recovered_game)
 
 enable_testing()
+add_test(NAME stf_set_obj_i960_bridge_tests COMMAND stf_set_obj_i960_bridge_tests)
 add_test(NAME stf_recovered_set_obj_extended_runtime_tests COMMAND stf_recovered_set_obj_extended_runtime_tests)
 add_test(NAME stf_recovered_set_obj_state_runtime_tests COMMAND stf_recovered_set_obj_state_runtime_tests)
 add_test(NAME stf_recovered_set_obj_runtime_tests COMMAND stf_recovered_set_obj_runtime_tests)
