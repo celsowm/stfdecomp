@@ -136,6 +136,19 @@ typedef bool (*stf_collision_normal_sound_event_fn)(
     const stf_attack_hit_sound_resolved *sounds
 );
 
+/* CPU-identified guard audio event identities, NOT ROM sample IDs.
+ * Playback/sample mapping and precise hardware timing remain with the host. */
+typedef enum stf_collision_guard_audio_event {
+    STF_COLLISION_GUARD_AUDIO_KNOCK_9 = 1,
+    STF_COLLISION_GUARD_AUDIO_KNOCK_3,
+    STF_COLLISION_GUARD_AUDIO_CANE_2D
+} stf_collision_guard_audio_event;
+
+typedef bool (*stf_collision_guard_audio_event_fn)(
+    void *user_data, uint8_t attacker_index, uint8_t defender_index,
+    stf_collision_guard_audio_event event
+);
+
 /* Caller-owned, ROM-backed stance data for one defender. The two entries in
  * the combat model correspond to fighter slot 0 and fighter slot 1. */
 typedef struct stf_collision_stance_binding {
@@ -189,6 +202,16 @@ typedef struct stf_collision_combat_model2 {
      * leaves the old vector intact, and reports mask/ULPs in guard_vector. */
     bool verify_guard_vectors;
     uint32_t guard_vector_expected_xyz[2][3];
+
+    /* Opt-in delivery of known guard audio requests to a real backend.
+     * BLOCK_A/B: KNOCK_9/3 before the optional TGP vector sequence.
+     * Common guard: CANE_2D after skill accounting and before tail.
+     * No callback for c70==0 or an aborted common-guard branch.
+     * When enabled the corresponding tail must not replay these sounds. */
+    bool recover_guard_audio;
+    stf_collision_guard_audio_event_fn guard_audio_event;
+    void *guard_audio_event_user_data;
+
     /* Optional 0x2AC74 common-guard path, using guard_motion_resolver.
      * Strength/stun effects are computed in C; audio/skill/TGP need tail. */
     stf_collision_attack_hit_guard_common_tail_fn guard_common_tail;
@@ -291,6 +314,9 @@ typedef struct stf_collision_combat_pair_result {
     bool guard_applied;
     bool guard_tail_completed;
     bool guard_vector_applied;
+    bool guard_audio_requested;
+    bool guard_audio_delivered;
+    stf_collision_guard_audio_event guard_audio_kind;
     stf_attack_hit_guard_vector_result guard_vector;
     stf_guard_state_runtime_result guard_state;
     bool guard_common_applied;
@@ -376,6 +402,8 @@ typedef struct stf_collision_combat_result {
  * Strict final-vector verification can reject any bitwise divergence from an
  * external original-capture oracle before mutating the defender vector.
  * The same optional protection applies to recovered guard BLOCK_A/B vectors.
+ * Opt-in guard audio dispatch consumes recovered knock/cane event requests,
+ * while the backend remains responsible for sample mapping and playback.
  * Optional recover_normal_damage applies energy/KO and dealer hit damage
  * only after pre-damage normal_exit_tail, then delivers the recovered ring
  * event to either the ring pool or the required post-damage callback.

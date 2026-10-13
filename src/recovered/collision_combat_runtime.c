@@ -126,6 +126,10 @@ bool stf_collision_combat_apply_model2(
           model->normal_ring_slots == NULL)) ||
         (model->recover_guard_skill &&
          (model->guard_common_tail == NULL || model->total_skill == NULL)) ||
+        (model->recover_guard_audio &&
+         (model->guard_audio_event == NULL ||
+          (model->guard_tail == NULL &&
+           model->guard_common_tail == NULL))) ||
         (model->guard_vector_tgp != NULL && model->guard_tail == NULL) ||
         (model->verify_guard_vectors && model->guard_vector_tgp == NULL) ||
         (model->normal_profile_table != NULL &&
@@ -266,6 +270,25 @@ bool stf_collision_combat_apply_model2(
                     return false;
                 }
                 pair->guard_applied = true;
+                /* The CPU-side block classified KNOCK_9/3 from C70.
+                 * Send before TGP vector commands; audio cannot be
+                 * rolled back if a later device/continuation fails. */
+                if (model->recover_guard_audio &&
+                    pair->guard_state.guard.sound != STF_GUARD_SOUND_NONE) {
+                    pair->guard_audio_requested = true;
+                    pair->guard_audio_kind =
+                        pair->guard_state.guard.sound == STF_GUARD_SOUND_KNOCK_9
+                            ? STF_COLLISION_GUARD_AUDIO_KNOCK_9
+                            : STF_COLLISION_GUARD_AUDIO_KNOCK_3;
+                    if (!model->guard_audio_event(
+                            model->guard_audio_event_user_data,
+                            attacker_index, defender_index,
+                            pair->guard_audio_kind)) {
+                        *result = local;
+                        return false;
+                    }
+                    pair->guard_audio_delivered = true;
+                }
                 if (model->guard_vector_tgp != NULL) {
                     if (!stf_attack_hit_guard_vector_apply_verified_model2(
                             attacker, attacker_size,
@@ -370,6 +393,23 @@ bool stf_collision_combat_apply_model2(
                         }
                         pair->guard_common_aborted = true;
                     } else {
+                        /* The CPU requests play_sd_cane_2d on every
+                         * continuing common-guard path. Its ID is an
+                         * event identity, not a manufactured sample ID. */
+                        if (model->recover_guard_audio &&
+                            pair->guard_common.guard.request_sound_cane_2d) {
+                            pair->guard_audio_requested = true;
+                            pair->guard_audio_kind =
+                                STF_COLLISION_GUARD_AUDIO_CANE_2D;
+                            if (!model->guard_audio_event(
+                                    model->guard_audio_event_user_data,
+                                    attacker_index, defender_index,
+                                    pair->guard_audio_kind)) {
+                                *result = local;
+                                return false;
+                            }
+                            pair->guard_audio_delivered = true;
+                        }
                         if (!model->guard_common_tail(
                                 model->guard_common_tail_user_data,
                                 attacker_index, defender_index,
