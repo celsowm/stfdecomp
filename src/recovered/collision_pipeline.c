@@ -44,7 +44,20 @@ static bool validate(const stf_collision_pipeline_model2 *pipeline)
          combat->normal_profile_table == NULL) ||
         (combat->normal_profile_table != NULL &&
          combat->normal_profile_table_size < STF_ATTACK_HIT_PROFILE_RECORD_SIZE) ||
-        (combat->guard_vector_tgp != NULL && combat->guard_tail == NULL)) {
+        (combat->guard_vector_tgp != NULL && combat->guard_tail == NULL) ||
+        /* The area and suppression stages mutate live RAM. Validate the
+         * optional combat particle pool HERE as well, before running
+         * those stages; combat's own preflight is too late for that. */
+        (combat->recover_damage_particles &&
+         (combat->damage_particle_descriptors == NULL ||
+          combat->damage_particle_slots == NULL ||
+          combat->damage_particle_stage == NULL ||
+          combat->damage_particle_slots_size <
+              (size_t)((combat->also_sub_mode == UINT8_C(0x1A) ||
+                         combat->also_sub_mode == UINT8_C(0x1B))
+                  ? STF_COLLISION_PARTICLE_EXTENDED_SLOTS
+                  : STF_COLLISION_PARTICLE_NORMAL_SLOTS) *
+                  STF_COLLISION_PARTICLE_SLOT_SIZE))) {
         return false;
     }
     for (i = 0u; i < 2u; ++i) {
