@@ -1243,3 +1243,51 @@ provider failure, NaN responses, bitwise comparisons and the integrated
 five-command knockback path. The fixtures exercise the transport and
 dispatch contracts **only** and cannot establish 1:1 graphics or physics
 fidelity until real Model 2B reply traces are collected and compared.
+
+
+### Normal hit-sound ROM dispatch in the ordered combat runtime
+
+The previously recovered i960 selector at `loc_2B33C..2B3FC` and
+the corresponding ROM sound tables can now be used by the ordered
+non-guard attack-hit executor. Opt in with
+`recover_normal_hit = true` and `recover_normal_sound = true`;
+provide a real `normal_sound_rom` addressable image (setting
+`use_schamp_addresses` for Sonic Championship), a callable
+`normal_sound_event` audio backend, and its user data.
+An invalid configuration is rejected before the first fighter mutation.
+
+After successful CPU combo/damage/reaction recovery, and **before**
+the remaining pre-damage hit callback, the runtime runs
+`stf_attack_hit_sound_plan_model2` using the transformed damage
+result, not the original damage estimate. It resolves every selected
+ID using `stf_attack_hit_sound_resolve_rom`, preserving the
+correct single-value table family or the bounded zero-terminated
+voice-list lookup, according to the two ROM layouts.
+`normal_sound_planned`, `normal_sound_resolved` and
+`normal_sound_delivered` in the pair result mark the last completed
+stage; `normal_sound_plan` and `normal_sound_ids` expose the
+specific observed selection.
+
+For a nonempty event, `normal_sound_event` must submit the ID list
+to the **real** engine's audio backend. The runtime does **not**
+synthesize sound or claim timing fidelity. No audio callback is
+issued when the plan returns NONE or when a genuine zero-terminated
+list is empty. An invalid ROM table, unresolvable ID or failed
+audio callback aborts the remaining vector/tail/damage-unit work;
+earlier CPU state is not rolled back. A continuing branch with
+`recover_normal_sound` disabled retains the legacy tail-owned
+sound behavior. With the opt-in enabled, the tail must **not replay**
+the consumed hit-sound event, but still owns unrelated audio/events,
+such as ring audio after damage.
+
+The integration regression tests synthetic sfight and schamp sound
+table offsets, the normal single-medium tier, character-specific
+voice lists, alternate attack-kind table families, a silent list,
+attacker-muted hit, post-transform damage tier, missing tables,
+rejected sinks, side-exit abort, preflight errors and ordering with
+the recovered energy/ring flow. These synthetic rows are test
+fixtures, not extracted Sega ROM bytes.
+
+This reproduces the *selection and event contract* seen in the
+recovered CPU; callback scheduling and real hardware audio behavior
+remain separate 1:1 tasks.
