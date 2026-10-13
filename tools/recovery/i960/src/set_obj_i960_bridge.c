@@ -124,7 +124,6 @@ bool stf_set_obj_i960_bridge_execute(
     const uint32_t header = extended ? STF_BRIDGE_EXT_MAX_POLY :
                                         STF_BRIDGE_MAX_POLY;
     uint32_t maximum = 0u;
-    uint32_t discard = 0u;
     uint32_t record_address;
     uint32_t value[4] = {0u, 0u, 0u, 0u};
     bool ran;
@@ -146,8 +145,7 @@ bool stf_set_obj_i960_bridge_execute(
     bridge.geo_base = cpu->registers[26u];  /* original g10 */
     bridge.fifo_base = cpu->registers[27u]; /* original g11 */
     out.geo_bus_address = bridge.geo_base;
-    out.fifo_bus_address = bridge.fifo_base +
-                           cpu->registers[28u]; /* original g12 */
+    /* Address materialized only after register validation below. */
 
     /* Refuse speculative aliases or addresses. These are the known
      * STF startup register mappings, not generalized Model 2 devices. */
@@ -158,6 +156,7 @@ bool stf_set_obj_i960_bridge_execute(
         *result = out;
         return false;
     }
+    out.fifo_bus_address = bridge.fifo_base + cpu->registers[28u];
 
     if (!read32(bus, STF_BRIDGE_POLYGON_LIMIT, &state.polygon_limit,&out,false) ||
         !read32(bus, STF_BRIDGE_POLYGON,&state.polygon,&out,false) ||
@@ -169,6 +168,22 @@ bool stf_set_obj_i960_bridge_execute(
     }
     out.before = state;
     out.after = state;
+    /* Source-order guard: normal/special return before touching either
+     * descriptor table; SAME also returns at equality. MIRROR deliberately
+     * validates the descriptor before its own polygon gate. */
+    if ((entry == STF_SET_OBJ_I960_SAME &&
+         state.polygon >= state.polygon_limit) ||
+        ((entry == STF_SET_OBJ_I960_NORMAL ||
+          entry == STF_SET_OBJ_I960_TPD ||
+          entry == STF_SET_OBJ_I960_THD) &&
+         state.polygon > state.polygon_limit)) {
+        out.recovery.gate_closed = true;
+        out.invoked = true;
+        out.completed = true;
+        out.committed = true;
+        *result = out;
+        return true;
+    }
     if (!read32(bus, header, &maximum, &out, true)) {
         *result = out;
         return false;
