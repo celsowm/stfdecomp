@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - "tools/recovery/set_obj_evidence.py"
+      - "tools/recovery/test_set_obj_evidence.py"
+      - "src/recovered/set_obj_runtime.c"
+      - "src/recovered/set_obj_runtime.h"
       - "src/asm/**"
       - ".github/workflows/set-obj-evidence.yml"
 jobs:
@@ -13,6 +16,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Verify original STF set_obj opcode and source ordering
+        run: python -m unittest discover -s tools/recovery -p "test_set_obj_evidence.py" -v
       - name: Extract STF set_obj disassembly and callsites
         run: python tools/recovery/set_obj_evidence.py --out-dir build/set-obj --span 140
       - name: Publish source evidence
