@@ -1389,3 +1389,77 @@ and legacy opt-out. The descriptor addresses in the tests are
 This reconstructs CPU-visible particle allocation and storage.
 A graphical emitter, frame rendering, true effects from ROM and
 cycle-exact particle timing remain separate tasks.
+
+
+### Particle life cycle: original 32B10 update to efc_disp draw commands
+
+The collision loop's recovered `damage_unit` now allocates collision
+particles, but **the original frame scheduler is a separate stage**.
+Callers can explicitly advance this stage with
+`stf_collision_particle_frame_step_combat_model2(combat, draws, 16, &frame)`
+against the **same live pool and ROM descriptors** bound to
+`combat.recover_damage_particles`. The lower-level function
+`stf_collision_particle_frame_step_model2` accepts slots and
+descriptors directly, without requiring a combat instance.
+
+A successful frame step performs, in this declared order:
+
+1. `stf_collision_particle_update_model2` (original `sub_32B10`),
+   resolving each of the first 16 active slots' effect address to
+   a caller-provided ROM descriptor; selecting the animation frame
+   from `age / frame_divisor`; applying the recovered bit-3 scale
+   sequence where requested; advancing age; and releasing expired
+   slot state.
+2. `stf_collision_particle_build_draws_model2` (recovered collision
+   particle portion of `efc_disp`), emitting portable `set_obj`
+   intent descriptors from the updated slots: position, scale,
+   frame ID, saved-graphics-state and orientation-suppression flags.
+
+The returned `stf_collision_particle_frame_result` exposes
+`updated`, `draws_built`, the updater's
+`active_before/advanced/released` counters, and the draw builder's
+`active_slots/draw_count`. The supplied draw array is filled in
+the exact visible slot scan order. The host graphics backend
+must still implement `set_obj`, state save/restore and GPU
+submission; the new adapter does not fabricate actual Model 2
+rendering.
+
+Both original update and display routines scan **exactly slots
+0..15**, even if the earlier allocator used a 32-slot pool in
+special submodes. The adapter deliberately neither updates nor
+emits draws from slots 16..31; a host must not silently treat them
+as 32 visible slots.
+
+The adapter stages the first 16 slot records and draw descriptors
+in bounded scratch space. If a descriptor/frame is missing or the
+caller's draw buffer is too small, no live particle slot, draw
+descriptor or output result is altered by that frame request.
+On success it commits the updated first 16 slots and exactly
+the emitted draws. This failure-handling policy is a portable
+fail-closed boundary; **not** a claim that the original game
+rolls back mid-frame hardware/device errors.
+
+Example call after a collision step, with the game loop choosing
+the *actual* timing:
+
+```c
+stf_collision_particle_draw draws[STF_COLLISION_PARTICLE_NORMAL_SLOTS];
+stf_collision_particle_frame_result frame;
+if (!stf_collision_particle_frame_step_combat_model2(
+        &combat, draws, STF_COLLISION_PARTICLE_NORMAL_SLOTS, &frame)) {
+    /* Reject invalid ROM frame tables or insufficient capacity. */
+    return false;
+}
+/* Issue frame.render.draw_count commands through the real graphics backend. */
+```
+
+The update-then-draw sequence above is an **explicit integration
+contract**, not verification of the original ordering relative to
+`collision`, `efc_disp`, or other game-loop phases. Exact timing
+and actual ROM/TGP/graphics captures are still needed for 1:1.
+The new frame CTest verifies lifespan, age/frame-divisor selection,
+flag-3 scale progression, expiry and slot reuse, slot-16 invisibility,
+capacity/invalid-ROM atomic failures, empty-frame behavior and the
+combat-model binding. The combat particle CTest additionally covers
+a real recovered hit producing successive frame commands before
+the particle expires; fixtures remain synthetic.
