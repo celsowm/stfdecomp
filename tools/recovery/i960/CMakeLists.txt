@@ -102,6 +102,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/set_kamae_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/set_obj_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/set_obj_state_runtime.c"
+    "${STF_REPO_ROOT}/src/recovered/set_obj_extended_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/kamae_motion_rom_view.c"
     "${STF_REPO_ROOT}/src/recovered/ring_scatter_plan.c"
     "${STF_REPO_ROOT}/src/recovered/ring_scatter_runtime.c"
@@ -611,7 +612,13 @@ add_executable(stf_recovered_set_obj_state_runtime_tests
 )
 target_link_libraries(stf_recovered_set_obj_state_runtime_tests PRIVATE stf_recovered_game)
 
+add_executable(stf_recovered_set_obj_extended_runtime_tests
+    tests/test_recovered_set_obj_extended_runtime.c
+)
+target_link_libraries(stf_recovered_set_obj_extended_runtime_tests PRIVATE stf_recovered_game)
+
 enable_testing()
+add_test(NAME stf_recovered_set_obj_extended_runtime_tests COMMAND stf_recovered_set_obj_extended_runtime_tests)
 add_test(NAME stf_recovered_set_obj_state_runtime_tests COMMAND stf_recovered_set_obj_state_runtime_tests)
 add_test(NAME stf_recovered_set_obj_runtime_tests COMMAND stf_recovered_set_obj_runtime_tests)
 add_test(NAME stf_recovery_i960_tests COMMAND stf_recovery_i960_tests)
