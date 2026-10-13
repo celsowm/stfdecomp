@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "collision_combat_runtime.h"
+#include "collision_particle_frame_runtime.h"
 
 enum {
     F_SIZE = 0x2200u,
@@ -271,6 +272,80 @@ int main(void)
           !s.result.pairs[0].damage_particle_processed &&
           rd32(s.slots + 0x1Cu) == 0u &&
           s.stage.position_a[0] == UINT32_C(0x11111111), 19);
+
+    /* End-to-end: the real ordered combat adapter creates a particle,
+     * then the caller explicitly advances efc_disp/32B10 frame ticks
+     * against the SAME live slot pool and ROM descriptor bindings. */
+    {
+        static const uint16_t animation[] = {
+            UINT16_C(0x120), UINT16_C(0x121)
+        };
+        stf_collision_particle_draw draws[STF_COLLISION_PARTICLE_NORMAL_SLOTS];
+        stf_collision_particle_frame_result step_result;
+
+        init(&s);
+        s.descriptors[1].duration = UINT16_C(2);
+        s.descriptors[1].frame_divisor = UINT16_C(1);
+        s.descriptors[1].frames = animation;
+        s.descriptors[1].frame_count = 2u;
+        CHECK(stf_collision_combat_apply_model2(&s.model, &s.order, &s.result) &&
+              s.result.pairs[0].damage_particle.particle.allocated, 20);
+        CHECK(stf_collision_particle_frame_step_combat_model2(
+                  &s.model, draws, STF_COLLISION_PARTICLE_NORMAL_SLOTS,
+                  &step_result), 21);
+        CHECK(step_result.updated && step_result.draws_built &&
+              step_result.update.advanced == 1u &&
+              step_result.render.draw_count == 1u &&
+              draws[0].slot_index == 0u &&
+              draws[0].frame_id == UINT16_C(0x120) &&
+              draws[0].position[0] == UINT32_C(0x11111111) &&
+              draws[0].use_saved_graphics_state &&
+              draws[0].scale_bits == UINT32_C(0x3F800000) &&
+              s.slots[0x18u] == UINT8_C(1), 22);
+        CHECK(stf_collision_particle_frame_step_combat_model2(
+                  &s.model, draws, STF_COLLISION_PARTICLE_NORMAL_SLOTS,
+                  &step_result) &&
+              step_result.update.advanced == 1u &&
+              step_result.render.draw_count == 1u &&
+              draws[0].frame_id == UINT16_C(0x121) &&
+              draws[0].scale_bits == UINT32_C(0x3FC00000) &&
+              s.slots[0x18u] == UINT8_C(2), 23);
+        CHECK(stf_collision_particle_frame_step_combat_model2(
+                  &s.model, draws, STF_COLLISION_PARTICLE_NORMAL_SLOTS,
+                  &step_result) &&
+              step_result.update.released == 1u &&
+              step_result.render.draw_count == 0u &&
+              rd32(s.slots + 0x1Cu) == 0u, 24);
+    }
+
+    /* The frame wrapper also preserves the original 16-slot
+     * update/render limit when extended combat allocation used slot 16. */
+    {
+        stf_collision_particle_draw draws[STF_COLLISION_PARTICLE_NORMAL_SLOTS];
+        stf_collision_particle_frame_result step_result;
+        uint8_t saved_slot16[STF_COLLISION_PARTICLE_SLOT_SIZE];
+
+        init(&s);
+        s.model.also_sub_mode = UINT8_C(0x1B);
+        for (i = 0u; i < STF_COLLISION_PARTICLE_NORMAL_SLOTS; ++i) {
+            wr32(s.slots + i * STF_COLLISION_PARTICLE_SLOT_SIZE + 0x1Cu,
+                 UINT32_C(0xBEEF));
+        }
+        CHECK(stf_collision_combat_apply_model2(&s.model, &s.order, &s.result) &&
+              s.result.pairs[0].damage_particle.particle.slot_index == 16u, 25);
+        memcpy(saved_slot16,
+               s.slots + 16u * STF_COLLISION_PARTICLE_SLOT_SIZE,
+               sizeof(saved_slot16));
+        /* Occupied slots 0..15 carry deliberately unrecognized effect
+         * addresses, so the frame's fail-closed preflight must not
+         * change slot 16 nor any other live slot. */
+        CHECK(!stf_collision_particle_frame_step_combat_model2(
+                  &s.model, draws, STF_COLLISION_PARTICLE_NORMAL_SLOTS,
+                  &step_result) &&
+              memcmp(saved_slot16,
+                     s.slots + 16u * STF_COLLISION_PARTICLE_SLOT_SIZE,
+                     sizeof(saved_slot16)) == 0, 26);
+    }
 
     return 0;
 }
