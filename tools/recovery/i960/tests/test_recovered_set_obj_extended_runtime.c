@@ -123,7 +123,7 @@ static int mirror_paths(void)
               f.mirror_result.selected_table_address==
                 (variant?UINT32_C(0x0647F014):UINT32_C(0x020E0024)) &&
               f.mirror_result.completed_operations==11u &&
-              f.mirror_result.geo_writes==6u &&
+              f.mirror_result.geo_writes==7u &&
               f.mirror_result.geo_reads==1u &&
               f.mirror_result.fifo_writes==2u &&
               f.mirror_result.fifo_reads==1u &&
