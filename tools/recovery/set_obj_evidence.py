@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 ASM=("rom_code1.s","rom_code2.s","rom_code3.s","rom_code4.s")
-TARGETS={"set_obj","set_obj_tpd","set_obj_thd"}
+TARGETS={"set_obj","set_obj_tpd","set_obj_thd","set_obj_common","set_obj_go","set_obj_save","set_obj_load","set_obj_same","poly_data_err"}
 LABEL=re.compile(r"^\s*([A-Za-z_$][\w.$]*):{1,2}(?!:)")
 CALL=re.compile(r"\b(?:call|bal)\s+([A-Za-z_$][\w.$]*)\b",re.I)
 
