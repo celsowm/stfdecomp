@@ -80,3 +80,10 @@ documented partial C corridors. GitHub Actions publishes an updated JSON,
 CSV and Markdown report as a downloadable artifact. This distinguishes
 evidence-backed partial function mapping from **actual full-game decompilation**;
 the latter remains unmeasured, and the original ROM build still uses Assembly.
+
+## STF object rendering investigation
+
+The recovered set_obj, set_obj_tpd and set_obj_thd CPU submission
+adapters preserve their distinct STF original FIFO/GEO commands,
+using fail-closed host callbacks rather than assuming VF2 hardware.
+Read [set_obj recovery and remaining fidelity work](docs/SET_OBJ_RECOVERY.md).

@@ -118,3 +118,16 @@ e 0,4449% de **vínculos restritos** mantém-se separado dessas hipóteses.
 O passo de revisão é: verificar destino na ROM, delimitar o fluxo de controle
 real, identificar o C por semântica, anexar evidência de ROM e comparar estado
 contra uma execução de referência. Só então ampliar o manifesto de cobertura.
+
+## CPU-visible set_obj recovery added after the baseline
+
+The original STF regular set_obj path and the distinct set_obj_tpd and
+set_obj_thd paths now have semantic C adapters with explicit FIFO/GEO
+callbacks. See [SET_OBJ_RECOVERY.md](SET_OBJ_RECOVERY.md) for original
+Assembly lines, command differences from VF2 and CTest evidence.
+
+This is a **new partial recovery target** selected from the original
+899-candidate ranking, but it is not yet credited as ROM byte-exact
+or function-complete by the audit: original function start/end and
+hardware responses still need independent STF evidence. The published
+percentage of complete decompilation stays **unknown**.
