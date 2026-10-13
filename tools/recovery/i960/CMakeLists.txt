@@ -50,6 +50,7 @@ add_library(stf_recovered_game STATIC
     "${STF_REPO_ROOT}/src/recovered/collision_combat_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/collision_particle_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/collision_particle_render.c"
+    "${STF_REPO_ROOT}/src/recovered/collision_particle_frame_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/spark_effect_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/crush_part_runtime.c"
     "${STF_REPO_ROOT}/src/recovered/crush_part_rom_view.c"
