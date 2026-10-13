@@ -30,6 +30,8 @@ typedef struct test_host {
     unsigned device_count;
     unsigned fail_device_at;
     unsigned fifo_reply_count;
+    bool quad_fifo_mode;
+    uint32_t quad_replies[12];
 } test_host;
 
 static void little32(uint8_t *data, uint32_t value)
@@ -72,6 +74,11 @@ static stf_status io_read(void *ctx, uint32_t addr, void *out, size_t len)
         return STF_ERROR_UNSUPPORTED;
     if(addr==UINT32_C(0x00802008)) {
         reply=UINT32_C(0x7000);
+    } else if(f->quad_fifo_mode &&
+              addr >= UINT32_C(0x00884000) &&
+              addr <= UINT32_C(0x0088400C)) {
+        if(f->fifo_reply_count>=12u)return STF_ERROR_UNSUPPORTED;
+        reply=f->quad_replies[f->fifo_reply_count++];
     } else if(addr==UINT32_C(0x00884000)) {
         if(f->fifo_reply_count>=3u)return STF_ERROR_UNSUPPORTED;
         reply=replies[f->fifo_reply_count++];
@@ -389,6 +396,121 @@ static int trace_diff_and_fail_closed(void)
     return 0;
 }
 
+static void setup_quad_responses(test_host *f)
+{
+    unsigned i;
+    f->quad_fifo_mode=true;
+    f->quad_replies[0]=UINT32_C(0x3F800000);
+    for(i=1u;i<11u;++i)
+        f->quad_replies[i]=UINT32_C(0x10000000)+i;
+    f->quad_replies[11]=UINT32_C(0x3E4CCCCD);
+}
+
+static int fifo_bridge_and_shared_tail(void)
+{
+    test_host f;
+    unsigned i;
+    stf_i960_bus *bus;
+    CHECK(init(&f,true,true),36);
+    setup_quad_responses(&f);
+    bus=stf_model2b_bus_i960(&f.bus);
+    f.cpu.registers[18u]=0u; /* input g2, not a RAM pointer */
+    f.cpu.registers[19u]=UINT32_C(0x501400); /* scratch g3 */
+    f.cpu.registers[23u]=UINT32_C(0x501600); /* flags structure g7 */
+    CHECK(stf_i960_bus_write_u32(bus,UINT32_C(0x5017A4),UINT32_C(1)<<26)==STF_OK &&
+          stf_i960_bus_write_u32(bus,UINT32_C(0x501D0C),0u)==STF_OK &&
+          stf_i960_bus_write_u32(bus,UINT32_C(0x5017A8),UINT32_C(0x00040000))==STF_OK,37);
+    /* The halfword at g7+0x1AA is the upper half of g7+0x1A8. */
+    CHECK(stf_set_obj_i960_bridge_execute(
+              &f.cpu,&f.bus,STF_SET_OBJ_I960_FIFO,&f.result),38);
+    CHECK(f.result.invoked && f.result.completed &&
+          f.result.recovery.submitted &&
+          f.result.fifo_quads_consumed==3u &&
+          f.result.fifo_quads_saved==3u &&
+          f.result.fifo_tail==STF_SET_OBJ_FIFO_THD_FLAG26_TAIL &&
+          f.result.g3_rewind_bytes==0u &&
+          f.result.caller_buffer_writes==12u &&
+          f.result.descriptor_reads==5u &&
+          f.result.recovery.completed_operations==30u &&
+          f.device_count==30u &&
+          ram(&f,UINT32_C(0x50101C))==22u &&
+          ram(&f,UINT32_C(0x501010))==34u,39);
+    for(i=0u;i<12u;++i)
+        CHECK(ram(&f,UINT32_C(0x501400)+i*4u)==f.quad_replies[i],40);
+    CHECK(ev(&f,12u,STF_I960_BUS_ACCESS_WRITE,
+              UINT32_C(0x8000B0),UINT32_C(0xB0B)) &&
+          ev(&f,29u,STF_I960_BUS_ACCESS_WRITE,
+              UINT32_C(0x80400C),UINT32_MAX) &&
+          ev(&f,27u,STF_I960_BUS_ACCESS_WRITE,
+              UINT32_C(0x804004),UINT32_C(0x800000)),41);
+    destroy(&f);
+    return 0;
+}
+
+static int three_quad_save_load_bridge(void)
+{
+    test_host f;
+    stf_i960_bus *bus;
+    uint32_t saved[12];
+    unsigned i;
+    CHECK(init(&f,true,true),42);
+    setup_quad_responses(&f);
+    f.cpu.registers[18u]=UINT32_C(0x501500);
+    bus=stf_model2b_bus_i960(&f.bus);
+    CHECK(stf_set_obj_i960_bridge_execute(
+              &f.cpu,&f.bus,STF_SET_OBJ_I960_SAVE,&f.result),43);
+    CHECK(f.result.recovery.submitted &&
+          f.result.recovery.completed_operations==31u &&
+          f.result.caller_buffer_writes==12u &&
+          f.result.caller_buffer_reads==0u &&
+          f.result.fifo_quads_saved==3u &&
+          f.result.g2_advanced_bytes==48u &&
+          f.device_count==31u &&
+          ram(&f,UINT32_C(0x501010))==34u &&
+          ram(&f,UINT32_C(0x50101C))==22u,44);
+    for(i=0u;i<12u;++i) {
+        saved[i]=ram(&f,UINT32_C(0x501500)+i*4u);
+        CHECK(saved[i]==f.quad_replies[i],45);
+    }
+    destroy(&f);
+
+    CHECK(init(&f,true,true),46);
+    f.cpu.registers[18u]=UINT32_C(0x501500);
+    bus=stf_model2b_bus_i960(&f.bus);
+    for(i=0u;i<12u;++i)
+        CHECK(stf_i960_bus_write_u32(
+                  bus,UINT32_C(0x501500)+i*4u,saved[i])==STF_OK,47);
+    CHECK(stf_set_obj_i960_bridge_execute(
+              &f.cpu,&f.bus,STF_SET_OBJ_I960_LOAD,&f.result),48);
+    CHECK(f.result.recovery.submitted &&
+          f.result.recovery.completed_operations==18u &&
+          f.result.caller_buffer_reads==12u &&
+          f.result.caller_buffer_writes==0u &&
+          f.result.g2_advanced_bytes==48u &&
+          f.device_count==18u &&
+          ram(&f,UINT32_C(0x501010))==34u &&
+          ram(&f,UINT32_C(0x50101C))==22u,49);
+    destroy(&f);
+    return 0;
+}
+
+static int invalid_caller_buffer_gate(void)
+{
+    test_host f;
+    CHECK(init(&f,true,true),50);
+    f.cpu.registers[19u]=0u;
+    CHECK(!stf_set_obj_i960_bridge_execute(
+              &f.cpu,&f.bus,STF_SET_OBJ_I960_FIFO,&f.result) &&
+          f.result.last_bus_status==STF_ERROR_OUT_OF_BOUNDS &&
+          !f.result.invoked && f.device_count==0u,51);
+    f.cpu.registers[18u]=UINT32_C(0x5FFFF0);
+    CHECK(!stf_set_obj_i960_bridge_execute(
+              &f.cpu,&f.bus,STF_SET_OBJ_I960_SAVE,&f.result) &&
+          !f.result.invoked && f.device_count==0u,52);
+    destroy(&f);
+    return 0;
+}
+
 int main(void)
 {
     int rc=normal_bridge();
@@ -403,5 +525,11 @@ int main(void)
     if(rc)return rc;
     rc=invalid_config_and_missing_tables();
     if(rc)return rc;
-    return trace_diff_and_fail_closed();
+    rc=trace_diff_and_fail_closed();
+    if(rc)return rc;
+    rc=fifo_bridge_and_shared_tail();
+    if(rc)return rc;
+    rc=three_quad_save_load_bridge();
+    if(rc)return rc;
+    return invalid_caller_buffer_gate();
 }
