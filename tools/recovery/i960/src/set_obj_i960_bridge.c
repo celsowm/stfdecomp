@@ -126,13 +126,18 @@ bool stf_set_obj_i960_bridge_execute(
     uint32_t maximum = 0u;
     uint32_t record_address;
     uint32_t value[4] = {0u, 0u, 0u, 0u};
+    uint32_t caller_words[STF_SET_OBJ_STATE_WORDS] = {0u};
+    uint32_t caller_base = 0u;
+    stf_set_obj_fifo_context fifo_context;
+    stf_set_obj_fifo_result fifo;
+    stf_set_obj_transfer_result transfer;
     bool ran;
     bool committed;
     unsigned i;
 
     if (cpu == NULL || hardware == NULL || result == NULL ||
         entry < STF_SET_OBJ_I960_NORMAL ||
-        entry > STF_SET_OBJ_I960_MIRROR) return false;
+        entry > STF_SET_OBJ_I960_LOAD) return false;
     memset(&out, 0, sizeof(out));
     memset(&state, 0, sizeof(state));
     memset(&model, 0, sizeof(model));
@@ -235,6 +240,71 @@ bool stf_set_obj_i960_bridge_execute(
     model.io = busio;
     model.io_user_data = &bridge;
 
+    /*
+     * Original g3 (FIFO scratch) and g2 (save/load target/source)
+     * point to caller-owned memory. Restrict this adapter to mapped
+     * and word-aligned 48-byte work-RAM windows until other i960
+     * memory ownership evidence is available. A rejected window
+     * never triggers any device effects.
+     */
+    if (entry == STF_SET_OBJ_I960_FIFO ||
+        entry == STF_SET_OBJ_I960_SAVE ||
+        entry == STF_SET_OBJ_I960_LOAD) {
+        caller_base = cpu->registers[
+            entry == STF_SET_OBJ_I960_FIFO ? 19u : 18u];
+        if (caller_base < UINT32_C(0x00500000) ||
+            (uint64_t)caller_base + UINT64_C(48) > UINT64_C(0x00600000) ||
+            (caller_base & UINT32_C(3)) != 0u) {
+            out.last_bus_status = STF_ERROR_OUT_OF_BOUNDS;
+            free(table);
+            *result = out;
+            return false;
+        }
+        if (entry == STF_SET_OBJ_I960_LOAD) {
+            for (i = 0u; i < STF_SET_OBJ_STATE_WORDS; ++i) {
+                out.last_bus_status = stf_i960_bus_read_u32(
+                    bus, caller_base + i * UINT32_C(4), &caller_words[i]);
+                if (out.last_bus_status != STF_OK) {
+                    free(table);
+                    *result = out;
+                    return false;
+                }
+                ++out.caller_buffer_reads;
+            }
+        }
+    }
+    memset(&fifo, 0, sizeof(fifo));
+    memset(&transfer, 0, sizeof(transfer));
+    memset(&fifo_context, 0, sizeof(fifo_context));
+    if (entry == STF_SET_OBJ_I960_FIFO) {
+        const uint32_t g7 = cpu->registers[23u];
+        uint8_t half[2];
+        if (g7 > UINT32_MAX - UINT32_C(0x70C) ||
+            !read32(bus, g7 + UINT32_C(0x1A4),
+                    &fifo_context.g7_flags_1a4, &out, false) ||
+            !read32(bus, g7 + UINT32_C(0x70C),
+                    &fifo_context.g7_flags_70c, &out, false)) {
+            if (out.last_bus_status == STF_OK)
+                out.last_bus_status = STF_ERROR_OUT_OF_BOUNDS;
+            free(table);
+            *result = out;
+            return false;
+        }
+        out.last_bus_status = stf_i960_bus_read(
+            bus, g7 + UINT32_C(0x1AA), half, sizeof(half));
+        if (out.last_bus_status != STF_OK) {
+            free(table);
+            *result = out;
+            return false;
+        }
+        ++out.work_ram_reads;
+        fifo_context.g7_short_1aa =
+            (uint16_t)((uint16_t)half[0] | ((uint16_t)half[1] << 8u));
+        fifo_context.input_g2 = cpu->registers[18u];
+        fifo_context.g3_words = caller_words;
+        fifo_context.g3_word_capacity = STF_SET_OBJ_STATE_WORDS;
+    }
+
     /* There is no opcode substitution here. This is the recovered
      * C routine applied at an explicit CPU call-boundary snapshot. */
     out.invoked = true;
@@ -261,14 +331,55 @@ bool stf_set_obj_i960_bridge_execute(
         case STF_SET_OBJ_I960_MIRROR:
             ran = stf_set_obj_mirror_apply_model2(&model, &out.recovery);
             break;
+        case STF_SET_OBJ_I960_FIFO:
+            ran = stf_set_obj_fifo_apply_model2(&model, &fifo_context, &fifo);
+            out.recovery = fifo.object;
+            out.fifo_quads_consumed = fifo.quads_read;
+            out.fifo_quads_saved = fifo.quads_saved;
+            out.fifo_tail = fifo.tail;
+            out.g3_rewind_bytes = fifo.g3_bytes_rewound;
+            break;
+        case STF_SET_OBJ_I960_SAVE:
+        case STF_SET_OBJ_I960_LOAD:
+            ran = stf_set_obj_transfer_apply_model2(
+                &model, entry == STF_SET_OBJ_I960_SAVE ?
+                STF_SET_OBJ_SAVE : STF_SET_OBJ_LOAD,
+                caller_words, STF_SET_OBJ_STATE_WORDS, &transfer);
+            out.recovery = transfer.object;
+            out.fifo_quads_saved = transfer.completed_quads;
+            out.g2_advanced_bytes = transfer.g2_bytes_advanced;
+            break;
         default:
             ran = false;
             break;
     }
 
+    /*
+     * Save only quads that the recovered routine fully committed.
+     * This stage intentionally follows the semantic adapter rather
+     * than claiming instruction-level bus interleaving. A later RAM
+     * fault preserves any earlier successful device and memory I/O.
+     */
+    if (entry == STF_SET_OBJ_I960_FIFO ||
+        entry == STF_SET_OBJ_I960_SAVE) {
+        const unsigned words = entry == STF_SET_OBJ_I960_FIFO ?
+            fifo.words_saved : transfer.saved_words_committed;
+        for (i = 0u; i < words; ++i) {
+            out.last_bus_status = stf_i960_bus_write_u32(
+                bus, caller_base + i * UINT32_C(4), caller_words[i]);
+            if (out.last_bus_status != STF_OK) {
+                ran = false;
+                break;
+            }
+            ++out.caller_buffer_writes;
+        }
+    }
     out.after = state;
     out.completed = ran;
-    out.last_bus_status = bridge.last_status;
+    /* Preserve a failed caller-buffer write; otherwise the last
+     * device access status remains available until global RAM commits. */
+    if (out.last_bus_status == STF_OK)
+        out.last_bus_status = bridge.last_status;
     /* If recovered C rejected invalid original record, device
      * status is still OK; caller can examine invoked/completed
      * and recovery.validated_record separately. */
