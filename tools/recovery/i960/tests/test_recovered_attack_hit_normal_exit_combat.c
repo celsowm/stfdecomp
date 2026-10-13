@@ -1449,5 +1449,50 @@ int main(void)
         !s.output.pairs[0].normal_rings_processed)
         { fprintf(stderr, "normal ROM sound and damage scenario 75 failed\n"); return 75; }
 
+    /* ROM voice list with an immediate terminator is a genuine silent
+     * list: resolve it but do not dispatch an empty audio event. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.fighters[1][0x823u] = 1u;
+    wr32(s.sound_rom_bytes + 0x844u, 0u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_sound_plan.kind != STF_ATTACK_HIT_SOUND_LIST ||
+        !s.output.pairs[0].normal_sound_resolved ||
+        s.output.pairs[0].normal_sound_ids.id_count != 0u ||
+        s.output.pairs[0].normal_sound_delivered ||
+        s.callbacks.sound_event_calls != 0u ||
+        s.callbacks.normal_calls != 1u)
+        { fprintf(stderr, "normal ROM empty voice list scenario 76 failed\n"); return 76; }
+
+    /* Sonic Championship uses different sound table addresses from
+     * sfight. The same recovered plan must honor the version-specific
+     * base, rather than reading the sfight table by accident. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.sound_rom.use_schamp_addresses = true;
+    s.sound_rom.base_address = UINT32_C(0x000DB800);
+    wr32(s.sound_rom_bytes + 0x2Cu + 4u, UINT32_C(0xCAFE));
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_sound_delivered ||
+        s.callbacks.sound_first_id != UINT32_C(0xCAFE) ||
+        s.callbacks.sound_event_calls != 1u)
+        { fprintf(stderr, "schamp ROM sound address scenario 77 failed\n"); return 77; }
+
+    /* Actual transformed damage 20->10 chooses LIGHT tier, not MEDIUM:
+     * the pre-transform initial_damage is NOT passed to sound selection. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    wr32(s.fighters[1], UINT32_C(1) << 18u);
+    wr32(s.sound_rom_bytes + 0xF4u, UINT32_C(0xA100));
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_hit.damage.damage != UINT32_C(10) ||
+        s.output.pairs[0].normal_sound_plan.tier !=
+            STF_ATTACK_HIT_SOUND_TIER_LIGHT ||
+        s.callbacks.sound_first_id != UINT32_C(0xA100))
+        { fprintf(stderr, "normal ROM sound transformed damage scenario 78 failed\n"); return 78; }
+
     return 0;
 }
