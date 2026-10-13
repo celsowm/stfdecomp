@@ -23,7 +23,10 @@ typedef enum stf_set_obj_i960_entry {
     STF_SET_OBJ_I960_THD = 3,
     STF_SET_OBJ_I960_COMMON = 4,
     STF_SET_OBJ_I960_SAME = 5,
-    STF_SET_OBJ_I960_MIRROR = 6
+    STF_SET_OBJ_I960_MIRROR = 6,
+    STF_SET_OBJ_I960_FIFO = 7,
+    STF_SET_OBJ_I960_SAVE = 8,
+    STF_SET_OBJ_I960_LOAD = 9
 } stf_set_obj_i960_entry;
 
 typedef struct stf_set_obj_i960_bridge_result {
@@ -40,6 +43,13 @@ typedef struct stf_set_obj_i960_bridge_result {
     unsigned descriptor_reads;
     unsigned work_ram_reads;
     unsigned work_ram_writes;
+    unsigned caller_buffer_reads;
+    unsigned caller_buffer_writes;
+    unsigned fifo_quads_consumed;
+    unsigned fifo_quads_saved;
+    unsigned g3_rewind_bytes;
+    unsigned g2_advanced_bytes;
+    stf_set_obj_fifo_tail fifo_tail;
 } stf_set_obj_i960_bridge_result;
 
 /*
@@ -53,6 +63,11 @@ typedef struct stf_set_obj_i960_bridge_result {
  * Changes to the five work-RAM globals are committed to the bus after
  * the semantic routine returns, including partial changes on faults.
  * The commit phase is not interleaved with original i960 instructions.
+ *
+ * FIFO and SAVE/LOAD also bind original g3/g2 pointers through the
+ * bus. Their callback order matches the device IO adapter, but buffer
+ * stores are committed at the call boundary, not interleaved cycle by
+ * cycle with original i960 stq instructions.
  *
  * Unknown GEO/FIFO behavior is never supplied implicitly: without
  * explicitly configured device callbacks, access fails closed.
