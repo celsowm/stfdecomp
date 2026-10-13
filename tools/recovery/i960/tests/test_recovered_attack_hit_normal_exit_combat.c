@@ -39,6 +39,12 @@ typedef struct hooks {
     bool verify_pre_damage;
     bool fail_damage_event;
     unsigned damage_event_calls;
+    unsigned sound_event_calls;
+    uint32_t sound_first_id;
+    size_t sound_id_count;
+    stf_attack_hit_sound_kind sound_kind;
+    bool fail_sound_event;
+    bool verify_sound_before_tail;
     unsigned damage_ring_events;
     uint8_t *damage_defender;
     uint8_t *damage_attacker;
@@ -141,6 +147,27 @@ static bool replay_tgp_motion(
     return true;
 }
 
+/* Test-only audio dispatcher. It observes the recovered ROM IDs and
+ * executes before the remainder normal tail and damage accounting. */
+static bool consume_sound_event(
+    void *userdata, uint8_t attacker_index, uint8_t defender_index,
+    const stf_attack_hit_sound_plan *plan,
+    const stf_attack_hit_sound_resolved *sounds)
+{
+    hooks *h = (hooks *)userdata;
+    if (attacker_index != 1u || defender_index != 0u ||
+        plan == NULL || sounds == NULL ||
+        plan->kind == STF_ATTACK_HIT_SOUND_NONE ||
+        sounds->id_count == 0u ||
+        h->normal_calls != 0u || h->damage_event_calls != 0u)
+        return false;
+    ++h->sound_event_calls;
+    h->sound_first_id = sounds->ids[0];
+    h->sound_id_count = sounds->id_count;
+    h->sound_kind = plan->kind;
+    return !h->fail_sound_event;
+}
+
 static bool consume_damage_event(
     void *userdata, uint8_t attacker_index, uint8_t defender_index,
     const stf_damage_calculation_result *damage,
@@ -195,6 +222,8 @@ static bool normal_tail(
         side->path != STF_ATTACK_SIDE_EXIT_CONTINUE ||
         rd32(attacker + 0x1234u) != 1u) return false;
     ++h->normal_calls;
+    if (h->verify_sound_before_tail && h->sound_event_calls != 1u)
+        return false;
     if (h->verify_knockback &&
         (rd32(defender + 0x198u) != UINT32_C(0x08000177) ||
          rd32(defender + 0x5E8u) == 0u ||
@@ -241,6 +270,8 @@ typedef struct scene {
     uint8_t profiles[PROFILE_SIZE];
     uint8_t knockback_rom_bytes[4096];
     stf_motion_hit_rom_view knockback_rom;
+    uint8_t sound_rom_bytes[0xC00u];
+    stf_attack_hit_sound_rom_view sound_rom;
     uint8_t selector_blocks[2][STF_SET_KAMAE_FULL_SELECTOR_MIN_SIZE];
     uint8_t stances[2][2048];
     stf_ring_pool ring_pool;
@@ -300,6 +331,20 @@ static void init(scene *s)
     s->model.normal_initial_damage[1] = UINT32_C(20);
     s->model.normal_energy_max = INT16_C(200);
     s->model.normal_disable_energy_scaling = true;
+    s->sound_rom.image = s->sound_rom_bytes;
+    s->sound_rom.image_size = sizeof(s->sound_rom_bytes);
+    s->sound_rom.base_address = UINT32_C(0x000DB600);
+    s->sound_rom.use_schamp_addresses = false;
+    s->model.normal_sound_rom = &s->sound_rom;
+    s->model.normal_sound_event = consume_sound_event;
+    s->model.normal_sound_event_user_data = &s->callbacks;
+    /* Synthetic local ROM table rows, NOT copyrighted ROM bytes. */
+    wr32(s->sound_rom_bytes + 0xF4u + 4u, UINT32_C(0xA101));
+    wr32(s->sound_rom_bytes + 0x364u + 4u, UINT32_C(0xA201));
+    wr32(s->sound_rom_bytes + 0x844u, UINT32_C(0xB101));
+    wr32(s->sound_rom_bytes + 0x848u, UINT32_C(0xB102));
+    wr32(s->sound_rom_bytes + 0x94Cu, UINT32_C(0xB201));
+    wr32(s->sound_rom_bytes + 0x8CCu, UINT32_C(0xB301));
     s->knockback_rom.image = s->knockback_rom_bytes;
     s->knockback_rom.image_size = sizeof(s->knockback_rom_bytes);
     s->knockback_rom.base_address = UINT32_C(0x00100000);
@@ -1250,6 +1295,159 @@ int main(void)
         rd32(s.fighters[0] + 0x5E0u) != 0u ||
         s.callbacks.normal_calls != 0u)
         { fprintf(stderr, "TGP oracle incomplete replay scenario 63 failed\n"); return 63; }
+
+    /* The sound selector uses POST-transform damage and original ROM
+     * table addresses; the audio event is dispatched before normal_tail. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.callbacks.verify_sound_before_tail = true;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_sound_planned ||
+        !s.output.pairs[0].normal_sound_resolved ||
+        !s.output.pairs[0].normal_sound_delivered ||
+        s.output.pairs[0].normal_sound_plan.kind !=
+            STF_ATTACK_HIT_SOUND_SINGLE ||
+        s.output.pairs[0].normal_sound_plan.tier !=
+            STF_ATTACK_HIT_SOUND_TIER_MEDIUM ||
+        s.callbacks.sound_event_calls != 1u ||
+        s.callbacks.sound_first_id != UINT32_C(0xA101) ||
+        s.callbacks.sound_id_count != 1u ||
+        s.callbacks.normal_calls != 1u ||
+        !s.output.pairs[0].damage_completed)
+        { fprintf(stderr, "normal ROM sound single scenario 64 failed\n"); return 64; }
+
+    /* Voice-list plans follow original attacker +0x823 selection and
+     * return every ID until the terminator, never a guessed audio ID. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.fighters[1][0x823u] = 1u;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_sound_plan.kind !=
+            STF_ATTACK_HIT_SOUND_LIST ||
+        s.output.pairs[0].normal_sound_plan.source !=
+            STF_ATTACK_HIT_SOUND_SOURCE_OFF_DBE44 ||
+        s.callbacks.sound_event_calls != 1u ||
+        s.callbacks.sound_first_id != UINT32_C(0xB101) ||
+        s.callbacks.sound_id_count != 2u ||
+        s.output.pairs[0].normal_sound_ids.ids[1] != UINT32_C(0xB102))
+        { fprintf(stderr, "normal ROM sound list scenario 65 failed\n"); return 65; }
+
+    /* Other voice table family (character 3) and alternate single
+     * attacker kinds use their actual per-version base addresses. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.fighters[1][0x823u] = 1u;
+    s.fighters[0][0x1B1u] = 3u;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_sound_plan.source !=
+            STF_ATTACK_HIT_SOUND_SOURCE_OFF_DBF4C ||
+        s.callbacks.sound_first_id != UINT32_C(0xB201))
+        { fprintf(stderr, "normal ROM sound character3 scenario 66 failed\n"); return 66; }
+
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.fighters[1][0x820u] = 3u;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.output.pairs[0].normal_sound_plan.source !=
+            STF_ATTACK_HIT_SOUND_SOURCE_DWORD_DB964 ||
+        s.callbacks.sound_first_id != UINT32_C(0xA201))
+        { fprintf(stderr, "normal ROM sound kind3 scenario 67 failed\n"); return 67; }
+
+    /* Sound muted by attacker +0x1A4 bit18: still resolve NONE, but
+     * never emit a fake empty audio event. Remaining tail executes. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    wr32(s.fighters[1] + 0x1A4u, UINT32_C(1) << 18u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_sound_resolved ||
+        s.output.pairs[0].normal_sound_plan.kind != STF_ATTACK_HIT_SOUND_NONE ||
+        s.output.pairs[0].normal_sound_delivered ||
+        s.callbacks.sound_event_calls != 0u ||
+        s.callbacks.normal_calls != 1u)
+        { fprintf(stderr, "normal ROM sound muted scenario 68 failed\n"); return 68; }
+
+    /* Invalid table entry fails after CPU reaction, before tail/damage. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    wr32(s.sound_rom_bytes + 0xF4u + 4u, 0u);
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_sound_planned ||
+        s.output.pairs[0].normal_sound_resolved ||
+        s.output.pairs[0].normal_sound_delivered ||
+        s.callbacks.sound_event_calls != 0u ||
+        s.callbacks.normal_calls != 0u ||
+        s.output.pairs[0].damage_completed)
+        { fprintf(stderr, "normal ROM sound invalid row scenario 69 failed\n"); return 69; }
+
+    /* Audio sink failure reports selection and ROM resolution, but
+     * does not call the tail or post-hit damage after this boundary. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.callbacks.fail_sound_event = true;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_sound_resolved ||
+        s.output.pairs[0].normal_sound_delivered ||
+        s.callbacks.sound_event_calls != 1u ||
+        s.callbacks.normal_calls != 0u ||
+        s.output.pairs[0].damage_completed)
+        { fprintf(stderr, "normal ROM sound sink failure scenario 70 failed\n"); return 70; }
+
+    /* All normal early aborts skip the sound plan and the event. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    wr32(s.fighters[1] + 0x5B8u, 1u);
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        !s.output.pairs[0].normal_exit_aborted ||
+        s.output.pairs[0].normal_sound_planned ||
+        s.callbacks.sound_event_calls != 0u)
+        { fprintf(stderr, "normal ROM sound abort scenario 71 failed\n"); return 71; }
+
+    /* Missing source ROM or sink, or missing recovered normal hit,
+     * all fail BEFORE the attacker prefix mutates lifecycle counters. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.model.normal_sound_rom = NULL;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u)
+        { fprintf(stderr, "normal ROM sound preflight ROM scenario 72 failed\n"); return 72; }
+
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.model.normal_sound_event = NULL;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u)
+        { fprintf(stderr, "normal ROM sound preflight sink scenario 73 failed\n"); return 73; }
+
+    init(&s);
+    s.model.recover_normal_sound = true;
+    if (stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        rd32(s.fighters[1] + 0x1234u) != 0u)
+        { fprintf(stderr, "normal ROM sound preflight parent scenario 74 failed\n"); return 74; }
+
+    /* Sound delivery occurs before ring-sound post-damage callback,
+     * while pre-existing damage and scatter recovery remain enabled. */
+    init(&s);
+    s.model.recover_normal_hit = true;
+    s.model.recover_normal_sound = true;
+    s.model.recover_normal_damage = true;
+    s.model.recover_normal_ring_scatter = true;
+    if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
+        s.callbacks.sound_event_calls != 1u ||
+        s.callbacks.damage_event_calls != 1u ||
+        !s.output.pairs[0].normal_sound_delivered ||
+        !s.output.pairs[0].normal_damage_applied ||
+        !s.output.pairs[0].normal_rings_processed)
+        { fprintf(stderr, "normal ROM sound and damage scenario 75 failed\n"); return 75; }
 
     return 0;
 }
