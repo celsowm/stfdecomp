@@ -1,0 +1,32 @@
+name: decomp-progress
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "src/asm/**"
+      - "src/recovered/**"
+      - "src/include/**"
+      - "tools/recovery/decomp_progress.py"
+      - "tools/recovery/decomp_evidence.json"
+      - "tools/recovery/test_decomp_progress.py"
+      - ".github/workflows/decomp-progress.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test progress counter
+        run: python -m unittest discover -s tools/recovery -p "test_decomp_progress.py" -v
+      - name: Inventory original Assembly and mapped C corridors
+        run: python tools/recovery/decomp_progress.py --out-dir build/decomp-progress
+      - name: Publish audit in workflow summary
+        run: cat build/decomp-progress/DECOMP_PROGRESS.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: decomp-progress-report
+          path: build/decomp-progress/
+          if-no-files-found: error

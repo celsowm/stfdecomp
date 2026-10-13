@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "corridors": [
+    {
+      "id": "attack_hit_prefix",
+      "start": "0x2A858",
+      "end": "0x2A8F8",
+      "owner_symbols": [
+        "attack_hit"
+      ],
+      "c_sources": [
+        "src/recovered/attack_hit.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "attack_hit_strength",
+      "start": "0x2A8F8",
+      "end": "0x2A9F0",
+      "owner_symbols": [
+        "attack_hit"
+      ],
+      "c_sources": [
+        "src/recovered/attack_hit_strength.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "guard_common",
+      "start": "0x2AC84",
+      "end": "0x2AE28",
+      "owner_symbols": [
+        "attack_hit"
+      ],
+      "c_sources": [
+        "src/recovered/attack_hit_guard_common.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "guard_precheck",
+      "start": "0x2AC74",
+      "end": "0x2AC84",
+      "owner_symbols": [
+        "attack_hit"
+      ],
+      "c_sources": [
+        "src/recovered/attack_hit_side_exit.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "normal_side_exit",
+      "start": "0x2AE40",
+      "end": "0x2AFB8",
+      "owner_symbols": [
+        "attack_hit"
+      ],
+      "c_sources": [
+        "src/recovered/attack_hit_side_exit.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "normal_hit_sound",
+      "start": "0x2B33C",
+      "end": "0x2B3FC",
+      "owner_symbols": [
+        "attack_hit"
+      ],
+      "c_sources": [
+        "src/recovered/attack_hit_sound.c",
+        "src/recovered/attack_hit_sound_rom_view.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "guard_vector",
+      "start": "0x2B738",
+      "end": "0x2B898",
+      "owner_symbols": [
+        "attack_hit"
+      ],
+      "c_sources": [
+        "src/recovered/attack_hit_guard_vector.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "abort_cleanup",
+      "start": "0x2B8C8",
+      "end": "0x2B900",
+      "owner_symbols": [
+        "attack_hit"
+      ],
+      "c_sources": [
+        "src/recovered/attack_hit_side_exit.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "hit_motion_selector",
+      "start": "0x2B94C",
+      "end": "0x2BA68",
+      "owner_symbols": [
+        "sub_2B94C"
+      ],
+      "c_sources": [
+        "src/recovered/hit_motion_selector.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "damage_calculation",
+      "start": "0x196DC",
+      "end": "0x197C0",
+      "owner_symbols": [
+        "damage_calculation"
+      ],
+      "c_sources": [
+        "src/recovered/damage_calculation.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "total_skill_adder",
+      "start": "0x2E1B8",
+      "end": "0x2E210",
+      "owner_symbols": [
+        "sub_2E1B8"
+      ],
+      "c_sources": [
+        "src/recovered/skill_accounting.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    },
+    {
+      "id": "set_kamae_wrapper",
+      "start": "0x2F258",
+      "end": "0x2F2AC",
+      "owner_symbols": [
+        "set_kamae_ram"
+      ],
+      "c_sources": [
+        "src/recovered/set_kamae_runtime.c"
+      ],
+      "reference": "tools/recovery/validate_sfight_rom.py",
+      "status": "partial"
+    }
+  ]
+}
