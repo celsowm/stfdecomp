@@ -1332,3 +1332,60 @@ combat-corridor boundary; it is not yet a bit-/cycle-exact hardware
 audio trace. Regression coverage uses synthetic backend callbacks
 and validates knock selection, no-sound paths, audio before TGP,
 cane after skill, early abort, backend failure and preflight.
+
+
+### Ordered damage_unit particle requests and sub_32A5C allocation
+
+The ordered combat loop now optionally connects two CPU recovery
+corridors that previously required separate calls:
+
+1. `stf_damage_unit_runtime_apply_model2` completes the original
+   per-hit `damage_unit` and `damage_unit_post` branches, emitting
+   `request_particle_setup`, `particle_draw_kind=1`, and
+   `particle_flag_set_mask=1` where the recovered workspace flags
+   request a particle.
+2. `stf_damage_unit_particle_flow_apply_model2` applies those exact
+   staging writes, then calls the recovered `sub_32A5C` allocator
+   against the caller-supplied collision-particle RAM slots.
+
+Set `recover_damage_particles=true` and bind
+`damage_particle_descriptors` (the real ROM descriptor table),
+`damage_particle_slots` and `damage_particle_slots_size` (live
+0x24-byte collision-particle slot records), and
+`damage_particle_stage` (the caller's staged position vectors and
+flags, corresponding to the original 0x50A3FC / 0x50A408 globals).
+`also_sub_mode=0x1A` or `0x1B` requires a 32-slot buffer;
+all other modes require at least 16 slots. Missing bindings and
+undersized buffers are rejected **before the attack prefix mutates
+the fighters**. No effect address or asset bytes are fabricated.
+
+After each non-skipped `damage_unit` transaction and its post tail,
+the combat loop invokes the particle flow once, before marking the
+pair complete. A post tail with no particle request is a no-op and
+does not clear the staged position, flags or unrelated draw state.
+A skipped `damage_unit` never invokes the particle flow.
+A requested particle consumes the staging fields, preserving the
+recovered flag-OR behavior; the allocator scans first free slots in
+the original order. If the selected pool is full it *successfully*
+consumes the request with `allocated=false`, as the recovered
+allocator does, instead of forging a new slot or aborting a hit.
+
+The result exposes `pair.damage_particle_processed` and
+`pair.damage_particle` (request, allocation flag, slot index and
+slot-limit). Errors after the `damage_unit` CPU writes do not roll
+back those writes. With the opt-in disabled, the existing
+`damage_unit` behavior and caller-owned particle memory are
+unchanged. A caller that enables this corridor must not separately
+reissue the already-consumed `damage_unit` particle request.
+
+The dedicated CTest
+`stf_recovered_collision_damage_particle_combat_tests` validates
+single and dual ordered hits, one allocation per eligible request,
+the non-request and skipped routes, a full 16-slot pool, special
+32-slot access (including slot 16), missing/undersized buffers,
+and legacy opt-out. The descriptor addresses in the tests are
+**synthetic**, not extracted original ROM asset pointers.
+
+This reconstructs CPU-visible particle allocation and storage.
+A graphical emitter, frame rendering, true effects from ROM and
+cycle-exact particle timing remain separate tasks.
