@@ -20,6 +20,7 @@
 #include "collision_attack.h"
 #include "collision_hit_order.h"
 #include "damage_unit_runtime.h"
+#include "damage_unit_particle_flow.h"
 #include "damage_calculation.h"
 #include "ring_scatter_damage_flow.h"
 #include "tgp_command_trace.h"
@@ -172,6 +173,18 @@ typedef struct stf_collision_combat_model2 {
     uint8_t num_rounds_to_win;
     uint8_t also_mode;
     uint8_t also_sub_mode;
+
+    /* Optional original damage_unit -> collision_particle_effects/32A5C
+     * dispatch. Uses caller-backed ROM descriptors, staged 0x50A3FC/
+     * 0x50A408 vectors, request flags and 16/32-slot RAM pool.
+     * Requires a valid buffer for the selected also_sub_mode BEFORE
+     * combat starts; no default synthetic asset/effect addresses. */
+    bool recover_damage_particles;
+    const stf_collision_particle_descriptor *damage_particle_descriptors;
+    uint8_t *damage_particle_slots;
+    size_t damage_particle_slots_size;
+    stf_collision_particle_stage *damage_particle_stage;
+
     stf_collision_attack_hit_body_fn attack_body;
     void *attack_body_user_data;
     /* Optional genuine sub_19888 path for defender +0x19F==0x12. */
@@ -307,6 +320,8 @@ typedef struct stf_collision_combat_pair_result {
     uint8_t defender_index;
     stf_attack_hit_prefix_result prefix;
     stf_damage_unit_runtime_result damage;
+    bool damage_particle_processed;
+    stf_damage_unit_particle_flow_result damage_particle;
     bool prefix_applied;
     bool special_applied;
     bool normal_entry_applied;

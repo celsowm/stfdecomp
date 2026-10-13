@@ -126,6 +126,16 @@ bool stf_collision_combat_apply_model2(
           model->normal_ring_slots == NULL)) ||
         (model->recover_guard_skill &&
          (model->guard_common_tail == NULL || model->total_skill == NULL)) ||
+        (model->recover_damage_particles &&
+         (model->damage_particle_descriptors == NULL ||
+          model->damage_particle_slots == NULL ||
+          model->damage_particle_stage == NULL ||
+          model->damage_particle_slots_size <
+              (size_t)((model->also_sub_mode == UINT8_C(0x1A) ||
+                         model->also_sub_mode == UINT8_C(0x1B))
+                  ? STF_COLLISION_PARTICLE_EXTENDED_SLOTS
+                  : STF_COLLISION_PARTICLE_NORMAL_SLOTS) *
+                  STF_COLLISION_PARTICLE_SLOT_SIZE)) ||
         (model->recover_guard_audio &&
          (model->guard_audio_event == NULL ||
           (model->guard_tail == NULL &&
@@ -743,6 +753,25 @@ bool stf_collision_combat_apply_model2(
             return false;
         }
         pair->damage_completed = true;
+        /* Recovered damage_unit_post returns the exact particle request
+         * and stage-flag mask. Consume it with the recovered sub_32A5C
+         * allocator, only after a non-skipped damage_unit transaction.
+         * An exhausted slot pool is an original no-allocation success;
+         * malformed descriptor/buffer failures abort without rollback. */
+        if (model->recover_damage_particles &&
+            !pair->damage.damage.skipped && pair->damage.post_applied) {
+            if (!stf_damage_unit_particle_flow_apply_model2(
+                    &pair->damage.post, model->also_sub_mode,
+                    model->damage_particle_descriptors,
+                    model->damage_particle_slots,
+                    model->damage_particle_slots_size,
+                    model->damage_particle_stage,
+                    &pair->damage_particle)) {
+                *result = local;
+                return false;
+            }
+            pair->damage_particle_processed = true;
+        }
         ++local.completed;
     }
 
