@@ -21,7 +21,7 @@ AS := gas
 NM := nm
 RECOVERY_BUILD_DIR := build/recovery-i960
 
-.PHONY: all clean symbols recovery recovery-test recovery-boot recovery-coli-init
+.PHONY: all clean symbols recovery recovery-test recovery-boot recovery-coli-init decomp-audit
 
 all:
 	# Intialize the directories
@@ -62,6 +62,11 @@ symbols: all
 recovery:
 	cmake -S tools/recovery/i960 -B $(RECOVERY_BUILD_DIR) -DCMAKE_BUILD_TYPE=Release
 	cmake --build $(RECOVERY_BUILD_DIR) --config Release
+
+
+decomp-audit:
+	$(PYTHON) -m unittest discover -s tools/recovery -p "test_decomp_progress.py" -v
+	$(PYTHON) tools/recovery/decomp_progress.py --out-dir $(BUILD_DIR)/decomp-progress
 
 recovery-test: recovery
 	ctest --test-dir $(RECOVERY_BUILD_DIR) -C Release --output-on-failure

@@ -72,3 +72,11 @@ This is a work-in-progress project of disassembled code from Sonic the Fighters 
 ## What this project _is not_:
 
 This project is not open source. Just like its predecessor, [stfdisasm](https://github.com/biggestsonicfan/stfdisasm), it is source-available. This code is [not licensed](https://choosealicense.com/no-permission/), and as such, all rights are reserved. GitHub's terms of service [allow users to view and fork the repository within the GitHub site](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository#choosing-the-right-license), and this allows for pull requests. The code may become licensed someday, but for now it will remain source-available for research purposes.
+## Recovery coverage tracking
+
+The fork now includes a reproducible [decompilation audit](docs/DECOMP_PROGRESS.md).
+Run `make decomp-audit` to inventory Assembly function candidates and
+documented partial C corridors. GitHub Actions publishes an updated JSON,
+CSV and Markdown report as a downloadable artifact. This distinguishes
+evidence-backed partial function mapping from **actual full-game decompilation**;
+the latter remains unmeasured, and the original ROM build still uses Assembly.

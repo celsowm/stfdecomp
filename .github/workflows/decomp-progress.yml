@@ -11,6 +11,9 @@ on:
       - "tools/recovery/decomp_evidence.json"
       - "tools/recovery/test_decomp_progress.py"
       - ".github/workflows/decomp-progress.yml"
+      - "docs/DECOMP_PROGRESS.md"
+      - "README.md"
+      - "Makefile"
 
 jobs:
   audit:
