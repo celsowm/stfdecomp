@@ -209,6 +209,125 @@ static int test_partial_failure_boundaries(void)
     return 0;
 }
 
+static bool special_events_match(fixture *f, bool thd, bool extended)
+{
+    const uint32_t *src = extended ? f->extended[1].word :
+                                    f->standard[2].word;
+    uint32_t quad[4] = {src[0], src[1], src[2], UINT32_MAX};
+    const event base[] = {
+        {STF_SET_OBJ_GEO_WRITE,0xB0u,UINT32_C(0xB0B)},
+        {STF_SET_OBJ_FIFO_WRITE,0x40u,UINT32_C(0x1A003434)},
+        {STF_SET_OBJ_GEO_READ,0x2008u,0u},
+        {STF_SET_OBJ_GEO_WRITE,0x1008u,UINT32_C(0x7030)},
+        {STF_SET_OBJ_FIFO_WRITE,0x40u,UINT32_C(0x7000)},
+        {STF_SET_OBJ_FIFO_READ,0x40u,0u},
+        {STF_SET_OBJ_GEO_WRITE,0x10u,UINT32_C(0x101)}
+    };
+    unsigned i;
+    if (f->calls != 11u) return false;
+    quad[thd ? 1u : 0u] = UINT32_C(0xFEDCBA98);
+    for (i=0u;i<7u;++i) {
+        if (f->log[i].kind != base[i].kind ||
+            f->log[i].offset != base[i].offset ||
+            f->log[i].value != base[i].value) return false;
+    }
+    for (i=0u;i<4u;++i) {
+        if (f->log[i+7u].kind != STF_SET_OBJ_GEO_WRITE ||
+            f->log[i+7u].offset != UINT32_C(0x40) + i * 4u ||
+            f->log[i+7u].value != quad[i]) return false;
+    }
+    return true;
+}
+
+static int test_tpd_and_thd(void)
+{
+    fixture f;
+    stf_set_obj_special_kind kind;
+    unsigned version;
+    for (version=0u;version<4u;++version) {
+        const bool thd=(version&1u)!=0u;
+        const bool extended=(version&2u)!=0u;
+        uint32_t expected_polygon;
+        init(&f);
+        kind=thd?STF_SET_OBJ_THD:STF_SET_OBJ_TPD;
+        if (extended) {
+            f.model.object_selector_g0=UINT32_C(0x8001);
+        }
+        expected_polygon=17u+(extended?3u:UINT32_C(0x5555));
+        CHECK(stf_set_obj_special_apply_model2(
+                  &f.model,kind,UINT32_C(0xFEDCBA98),&f.result),18);
+        CHECK(f.result.submitted && f.result.validated_record &&
+              !f.result.gate_closed &&
+              f.result.used_extended==extended &&
+              f.result.selected_index==(extended?1u:2u) &&
+              f.result.selected_table_address==
+                  (extended?UINT32_C(0x0647F014):UINT32_C(0x020E0024)) &&
+              f.result.completed_operations==11u &&
+              f.result.fifo_writes==2u && f.result.fifo_reads==1u &&
+              f.result.geo_reads==1u && f.result.geo_writes==7u &&
+              f.state.polygon_counter==34u &&
+              f.state.polygon==expected_polygon &&
+              f.state.p2_polygon==5u &&
+              f.state.previous_polygon==77u,19);
+        CHECK(special_events_match(&f,thd,extended),20);
+    }
+    return 0;
+}
+
+static int test_special_gate_and_invalid_selector(void)
+{
+    fixture f;
+    stf_set_obj_state before;
+    init(&f);
+    f.state.polygon=101u;
+    f.model.io=NULL;
+    CHECK(stf_set_obj_special_apply_model2(
+              &f.model,STF_SET_OBJ_TPD,4u,&f.result) &&
+          f.result.gate_closed && f.calls==0u &&
+          f.state.polygon_counter==33u,21);
+
+    init(&f);
+    f.model.max_poly=1u;
+    before=f.state;
+    CHECK(!stf_set_obj_special_apply_model2(
+               &f.model,STF_SET_OBJ_TPD,4u,&f.result) &&
+          f.result.completed_operations==6u &&
+          f.calls==6u && !f.result.validated_record &&
+          memcmp(&before,&f.state,sizeof(before))==0,22);
+
+    init(&f);
+    f.standard[2].word[0]=0u;
+    CHECK(!stf_set_obj_special_apply_model2(
+              &f.model,STF_SET_OBJ_THD,4u,&f.result) &&
+          f.calls==6u && f.state.polygon_counter==33u,23);
+    init(&f);
+    CHECK(!stf_set_obj_special_apply_model2(
+              &f.model,(stf_set_obj_special_kind)3u,4u,&f.result) &&
+          f.calls==0u,24);
+    return 0;
+}
+
+static int test_special_io_failures(void)
+{
+    fixture f;
+    unsigned stop;
+    for (stop=1u;stop<=11u;++stop) {
+        init(&f);
+        f.fail_at=stop;
+        CHECK(!stf_set_obj_special_apply_model2(
+              &f.model,STF_SET_OBJ_TPD,UINT32_C(0xFEDCBA98),
+              &f.result),25);
+        CHECK(f.calls==stop-1u &&
+              f.result.completed_operations==stop-1u &&
+              !f.result.submitted,26);
+        CHECK(f.state.polygon_counter==(stop<=6u?33u:34u) &&
+              f.state.polygon==(stop<=6u?17u:17u+UINT32_C(0x5555)) &&
+              f.state.p2_polygon==5u &&
+              f.state.previous_polygon==77u,27);
+    }
+    return 0;
+}
+
 int main(void)
 {
     int rc = test_gate();
@@ -217,5 +336,11 @@ int main(void)
     if (rc) return rc;
     rc = test_invalid_selector_is_fail_closed();
     if (rc) return rc;
-    return test_partial_failure_boundaries();
+    rc = test_partial_failure_boundaries();
+    if (rc) return rc;
+    rc = test_tpd_and_thd();
+    if (rc) return rc;
+    rc = test_special_gate_and_invalid_selector();
+    if (rc) return rc;
+    return test_special_io_failures();
 }
