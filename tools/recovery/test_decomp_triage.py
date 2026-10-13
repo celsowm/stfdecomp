@@ -62,7 +62,7 @@ class TestTriage(unittest.TestCase):
         self.assertEqual(ptrs["pointer_only"], 2)
         self.assertEqual(ptrs["loc_000050"], 1)
         self.assertEqual(ptrs["fighter_update"], 0)
-        self.assertEqual(where["pointer_only"], ["rom_code1.s", 12])
+        self.assertEqual(where["pointer_only"], ["rom_code1.s", 15])
 
     def test_prio_and_candidate_next_start_is_not_function_end(self):
         triage = build_triage(self.root, self.progress())
@@ -87,7 +87,7 @@ class TestTriage(unittest.TestCase):
         self.assertNotIn("loc_000050", [
             r["symbol"] for r in triage["pointer_entry_hypotheses"]
         ])
-        self.assertIn("NOT a decompilation percentage", to_md(triage))
+        self.assertIn("Not a decompilation percentage", to_md(triage))
 
     def test_mapped_entry_skipped_from_priority_top(self):
         p = self.progress()
