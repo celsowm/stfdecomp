@@ -477,7 +477,8 @@ bool stf_collision_combat_apply_model2(
                         }
                         pair->normal_sound_resolved = true;
                         if (pair->normal_sound_plan.kind !=
-                                STF_ATTACK_HIT_SOUND_NONE) {
+                                STF_ATTACK_HIT_SOUND_NONE &&
+                            pair->normal_sound_ids.id_count != 0u) {
                             if (!model->normal_sound_event(
                                     model->normal_sound_event_user_data,
                                     attacker_index, defender_index,
