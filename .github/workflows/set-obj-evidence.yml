@@ -1,0 +1,24 @@
+name: set-obj-evidence
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tools/recovery/set_obj_evidence.py"
+      - "src/asm/**"
+      - ".github/workflows/set-obj-evidence.yml"
+jobs:
+  examine:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract STF set_obj disassembly and callsites
+        run: python tools/recovery/set_obj_evidence.py --out-dir build/set-obj --span 140
+      - name: Publish source evidence
+        run: cat build/set-obj/SET_OBJ_ASSEMBLY.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: set-obj-evidence
+          path: build/set-obj/
+          if-no-files-found: error
