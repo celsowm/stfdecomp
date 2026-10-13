@@ -1480,7 +1480,8 @@ int main(void)
         s.callbacks.sound_event_calls != 1u)
         { fprintf(stderr, "schamp ROM sound address scenario 77 failed\n"); return 77; }
 
-    /* Actual transformed damage 20->10 chooses LIGHT tier, not MEDIUM:
+    /* Actual transformed damage 20->8 (half damage and combo scaling)
+     * chooses LIGHT tier, not MEDIUM:
      * the pre-transform initial_damage is NOT passed to sound selection. */
     init(&s);
     s.model.recover_normal_hit = true;
@@ -1488,7 +1489,7 @@ int main(void)
     wr32(s.fighters[1], UINT32_C(1) << 18u);
     wr32(s.sound_rom_bytes + 0xF4u, UINT32_C(0xA100));
     if (!stf_collision_combat_apply_model2(&s.model, &s.order, &s.output) ||
-        s.output.pairs[0].normal_hit.damage.damage != UINT32_C(10) ||
+        s.output.pairs[0].normal_hit.damage.damage != UINT32_C(8) ||
         s.output.pairs[0].normal_sound_plan.tier !=
             STF_ATTACK_HIT_SOUND_TIER_LIGHT ||
         s.callbacks.sound_first_id != UINT32_C(0xA100))
