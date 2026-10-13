@@ -1291,3 +1291,44 @@ fixtures, not extracted Sega ROM bytes.
 This reproduces the *selection and event contract* seen in the
 recovered CPU; callback scheduling and real hardware audio behavior
 remain separate 1:1 tasks.
+
+
+### Guard-block and common-guard audio event delivery
+
+The recovered guard CPU paths now expose an opt-in **real event sink** in
+`stf_collision_combat_model2`: set `recover_guard_audio = true`,
+`guard_audio_event`, and `guard_audio_event_user_data`. At least one
+corresponding `guard_tail` or `guard_common_tail` must be provided.
+Missing a sink or both continuations fails preflight before prefix writes.
+With this option off, the existing callbacks continue to own audio.
+
+Two different original CPU decisions are consumed:
+
+- Guard `BLOCK_A/B` (the recovered `0x2AA70/0x2AB54` corridor):
+  decrement defender `+0xC70` when nonzero, then emit
+  `STF_COLLISION_GUARD_AUDIO_KNOCK_9` on a transition to zero or
+  `STF_COLLISION_GUARD_AUDIO_KNOCK_3` when it remains nonzero.
+  No event is delivered for a zero initial counter. The callback
+  executes after guard-state recovery but **before** the five
+  optional vector TGP commands and the mandatory guard tail.
+  A later TGP or vector-oracle failure cannot undo an emitted sound.
+- Continuing common-guard `0x2AC74`: the previously recovered
+  `request_sound_cane_2d` is dispatched as
+  `STF_COLLISION_GUARD_AUDIO_CANE_2D` after optional
+  recovered skill accounting, before `guard_common_tail`.
+  Early abort and failed motion lookup do not call the sink.
+
+The pair result reports `guard_audio_requested`,
+`guard_audio_delivered` and `guard_audio_kind`; if a real audio sink
+returns false, combat stops before remaining device/tail/damage_unit
+work, with earlier CPU writes (and, where applicable, score updates)
+unchanged. The tail must **not** repeat a consumed audio request.
+
+These three symbols are **CPU-originating sound event types**, not
+raw sample IDs or synthesized playable audio. Their audio asset
+mapping, playback, and exact Model 2 scheduling remain the host
+backend's responsibility. Ordering is defined at the recovered
+combat-corridor boundary; it is not yet a bit-/cycle-exact hardware
+audio trace. Regression coverage uses synthetic backend callbacks
+and validates knock selection, no-sound paths, audio before TGP,
+cane after skill, early abort, backend failure and preflight.
