@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "stf/recovery/set_obj_i960_bridge.h"
+#include "stf/recovery/set_obj_i960_diff.h"
 
 #define CHECK(cond,num) do { if (!(cond)) { \
     fprintf(stderr,"set_obj i960 bridge case %d failed at line %d\n",(num),__LINE__); \
@@ -329,6 +330,61 @@ static int invalid_config_and_missing_tables(void)
     return 0;
 }
 
+static int trace_diff_and_fail_closed(void)
+{
+    test_host original, recovered;
+    stf_i960_bus_trace_event original_buffer[32], recovered_buffer[32];
+    stf_i960_bus_trace_event limited_buffer[3];
+    stf_set_obj_i960_mmio_capture one, two, limited;
+    stf_set_obj_i960_mmio_difference difference;
+
+    CHECK(init(&original,true,true),27);
+    CHECK(init(&recovered,true,true),28);
+    CHECK(stf_set_obj_i960_mmio_capture_init(
+              &one,original_buffer,32u) &&
+          stf_set_obj_i960_mmio_capture_init(
+              &two,recovered_buffer,32u) &&
+          stf_set_obj_i960_mmio_capture_init(
+              &limited,limited_buffer,3u),29);
+    stf_i960_bus_set_trace(stf_model2b_bus_i960(&original.bus),
+                          stf_set_obj_i960_mmio_capture_callback,&one);
+    stf_i960_bus_set_trace(stf_model2b_bus_i960(&recovered.bus),
+                          stf_set_obj_i960_mmio_capture_callback,&two);
+    CHECK(stf_set_obj_i960_bridge_execute(&original.cpu,&original.bus,
+              STF_SET_OBJ_I960_NORMAL,&original.result) &&
+          stf_set_obj_i960_bridge_execute(&recovered.cpu,&recovered.bus,
+              STF_SET_OBJ_I960_NORMAL,&recovered.result),30);
+    CHECK(one.count==17u && two.count==17u &&
+          stf_set_obj_i960_mmio_compare(&one,&two,&difference) &&
+          difference.equal && difference.capture_complete &&
+          difference.first_difference==17u,31);
+
+    /* Same command sequence but one changed read reply is NOT equal. */
+    two.events[15].bytes[0] ^= 1u;
+    CHECK(stf_set_obj_i960_mmio_compare(&one,&two,&difference) &&
+          !difference.equal && difference.first_difference==15u,32);
+    two.events[15].bytes[0] ^= 1u;
+    two.count=16u;
+    CHECK(stf_set_obj_i960_mmio_compare(&one,&two,&difference) &&
+          !difference.equal && difference.first_difference==16u,33);
+
+    /* Capacity exhaustion explicitly INVALIDATES comparison, instead
+     * of letting the truncated trace appear equivalent. */
+    stf_i960_bus_set_trace(stf_model2b_bus_i960(&recovered.bus),
+                          stf_set_obj_i960_mmio_capture_callback,&limited);
+    recovered.device_count=0u;
+    recovered.fifo_reply_count=0u;
+    CHECK(stf_set_obj_i960_bridge_execute(&recovered.cpu,&recovered.bus,
+              STF_SET_OBJ_I960_NORMAL,&recovered.result) &&
+          limited.count==3u && limited.overflow &&
+          !stf_set_obj_i960_mmio_compare(&one,&limited,&difference) &&
+          !difference.capture_complete,34);
+
+    destroy(&original);
+    destroy(&recovered);
+    return 0;
+}
+
 int main(void)
 {
     int rc=normal_bridge();
@@ -341,5 +397,7 @@ int main(void)
     if(rc)return rc;
     rc=common_and_special();
     if(rc)return rc;
-    return invalid_config_and_missing_tables();
+    rc=invalid_config_and_missing_tables();
+    if(rc)return rc;
+    return trace_diff_and_fail_closed();
 }

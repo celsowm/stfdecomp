@@ -139,6 +139,7 @@ target_link_libraries(stf_i960_corridor PRIVATE stf_recovery_i960)
 
 add_library(stf_set_obj_i960_bridge STATIC
     src/set_obj_i960_bridge.c
+    src/set_obj_i960_diff.c
 )
 target_include_directories(stf_set_obj_i960_bridge PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
