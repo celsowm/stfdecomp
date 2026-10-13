@@ -99,6 +99,12 @@ bool stf_collision_combat_apply_model2(
          (model->normal_exit_tail == NULL ||
           model->normal_profile_table == NULL ||
           model->normal_hit_motion_resolver == NULL)) ||
+        (model->recover_normal_sound &&
+         (!model->recover_normal_hit ||
+          model->normal_sound_rom == NULL ||
+          model->normal_sound_rom->image == NULL ||
+          model->normal_sound_rom->image_size == 0u ||
+          model->normal_sound_event == NULL)) ||
         (model->recover_normal_knockback &&
          (!model->recover_normal_hit ||
           model->normal_knockback_rom == NULL ||
@@ -448,6 +454,42 @@ bool stf_collision_combat_apply_model2(
                             return false;
                         }
                     }
+                    /* CPU hit damage is now transformed; the recovered
+                     * sound plan reads that value, not initial damage.
+                     * Resolve genuine ROM IDs before dispatch. Silence
+                     * consumes no event and never calls the audio sink. */
+                    if (model->recover_normal_sound) {
+                        if (!stf_attack_hit_sound_plan_model2(
+                                attacker, attacker_size,
+                                defender, defender_size,
+                                pair->normal_hit.damage.damage,
+                                &pair->normal_sound_plan)) {
+                            *result = local;
+                            return false;
+                        }
+                        pair->normal_sound_planned = true;
+                        if (!stf_attack_hit_sound_resolve_rom(
+                                &pair->normal_sound_plan,
+                                model->normal_sound_rom,
+                                &pair->normal_sound_ids)) {
+                            *result = local;
+                            return false;
+                        }
+                        pair->normal_sound_resolved = true;
+                        if (pair->normal_sound_plan.kind !=
+                                STF_ATTACK_HIT_SOUND_NONE) {
+                            if (!model->normal_sound_event(
+                                    model->normal_sound_event_user_data,
+                                    attacker_index, defender_index,
+                                    &pair->normal_sound_plan,
+                                    &pair->normal_sound_ids)) {
+                                *result = local;
+                                return false;
+                            }
+                            pair->normal_sound_delivered = true;
+                        }
+                    }
+
                     /* The normal followthrough already selected the
                      * down motion and updated defender reaction state.
                      * Do NOT replay that reaction: only resolve tag 0x11
@@ -576,8 +618,9 @@ bool stf_collision_combat_apply_model2(
                         pair->normal_knockback_vector_applied = true;
                     }
 
-                    /* The callback retains unrecovered sound, hardware
-                     * events and KO work, but must not repeat an opted-in
+                    /* The callback retains unrecovered hardware events,
+                     * other sound and KO work, but must not repeat opted-in
+                     * pre-damage hit sound or an opted-in
                      * vector application or its down-reaction dispatch. */
                     if (!model->normal_exit_tail(
                             model->normal_exit_tail_user_data,

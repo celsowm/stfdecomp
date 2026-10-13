@@ -14,6 +14,7 @@
 #include "attack_hit_side_exit.h"
 #include "attack_hit_stance.h"
 #include "attack_hit_normal_followthrough.h"
+#include "attack_hit_sound_rom_view.h"
 #include "attack_hit_motion_runtime.h"
 #include "attack_hit_motion_vector.h"
 #include "collision_attack.h"
@@ -123,6 +124,18 @@ typedef bool (*stf_collision_normal_damage_event_fn)(
     const stf_ring_damage_flow_result *rings
 );
 
+/* Real pre-damage hit-sound dispatch. Called once when the recovered
+ * sound plan produces a non-NONE event and ROM IDs have been resolved.
+ * It must submit those IDs to the target audio backend, not just accept
+ * the request. Failure aborts later knockback/tail/damage without rollback. */
+typedef bool (*stf_collision_normal_sound_event_fn)(
+    void *user_data,
+    uint8_t attacker_index,
+    uint8_t defender_index,
+    const stf_attack_hit_sound_plan *plan,
+    const stf_attack_hit_sound_resolved *sounds
+);
+
 /* Caller-owned, ROM-backed stance data for one defender. The two entries in
  * the combat model correspond to fighter slot 0 and fighter slot 1. */
 typedef struct stf_collision_stance_binding {
@@ -211,6 +224,15 @@ typedef struct stf_collision_combat_model2 {
     stf_hit_motion_table_resolver normal_hit_motion_resolver;
     void *normal_hit_motion_resolver_user_data;
 
+    /* Optional recovered loc_2B33C..2B3FC sound selection + ROM ID lookup.
+     * Requires recover_normal_hit, a genuine sfight/schamp ROM address
+     * view and a real audio event sink. Silence does not invoke the sink.
+     * The host tail must not replay this hit-sound event when enabled. */
+    bool recover_normal_sound;
+    const stf_attack_hit_sound_rom_view *normal_sound_rom;
+    stf_collision_normal_sound_event_fn normal_sound_event;
+    void *normal_sound_event_user_data;
+
     /* Opt-in post-reaction calc_mht_adr + impact vector for generic/down
      * hits requiring calc_mht_adr.  Caller supplies ROM and the hardware-
      * derived initial magnitude + horizontal heading, plus combo clamp.
@@ -287,6 +309,11 @@ typedef struct stf_collision_combat_pair_result {
     stf_attack_hit_stance_result normal_stance;
     bool normal_hit_started;
     stf_attack_hit_normal_followthrough_result normal_hit;
+    bool normal_sound_planned;
+    bool normal_sound_resolved;
+    bool normal_sound_delivered;
+    stf_attack_hit_sound_plan normal_sound_plan;
+    stf_attack_hit_sound_resolved normal_sound_ids;
     bool normal_knockback_started;
     bool normal_knockback_motion_resolved;
     bool normal_knockback_vector_applied;
@@ -340,6 +367,9 @@ typedef struct stf_collision_combat_result {
  * Optional recover_normal_hit composes the already recovered normal combo,
  * state prelude, damage transform, finish test, reaction classifier and
  * ROM-backed normal hit motion/stun before the mandatory tail.
+ * Optional recover_normal_sound resolves the ROM-indexed hit sound ID(s)
+ * and delivers them to an explicit pre-damage audio backend without
+ * replaying the event in the remaining normal tail.
  * Optional recover_normal_knockback resolves calc_mht_adr and computes the
  * shared X/Y/Z impact vector once for generic/down reactions before tail.
  * It requires caller-originating magnitude/heading context and a ROM view.
