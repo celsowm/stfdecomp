@@ -80,4 +80,25 @@ bool stf_set_obj_apply_model2(
     const stf_set_obj_model2 *model, stf_set_obj_result *result
 );
 
+
+/* Original STF set_obj_tpd (rom_code1.s:5012) and set_obj_thd
+ * (line 5059). This is deliberately separate from normal set_obj.
+ * Both issue 0x1A003434, receive a GEO pointer and then submit a quad:
+ * TPD overwrites r8/quad word 0 with g2; THD overwrites r9/word 1.
+ * The original stq is one architectural i960 quad store; this
+ * portable host callback exposes its four component writes. The
+ * actual Model 2 bus atomicity is not claimed.
+ */
+typedef enum stf_set_obj_special_kind {
+    STF_SET_OBJ_TPD = 1,
+    STF_SET_OBJ_THD = 2
+} stf_set_obj_special_kind;
+
+bool stf_set_obj_special_apply_model2(
+    const stf_set_obj_model2 *model,
+    stf_set_obj_special_kind kind,
+    uint32_t object_g2,
+    stf_set_obj_result *result
+);
+
 #endif
