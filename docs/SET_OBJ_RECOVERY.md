@@ -84,11 +84,50 @@ issues 0x3C007878, and receives polygon values from FIFO replies.
 0x1A003434 exists in STF as the separate set_obj_tpd and set_obj_thd
 paths. A shared name or global address is not proof of same behavior.
 
+## Additional recovered source-level pathways: common, same, save, load
+
+The new src/recovered/set_obj_state_runtime.h and .c support four
+original STF CPU entrypoints, independent of the normal and TPD/THD ones:
+
+| Original entry | Semantics now represented |
+| --- | --- |
+| set_obj_common (rom_code1.s:4967) | Validate the normal/extended object record, increment 0x501010, add record fourth word low 16 bits to POLYGON, set word 3 to 0xFFFFFFFF and submit a 4-word quad to GEO after writing 0x101 to GEO+0x10 |
+| set_obj_same (5152) | Branch to common only when POLYGON is **strictly less** than POLYGON_LIMIT; otherwise return without I/O |
+| set_obj_save (5109) | Normal polygon gate; GEO+0xB0=0xB0B; FIFO opcode 0x02800505; read **three** 16-byte quads from FIFO, write them to GEO, save them into caller-owned g2 memory, and tail-branch to common |
+| set_obj_load (5133) | Normal polygon gate; GEO+0xB0=0xB0B; read three saved quads from caller g2 memory, send to GEO, and tail-branch to common |
+
+stf_set_obj_transfer_apply_model2() accepts twelve caller-owned 32-bit
+words (3x16-byte quads) and reports the 48-byte g2 pointer progression.
+Every read/write to the external FIFO and GEO is delegated to the host.
+The i960 ldq/stq quad bus accesses are represented as four ordered word
+callbacks, a portable approximation that **does not establish exact
+hardware bus atomicity or cycle timing**. Successful completed quads
+are saved and remain saved after later failures.
+
+The new CTest exercises both common and same (including the important
+difference between the strict SAME gate and the normal greater-than
+gate), normal/extended polygon records, save→load roundtrip, event order
+and failures in every bus position. The source-evidence Python suite
+pins these same branches and three-quad counts to the original ASM.
+
+## Original poly_data_err: now characterized, NOT yet executed
+
+rom_code1.s:4818..4908 shows that this is **not** a simple error
+return: it saves registers, invokes debug display helpers using
+labels including "max poly", "err poly" and "mae poly",
+restores registers and then spins on INTERUPT_FLAGS_HELD bits
+4 and 13 before returning. We intentionally do **not** invent
+equivalent frame scheduling, debug-display hardware or interrupt
+inputs: table validation remains a fail-closed boundary until that
+flow can be verified with a real STF oracle.
+
 ## Still pending
 
 - Real STF hardware FIFO replies, timing and graphics submission.
-- Poly_data_err side effects, common/go shared entry semantics beyond the
-  TPD/THD paths, save/load/same and additional display variants.
+- Hardware-accurate poly_data_err debug display, interrupt polling,
+  remaining unported object variants (e.g. set_obj_fifo and set_obj_mir).
+- Register/CC effects of common/go/save/load, rather than only observable
+  memory/FIFO/GEO state and explicit synthetic test callbacks.
 - Register/condition-code and instruction-exact differential replay.
 - Linking the recovered C into the actual ROM rebuild.
 - Authoritative STF ROM byte boundaries and independently measured
