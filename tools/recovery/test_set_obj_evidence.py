@@ -62,12 +62,11 @@ class SetObjEvidence(unittest.TestCase):
         saved = self.window("set_obj_save")
         loaded = self.window("set_obj_load")
         self.assertIn("0x2800505, r15", saved)
-        self.assertEqual(saved.count("ldq     (g11)[g12*1], r12"), 3)
-        self.assertEqual(saved.count("stq     r12, (g2)"), 3)
-        self.assertEqual(saved.count("addo    0x10, g2, g2"), 3)
         # The save window includes the later load routine, so isolate
         # original body up to the source label for set_obj_load.
         save_body = saved.split("set_obj_load:", 1)[0]
+        self.assertEqual(save_body.count("ldq     (g11)[g12*1], r12"), 3)
+        self.assertEqual(save_body.count("addo    0x10, g2, g2"), 3)
         self.assertEqual(save_body.count("stq     r12, (g2)"), 3)
         self.assertEqual(loaded.split("set_obj_same:", 1)[0].count(
             "ldq     (g2), r12"), 3)
