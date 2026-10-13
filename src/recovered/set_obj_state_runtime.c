@@ -63,9 +63,11 @@ static bool select_record(
     return true;
 }
 
-bool stf_set_obj_common_apply_model2(
+static bool stf_set_obj_shared_tail(
     const stf_set_obj_model2 *model,
     stf_set_obj_state_entry entry,
+    bool thd,
+    uint32_t object_g2,
     stf_set_obj_result *result
 )
 {
@@ -102,6 +104,10 @@ bool stf_set_obj_common_apply_model2(
     out.polygon_after = model->state->polygon;
     out.p2_polygon_after = model->state->p2_polygon;
     words[3] = UINT32_MAX;
+    if (thd) {
+        /* set_obj_thd_common: mov g2,r9 before set_obj_go. */
+        words[1] = object_g2;
+    }
 
     /* mov 0x101,g14; st g14,0x10(g10); restore g14. */
     if (!bus(model, &out, STF_SET_OBJ_GEO_WRITE,
@@ -123,6 +129,25 @@ bool stf_set_obj_common_apply_model2(
     out.submitted = true;
     *result = out;
     return true;
+}
+
+bool stf_set_obj_common_apply_model2(
+    const stf_set_obj_model2 *model,
+    stf_set_obj_state_entry entry,
+    stf_set_obj_result *result
+)
+{
+    return stf_set_obj_shared_tail(model, entry, false, 0u, result);
+}
+
+bool stf_set_obj_thd_tail_apply_model2(
+    const stf_set_obj_model2 *model,
+    uint32_t object_g2,
+    stf_set_obj_result *result
+)
+{
+    return stf_set_obj_shared_tail(
+        model, STF_SET_OBJ_COMMON, true, object_g2, result);
 }
 
 static void merge_object_result(stf_set_obj_result *out,

@@ -37,6 +37,20 @@ typedef struct stf_set_obj_transfer_result {
  * These entrypoints do not use the FIFO. The host must bind the actual
  * geometry destination using model->io (STF_SET_OBJ_GEO_WRITE).
  */
+/*
+ * Shared tail from set_obj_thd_common (rom_code1.s:5092), entered
+ * AFTER the caller has performed any FIFO/GEO setup and validation.
+ * Selects original record, overwrites the second word with g2 and
+ * executes set_obj_go. No extra 0x1A003434 or 0xB0B command is emitted.
+ * This is used by set_obj_fifo and is distinct from the full
+ * set_obj_thd entrypoint.
+ */
+bool stf_set_obj_thd_tail_apply_model2(
+    const stf_set_obj_model2 *model,
+    uint32_t object_g2,
+    stf_set_obj_result *result
+);
+
 bool stf_set_obj_common_apply_model2(
     const stf_set_obj_model2 *model,
     stf_set_obj_state_entry entry,
