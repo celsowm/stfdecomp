@@ -38,10 +38,28 @@ typedef struct fixture {
     uint8_t nonfinite_at;
     bool query_invalid;
     bool guard_tail_seen;
+    bool require_guard_audio;
+    bool fail_guard_audio;
+    unsigned guard_audio_calls;
+    stf_collision_guard_audio_event guard_audio_kind;
     uint8_t generic_calls;
     const uint8_t *defender;
     uint32_t seen[5];
 } fixture;
+static bool guard_audio(
+    void *user,uint8_t attacker,uint8_t defender,
+    stf_collision_guard_audio_event event
+)
+{
+    fixture *fx=(fixture*)user;
+    if(attacker!=1u||defender!=0u||fx->calls!=0u||
+       fx->guard_tail_seen||event==STF_COLLISION_GUARD_AUDIO_CANE_2D)
+        return false;
+    ++fx->guard_audio_calls;
+    fx->guard_audio_kind=event;
+    return !fx->fail_guard_audio;
+}
+
 static bool fake_tgp(
     void *user,const stf_attack_hit_guard_vector_query *query,
     uint32_t *response
@@ -243,6 +261,8 @@ static bool tail(
        r32(d+0x5E8u)!=fb(6.0f) ||
        r32(d+0x198u)!=UINT32_C(0x0B000123) ||
        (r32(work+0x26Cu)&13u)!=13u) return false;
+    if(fx->require_guard_audio && fx->guard_audio_calls!=1u)
+        return false;
     fx->guard_tail_seen=true;
     return true;
 }
@@ -370,6 +390,75 @@ static int integrated(void)
         uint32_t counter=r32(f1+0x1234u);
         if(stf_collision_combat_apply_model2(&model,&order,&result) ||
            r32(f1+0x1234u)!=counter ||fx.calls!=0u) return 7;
+    }
+    /* C70=1 transitions to zero: KNOCK_9 is submitted once, BEFORE
+     * any TGP command and before the continued guard tail/damage. */
+    model.guard_vector_tgp=fake_tgp;
+    model.verify_guard_vectors=false;
+    model.recover_guard_audio=true;
+    model.guard_audio_event=guard_audio;
+    model.guard_audio_event_user_data=&fx;
+    w32(f0+0xC70u,1u);
+    memset(&fx,0,sizeof(fx));fx.defender=f0;
+    fx.require_guard_audio=true;
+    if(!stf_collision_combat_apply_model2(&model,&order,&result) ||
+       result.pairs[0].guard_audio_kind!=
+           STF_COLLISION_GUARD_AUDIO_KNOCK_9 ||
+       !result.pairs[0].guard_audio_requested ||
+       !result.pairs[0].guard_audio_delivered ||
+       !result.pairs[0].guard_vector_applied ||
+       !result.pairs[0].guard_tail_completed ||
+       fx.guard_audio_calls!=1u||fx.guard_audio_kind!=
+           STF_COLLISION_GUARD_AUDIO_KNOCK_9 ||
+       fx.calls!=5u||!fx.guard_tail_seen||
+       r32(f0+0xC70u)!=0u) return 8;
+
+    /* C70=0 is genuinely silent; continuing vectors and tail are
+     * still computed, with no backend audio transaction. */
+    memset(&fx,0,sizeof(fx));fx.defender=f0;
+    if(!stf_collision_combat_apply_model2(&model,&order,&result) ||
+       result.pairs[0].guard_audio_requested ||
+       result.pairs[0].guard_audio_delivered ||
+       fx.guard_audio_calls!=0u||fx.calls!=5u||
+       !fx.guard_tail_seen) return 9;
+
+    /* C70>1 selects KNOCK_3. Failure in the real sink aborts before
+     * any TGP traffic and does not invoke tail or damage_unit. */
+    w16(f1+0x828u,UINT16_C(1)<<13u);
+    w32(f0+0xC70u,3u);
+    memset(&fx,0,sizeof(fx));fx.defender=f0;
+    fx.fail_guard_audio=true;
+    if(stf_collision_combat_apply_model2(&model,&order,&result) ||
+       !result.pairs[0].guard_applied ||
+       !result.pairs[0].guard_audio_requested ||
+       result.pairs[0].guard_audio_delivered ||
+       result.pairs[0].guard_audio_kind!=
+           STF_COLLISION_GUARD_AUDIO_KNOCK_3 ||
+       result.pairs[0].guard_vector_applied ||
+       result.pairs[0].guard_tail_completed ||
+       result.pairs[0].damage_completed ||
+       fx.guard_audio_calls!=1u||
+       fx.guard_audio_kind!=STF_COLLISION_GUARD_AUDIO_KNOCK_3||
+       fx.calls!=0u||fx.guard_tail_seen||
+       r32(f0+0xC70u)!=2u) return 10;
+
+    /* Missing audio sink or corresponding guard continuation is a
+     * preflight error before prefix lifecycle increments. */
+    model.guard_audio_event=NULL;
+    {
+        uint32_t counter=r32(f1+0x1234u);
+        memset(&fx,0,sizeof(fx));fx.defender=f0;
+        if(stf_collision_combat_apply_model2(&model,&order,&result) ||
+           r32(f1+0x1234u)!=counter||
+           fx.guard_audio_calls!=0u||fx.calls!=0u) return 11;
+    }
+    model.guard_audio_event=guard_audio;
+    model.guard_tail=NULL;
+    model.guard_vector_tgp=NULL;
+    {
+        uint32_t counter=r32(f1+0x1234u);
+        if(stf_collision_combat_apply_model2(&model,&order,&result) ||
+           r32(f1+0x1234u)!=counter) return 12;
     }
     return 0;
 }
