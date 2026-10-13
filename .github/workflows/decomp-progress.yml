@@ -10,6 +10,8 @@ on:
       - "tools/recovery/decomp_progress.py"
       - "tools/recovery/decomp_evidence.json"
       - "tools/recovery/test_decomp_progress.py"
+      - "tools/recovery/decomp_triage.py"
+      - "tools/recovery/test_decomp_triage.py"
       - ".github/workflows/decomp-progress.yml"
       - "docs/DECOMP_PROGRESS.md"
       - "README.md"
@@ -24,10 +26,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test progress counter
         run: python -m unittest discover -s tools/recovery -p "test_decomp_progress.py" -v
+      - name: Test priority ranking and indirect-call discovery
+        run: python -m unittest discover -s tools/recovery -p "test_decomp_triage.py" -v
       - name: Inventory original Assembly and mapped C corridors
         run: python tools/recovery/decomp_progress.py --out-dir build/decomp-progress
+      - name: Build manual-review priority queue
+        run: python tools/recovery/decomp_triage.py --out-dir build/decomp-progress
       - name: Publish audit in workflow summary
-        run: cat build/decomp-progress/DECOMP_PROGRESS.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          cat build/decomp-progress/DECOMP_PROGRESS.md >> "$GITHUB_STEP_SUMMARY"
+          cat build/decomp-progress/DECOMP_TRIAGE.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: decomp-progress-report

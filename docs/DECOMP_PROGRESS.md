@@ -85,3 +85,36 @@ byte-exata, temporal ou visual.
 
 Os 899 candidatos, 12 trechos e 4 vínculos constituem o **baseline
 reproduzível**, não uma meta nem a conclusão de que falta 99,55% do jogo.
+
+## Segunda etapa: fila automática de funções ainda não recuperadas
+
+O mesmo comando `make decomp-audit` agora também executa
+[`decomp_triage.py`](../tools/recovery/decomp_triage.py) após o inventário.
+O GitHub Actions entrega:
+
+- `decomp_priorities.csv`: **todos** os candidatos do Assembly, ordenados
+  pela frequência observada de chamadas diretas (`call`/`bal`) e por
+  referências de ponteiros em tabelas, com o arquivo/linha original.
+- `decomp_pointer_hypotheses.csv`: rótulos presentes em dados de endereços
+  (`.long`, `.word`, etc.) mas ausentes do inventário de candidatos.
+  **Não são automaticamente promovidos a funções**; podem ser dados,
+  callbacks internos ou destinos de task a verificar.
+- `decomp_triage.json`: pontuações, agrupamento exploratório por subsistema,
+  nomes de fontes C parecidos (só sugestões, não equivalência), e próximo
+  endereço conhecido quando houver.
+- `DECOMP_TRIAGE.md`: as prioridades para revisão e a distribuição por área.
+
+O **próximo endereço candidato** é apenas o endereço de entrada da próxima
+função identificável, **não** o limite final real da função anterior. Pode
+haver blocos compartilhados, labels intermediários, funções sem símbolo ou
+dados alinhados. Não contabilizamos tamanhos de funções a partir dessa lacuna.
+
+A pontuação `5 * chamadas diretas + 2 * referências por ponteiros`
+é apenas uma heurística de prioridade (popularidade de callsite), e não mede
+completude, tamanho ou dificuldade. Referências baseadas em `.long` são
+propostas, sujeitas a inspeção manual. O cálculo inicial de 899 candidatos
+e 0,4449% de **vínculos restritos** mantém-se separado dessas hipóteses.
+
+O passo de revisão é: verificar destino na ROM, delimitar o fluxo de controle
+real, identificar o C por semântica, anexar evidência de ROM e comparar estado
+contra uma execução de referência. Só então ampliar o manifesto de cobertura.

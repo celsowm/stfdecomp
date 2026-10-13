@@ -66,7 +66,9 @@ recovery:
 
 decomp-audit:
 	$(PYTHON) -m unittest discover -s tools/recovery -p "test_decomp_progress.py" -v
-	$(PYTHON) tools/recovery/decomp_progress.py --out-dir $(BUILD_DIR)/decomp-progress
+		$(PYTHON) -m unittest discover -s tools/recovery -p "test_decomp_triage.py" -v
+$(PYTHON) tools/recovery/decomp_progress.py --out-dir $(BUILD_DIR)/decomp-progress
+	$(PYTHON) tools/recovery/decomp_triage.py --out-dir $(BUILD_DIR)/decomp-progress
 
 recovery-test: recovery
 	ctest --test-dir $(RECOVERY_BUILD_DIR) -C Release --output-on-failure
