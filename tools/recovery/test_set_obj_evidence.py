@@ -84,6 +84,69 @@ class SetObjEvidence(unittest.TestCase):
         self.assertIn("bbc     4, r8", body)
         self.assertIn("bbc     13, r8", body)
 
+    def test_fifo_reads_and_flag_driven_tails(self):
+        body = self.window("set_obj_fifo").split("set_obj_mir:", 1)[0]
+        self.assertEqual(body.count("ldq     (g11)[g12*1]"), 3)
+        expected = [
+            "ldq     (g11)[g12*1], r4",
+            "ldq     (g11)[g12*1], r8",
+            "ldq     (g11)[g12*1], r12",
+            "cmpobe  1, g2",
+            "POLYGON_LIMIT, g2",
+            "clrbit  0x1F, r4, g4",
+            "0x3E4CCCCD, r3",
+            "clrbit  0x1F, r15, g4",
+            "0xB0B, g14",
+            "stq     r4, (g10)[g12*1]",
+            "stq     r4, (g3)",
+            "stq     r8, (g3)",
+            "stq     r12, (g3)",
+            "poly_data_err_fifo",
+            "0x1A4(g7)",
+            "0x1AA(g7)",
+            "set_obj_thd_common",
+            "0x70C(g7)",
+            "0x802000, g2",
+            "b       set_obj_common",
+        ]
+        prev = -1
+        for token in expected:
+            pos = body.find(token, prev + 1)
+            self.assertGreater(pos, prev, token)
+            prev = pos
+
+    def test_mirror_validates_before_polygon_limit(self):
+        body = self.window("set_obj_mir").split("window_data_init:", 1)[0]
+        expected = [
+            "set_obj_mir:",
+            "max_poly, r14",
+            "POLYGON_NUM_OFFSET[r15*16]",
+            "0x647F004[r15*16]",
+            "POLYGON_LIMIT, r4",
+            "POLYGON, r5",
+            "0x501010",
+            "ldq     (g0), r8",
+            "shro    0x10, r11, r3",
+            "0xB0B, g14",
+            "0x1A003434, r15",
+            "0x2008(g10)",
+            "0x1008(g10)",
+            "0x1111, g14",
+            "0x110(g10)",
+            "stq     r8, (g10)[g12*1]",
+            "ret",
+        ]
+        prev = -1
+        for token in expected:
+            pos = body.find(token, prev + 1)
+            self.assertGreater(pos, prev, token)
+            prev = pos
+
+    def test_fifo_debug_error_rewinds_g3(self):
+        body = self.window("poly_data_err_fifo")
+        self.assertIn("lda     -0x30(g3), g3", body)
+        self.assertIn("b       poly_data_err", body)
+
     def test_callsites_are_grounded(self):
         self.assertEqual(len(self.evidence["calls"]["set_obj"]), 467)
         self.assertEqual(len(self.evidence["calls"]["set_obj_tpd"]), 7)

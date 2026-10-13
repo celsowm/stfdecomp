@@ -121,11 +121,53 @@ equivalent frame scheduling, debug-display hardware or interrupt
 inputs: table validation remains a fail-closed boundary until that
 flow can be verified with a real STF oracle.
 
+## New set_obj_fifo and set_obj_mir recovery
+
+The CPU-visible branches at rom_code1.s:5158-5227 and 5229-5284
+are implemented in src/recovered/set_obj_extended_runtime.c.
+These are new semantic adapters, not ROM-linked replacements.
+
+- set_obj_mir validates the normal or bit-15 polygon descriptor BEFORE
+  reading the polygon-limit gate. On the open path it increments the
+  polygon counter, adds the low 16 bits of the record's fourth word,
+  configures GEO+0xB0=0xB0B, sends FIFO opcode 0x1A003434,
+  writes GEO end-pointer=read-pointer+0x30, then GEO+0x110=0x1111
+  and the modified four-word quad (fourth word set to 0xFFFFFFFF).
+- set_obj_fifo consumes three 16-byte FIFO quads BEFORE checking
+  caller g2, POLYGON_LIMIT or floating-point bit-pattern guards.
+  It returns early after the FIFO reads when g2 == 1, POLYGON exceeds
+  the limit, abs(first word) is below 0x3F800000, or abs(last word)
+  exceeds 0x3E4CCCCD. Equality passes, using i960 ordinal comparison
+  over sign-cleared float32 bit patterns.
+- For accepted data, set_obj_fifo submits all three quads to GEO
+  and copies each completed quad to caller-owned g3 scratch memory.
+  Only THEN does it validate the polygon descriptor. On an invalid
+  descriptor the original poly_data_err_fifo rewinds g3 by 48 bytes
+  and enters the original debug/interrupt handler. The adapter
+  reports this error and rewind without claiming to execute the
+  handler.
+- When (g7+0x1A4 bit 26) and unsigned (g7+0x1AA >= 4), the FIFO
+  entry selects set_obj_thd_common with g2=0x00800000. Otherwise
+  (g7+0x70C bits 0 and 2) and the same count condition select
+  g2=0x00802000. All other cases use set_obj_common. The
+  thd_common tail is shared with existing recovered code, and does
+  NOT send a second FIFO setup opcode.
+
+The new CTest checks normal/extended polygon tables, mirror command
+ordering, three FIFO branch outcomes, four early gates, first/last
+word equality, negative sign-bit cases, late-invalid-selector
+behavior and all eleven mirror/thirty FIFO callback failure points.
+The Python ASM evidence tests pin source ordering and poly_data_err_fifo.
+
+Unverified: real Model 2B FIFO replies, i960 condition codes,
+correct external quad-bus atomicity, geometry hardware timing and
+original ROM rebuild equivalence.
+
 ## Still pending
 
 - Real STF hardware FIFO replies, timing and graphics submission.
-- Hardware-accurate poly_data_err debug display, interrupt polling,
-  remaining unported object variants (e.g. set_obj_fifo and set_obj_mir).
+- Hardware-accurate poly_data_err debug display and interrupt polling,
+  remaining less-common graphics entrypoints and coprocessor behavior.
 - Register/CC effects of common/go/save/load, rather than only observable
   memory/FIFO/GEO state and explicit synthetic test callbacks.
 - Register/condition-code and instruction-exact differential replay.
