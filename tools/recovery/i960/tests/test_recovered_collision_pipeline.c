@@ -28,6 +28,7 @@ typedef struct trace {
     uint8_t attacker[2];
     uint8_t fail_hit_at;
     uint8_t invalid_geometry_second;
+    uint8_t particle_on_hit_at;
 } trace;
 static bool fake_geometry(
     void *user, uint8_t fighter_index,
@@ -56,6 +57,10 @@ static bool fake_body(
        defender_index!=1u-attacker_index||t->hit_calls>=2u) return false;
     t->attacker[t->hit_calls]=attacker_index;
     ++t->hit_calls;
+    if (t->particle_on_hit_at == t->hit_calls) {
+        w32(workspace + 0x26Cu,
+            r32(workspace + 0x26Cu) | (UINT32_C(1) << 4u));
+    }
     return t->hit_calls!=t->fail_hit_at;
 }
 typedef struct scene {
@@ -69,6 +74,13 @@ typedef struct scene {
     uint16_t mapping[STF_COLLISION_ATTACK_MAPPING_COUNT];
     stf_collision_kind_profile profiles[STF_COLLISION_KIND_COUNT];
     stf_damage_unit_effect_state damage_effect;
+    uint8_t particle_slots[
+        STF_COLLISION_PARTICLE_EXTENDED_SLOTS *
+        STF_COLLISION_PARTICLE_SLOT_SIZE
+    ];
+    stf_collision_particle_descriptor
+        particle_desc[STF_COLLISION_PARTICLE_KIND_COUNT];
+    stf_collision_particle_stage particle_stage;
     stf_copro_attack_rom_view rom;
     stf_collision_copro_area_model2 area;
     stf_collision_frame_model2 frame;
@@ -227,5 +239,70 @@ int main(void)
 
     if(stf_collision_pipeline_apply_model2(NULL,&out) ||
        stf_collision_pipeline_apply_model2(&s.pipeline,NULL)) {fprintf(stderr, "pipeline test failed: stage 8 (area=%u suppressions=%u checks=%u order=%u combat=%u attempts=%u completed=%u geom=%u hits=%u profile0=%08X profile1=%08X)\n", (unsigned)out.completed_area, (unsigned)out.completed_suppressions, (unsigned)out.completed_checks, (unsigned)out.frame.order.count, (unsigned)out.completed_combat, (unsigned)out.combat.attempted, (unsigned)out.combat.completed, (unsigned)s.events.geometry_calls, (unsigned)s.events.hit_calls, (unsigned)r32(s.fighters[0]+0xAC8u), (unsigned)r32(s.fighters[1]+0xAC8u)); return 8;}
+    /* Optional damage particles must be preflighted by the OUTER
+     * pipeline, before area/TGP work touches live fighter/workspace RAM. */
+    init_scene(&s);
+    enable_hits(&s);
+    s.combat.recover_damage_particles = true;
+    s.workspace[0x170u] = UINT8_C(0xA5);
+    if(stf_collision_pipeline_apply_model2(&s.pipeline,&out) ||
+       s.events.geometry_calls!=0u ||
+       s.workspace[0x170u]!=UINT8_C(0xA5) ||
+       r32(s.fighters[1]+0x1234u)!=30u) return 9;
+
+    init_scene(&s);
+    enable_hits(&s);
+    s.combat.recover_damage_particles = true;
+    s.combat.damage_particle_descriptors = s.particle_desc;
+    s.combat.damage_particle_slots = s.particle_slots;
+    s.combat.damage_particle_slots_size = sizeof(s.particle_slots);
+    s.combat.damage_particle_stage = &s.particle_stage;
+    s.combat.also_sub_mode = UINT8_C(0x1A);
+    s.combat.damage_particle_slots_size =
+        STF_COLLISION_PARTICLE_EXTENDED_SLOTS *
+        STF_COLLISION_PARTICLE_SLOT_SIZE - 1u;
+    if(stf_collision_pipeline_apply_model2(&s.pipeline,&out) ||
+       s.events.geometry_calls!=0u ||
+       r32(s.fighters[1]+0x1234u)!=30u) return 10;
+
+    /* Valid bindings execute the full pipeline with genuine recovered
+     * area, hit-order, damage post and particle allocation stages.
+     * Synthetic effect pointers are test-only; never treated as ROM proof. */
+    init_scene(&s);
+    enable_hits(&s);
+    s.combat.recover_damage_particles = true;
+    s.combat.damage_particle_descriptors = s.particle_desc;
+    s.combat.damage_particle_slots = s.particle_slots;
+    s.combat.damage_particle_slots_size = sizeof(s.particle_slots);
+    s.combat.damage_particle_stage = &s.particle_stage;
+    s.particle_desc[1].effect_address = UINT32_C(0x2000);
+    s.particle_desc[1].initial_value = UINT32_C(0x13572468);
+    s.particle_stage.position_a[0] = UINT32_C(0x11223344);
+    s.events.particle_on_hit_at = 1u;
+    if(!stf_collision_pipeline_apply_model2(&s.pipeline,&out) ||
+       !out.completed_combat || out.combat.completed!=2u ||
+       !out.combat.pairs[0].damage_particle_processed ||
+       !out.combat.pairs[0].damage_particle.particle.allocated ||
+       out.combat.pairs[0].damage_particle.particle.slot_index!=0u ||
+       !out.combat.pairs[1].damage_particle_processed ||
+       out.combat.pairs[1].damage_particle.requested ||
+       r32(s.particle_slots + 0x00u)!=UINT32_C(0x11223344) ||
+       r32(s.particle_slots + 0x1Cu)!=UINT32_C(0x2000) ||
+       r32(s.particle_slots + 0x20u)!=UINT32_C(0x13572468) ||
+       r32(s.particle_slots + STF_COLLISION_PARTICLE_SLOT_SIZE + 0x1Cu)!=0u)
+        return 11;
+
+    /* No host stage pointer is also a pre-area failure, even with a
+     * valid byte buffer and descriptor array. */
+    init_scene(&s);
+    enable_hits(&s);
+    s.combat.recover_damage_particles = true;
+    s.combat.damage_particle_descriptors = s.particle_desc;
+    s.combat.damage_particle_slots = s.particle_slots;
+    s.combat.damage_particle_slots_size = sizeof(s.particle_slots);
+    if(stf_collision_pipeline_apply_model2(&s.pipeline,&out) ||
+       s.events.geometry_calls!=0u ||
+       r32(s.fighters[1]+0x1234u)!=30u) return 12;
+
     return 0;
 }
