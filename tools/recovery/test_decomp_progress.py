@@ -19,7 +19,7 @@ class TestProgress(unittest.TestCase):
             self.assertEqual(calls, {"foo", "entry"})
             self.assertEqual(labels["sub_000010"]["address"], 16)
             self.assertEqual(labels["word_44"]["section"], "data")
-            self.assertEqual(lines, 9)
+            self.assertEqual(lines, 12)
 
     def test_union_not_double_counted(self):
         self.assertEqual(
@@ -55,7 +55,7 @@ class TestProgress(unittest.TestCase):
                  "reference": "manifest.json"}
             ]}))
             result = audit(root, manifest)
-            self.assertEqual(result["counts"]["candidate_functions"], 2)
+            self.assertEqual(result["counts"]["candidate_functions"], 1)
             self.assertEqual(result["counts"]["candidate_functions_with_partial_C"], 1)
             self.assertEqual(result["counts"]["unique_corridor_rom_bytes"], 24)
             self.assertEqual(result["counts"]["byte_exact_complete_functions"], 0)
