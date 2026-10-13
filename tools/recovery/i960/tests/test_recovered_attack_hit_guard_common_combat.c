@@ -26,7 +26,29 @@ typedef struct fixture {
     uint32_t table[16];
     unsigned resolver_calls, tail_calls, legacy_calls;
     bool fail_resolver, fail_tail;
+    bool fail_audio, require_audio_before_tail;
+    unsigned audio_calls;
+    stf_collision_guard_audio_event audio_kind;
+    const uint32_t *skill_observed;
+    uint32_t skill_required;
 } fixture;
+
+static bool guard_audio(
+    void *user,uint8_t attacker,uint8_t defender,
+    stf_collision_guard_audio_event kind
+)
+{
+    fixture *fx=(fixture*)user;
+    if(attacker!=1u||defender!=0u||
+       kind!=STF_COLLISION_GUARD_AUDIO_CANE_2D||
+       fx->resolver_calls!=1u||fx->tail_calls!=0u||
+       (fx->skill_observed!=NULL &&
+        *fx->skill_observed!=fx->skill_required))
+        return false;
+    ++fx->audio_calls;
+    fx->audio_kind=kind;
+    return !fx->fail_audio;
+}
 
 static bool resolve(
     uint8_t selector,const uint32_t **words,size_t *count,void *user
@@ -76,6 +98,8 @@ static bool tail(
        (r32(workspace+0x26Cu)&5u)!=5u ||
        !common->guard.request_sound_cane_2d ||
        common->guard.skill_amount!=4u) return false;
+    if(fx->require_audio_before_tail && fx->audio_calls!=1u)
+        return false;
     ++fx->tail_calls;
     return !fx->fail_tail;
 }
@@ -287,6 +311,94 @@ int main(void)
     s.combat.recover_guard_skill = true;
     if (stf_collision_combat_apply_model2(&s.combat, &s.order, &s.output) ||
         r32(s.f1 + 0x1234u) != 0u) return 12;
+
+    /* A continuing 0x2AC74 guard requests a CANE_2D exactly once,
+     * before the remaining guard tail, after real skill accounting. */
+    init(&s);
+    total_skill=100u;
+    s.combat.recover_guard_audio=true;
+    s.combat.guard_audio_event=guard_audio;
+    s.combat.guard_audio_event_user_data=&s.fx;
+    s.combat.recover_guard_skill=true;
+    s.combat.total_skill=&total_skill;
+    s.combat.skill_rank_mode=1u;
+    s.combat.skill_select_flags[1]=UINT32_C(1)<<2u;
+    s.fx.skill_observed=&total_skill;
+    s.fx.skill_required=104u;
+    s.fx.require_audio_before_tail=true;
+    if(!stf_collision_combat_apply_model2(&s.combat,&s.order,&s.output) ||
+       !s.output.pairs[0].guard_common_applied ||
+       !s.output.pairs[0].guard_skill_processed ||
+       !s.output.pairs[0].guard_audio_requested ||
+       !s.output.pairs[0].guard_audio_delivered ||
+       s.output.pairs[0].guard_audio_kind!=
+           STF_COLLISION_GUARD_AUDIO_CANE_2D ||
+       s.fx.audio_calls!=1u||
+       s.fx.audio_kind!=STF_COLLISION_GUARD_AUDIO_CANE_2D||
+       s.fx.tail_calls!=1u||total_skill!=104u||
+       !s.output.pairs[0].damage_completed) return 13;
+
+    /* An aborted common guard must not even try audio or motion
+     * resolution; lifecycle cleanup still executes as before. */
+    init(&s);
+    s.combat.recover_guard_audio=true;
+    s.combat.guard_audio_event=guard_audio;
+    s.combat.guard_audio_event_user_data=&s.fx;
+    w32(s.f1+0x860u,UINT32_C(1)<<19u);
+    s.f1[0x822u]=0u;
+    s.fx.fail_resolver=true;
+    if(!stf_collision_combat_apply_model2(&s.combat,&s.order,&s.output) ||
+       !s.output.pairs[0].guard_common_aborted ||
+       s.output.pairs[0].guard_audio_requested ||
+       s.fx.audio_calls!=0u||s.fx.resolver_calls!=0u||
+       s.fx.tail_calls!=0u) return 14;
+
+    /* Backend failure is a hard boundary: CPU guard mutations stay
+     * visible, but the tail/damage_unit never executes. */
+    init(&s);
+    s.combat.recover_guard_audio=true;
+    s.combat.guard_audio_event=guard_audio;
+    s.combat.guard_audio_event_user_data=&s.fx;
+    s.fx.fail_audio=true;
+    if(stf_collision_combat_apply_model2(&s.combat,&s.order,&s.output) ||
+       !s.output.pairs[0].guard_common_applied ||
+       !s.output.pairs[0].guard_audio_requested ||
+       s.output.pairs[0].guard_audio_delivered ||
+       s.output.pairs[0].guard_common_tail_completed ||
+       s.output.pairs[0].damage_completed ||
+       s.fx.audio_calls!=1u||s.fx.tail_calls!=0u||
+       r32(s.f0+0x198u)!=UINT32_C(0x0A000345)) return 15;
+
+    /* Failure to resolve a motion cannot trigger audio playback. */
+    init(&s);
+    s.combat.recover_guard_audio=true;
+    s.combat.guard_audio_event=guard_audio;
+    s.combat.guard_audio_event_user_data=&s.fx;
+    s.fx.fail_resolver=true;
+    if(stf_collision_combat_apply_model2(&s.combat,&s.order,&s.output) ||
+       s.output.pairs[0].guard_audio_requested ||
+       s.fx.audio_calls!=0u||s.fx.tail_calls!=0u) return 16;
+
+    /* Missing a real sound backend fails preflight BEFORE prefix. */
+    init(&s);
+    s.combat.recover_guard_audio=true;
+    if(stf_collision_combat_apply_model2(&s.combat,&s.order,&s.output) ||
+       r32(s.f1+0x1234u)!=0u||s.fx.resolver_calls!=0u) return 17;
+
+    /* No continuation can own a selected guard sound. Enabling only
+     * the event without either branch-tail is invalid. */
+    init(&s);
+    s.combat.recover_guard_audio=true;
+    s.combat.guard_audio_event=guard_audio;
+    s.combat.guard_common_tail=NULL;
+    if(stf_collision_combat_apply_model2(&s.combat,&s.order,&s.output) ||
+       r32(s.f1+0x1234u)!=0u) return 18;
+
+    /* With audio opt-in disabled, legacy host tail remains owner. */
+    init(&s);
+    s.combat.guard_audio_event=guard_audio;
+    if(!stf_collision_combat_apply_model2(&s.combat,&s.order,&s.output) ||
+       s.fx.audio_calls!=0u||s.fx.tail_calls!=1u) return 19;
 
     return 0;
 }
