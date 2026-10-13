@@ -370,6 +370,10 @@ static int trace_diff_and_fail_closed(void)
 
     /* Capacity exhaustion explicitly INVALIDATES comparison, instead
      * of letting the truncated trace appear equivalent. */
+    /* Restore the input snapshot; the prior successful call raised
+     * POLYGON above its gate so replaying without a reset is invalid. */
+    CHECK(stf_i960_bus_write_u32(stf_model2b_bus_i960(&recovered.bus),
+              UINT32_C(0x50101C),17u)==STF_OK,35);
     stf_i960_bus_set_trace(stf_model2b_bus_i960(&recovered.bus),
                           stf_set_obj_i960_mmio_capture_callback,&limited);
     recovered.device_count=0u;
