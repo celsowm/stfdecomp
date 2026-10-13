@@ -87,3 +87,11 @@ The recovered set_obj, set_obj_tpd and set_obj_thd CPU submission
 adapters preserve their distinct STF original FIFO/GEO commands,
 using fail-closed host callbacks rather than assuming VF2 hardware.
 Read [set_obj recovery and remaining fidelity work](docs/SET_OBJ_RECOVERY.md).
+
+## Model 2B CPU and bus integration
+
+The recovered object submission paths now accept original i960 CPU
+register snapshots and dispatch via the real Model 2B bus, with a
+device-only differential trace comparator. See
+[the i960 call-boundary bridge](docs/SET_OBJ_I960_BRIDGE.md).
+Original ROM instructions are not yet replaced.

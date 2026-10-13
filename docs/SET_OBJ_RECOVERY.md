@@ -177,3 +177,10 @@ original ROM rebuild equivalence.
   global complete-decompilation percentage (still unknown).
 
 No proprietary ROMs or extracted assets are committed.
+
+## Integration with existing i960 executor and Model 2B bus
+
+See [the CPU snapshot / device trace bridge](SET_OBJ_I960_BRIDGE.md)
+for normal, TPD, THD, common, same, mirror, FIFO and three-quad
+save/load support, including the limitations of staged caller-memory
+writes and synthetic-only differential tests.
